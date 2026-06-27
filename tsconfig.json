@@ -1,0 +1,11 @@
+{
+  "compilerOptions": {
+    "strict": true
+  },
+  "files": [],
+  "references": [
+    { "path": "packages/shared" },
+    { "path": "apps/backend" },
+    { "path": "apps/frontend" }
+  ]
+}

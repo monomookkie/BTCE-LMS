@@ -1,0 +1,306 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+// ===== Auth & User =====
+
+model User {
+  id                String    @id @default(cuid())
+  employeeId        String?   @unique
+  name              String
+  email             String    @unique
+  password          String
+  role              Role      @default(USER)
+  departmentId      String?
+  position          String?
+  avatarKey         String?   // key ใน Cloudinary (ไม่เก็บ base64)
+  isActive          Boolean   @default(true)
+  mustChangePassword Boolean  @default(false) // บังคับเปลี่ยนรหัสหลังล็อกอินแรก
+  lastLoginAt       DateTime?
+  passwordChangedAt DateTime?
+  createdAt         DateTime  @default(now())
+  updatedAt         DateTime  @updatedAt
+  deletedAt         DateTime? // soft delete
+
+  department    Department?    @relation(fields: [departmentId], references: [id])
+  enrollments   Enrollment[]
+  certificates  Certificate[]
+  refreshTokens RefreshToken[]
+  consents      Consent[]
+  notifications Notification[]
+
+  @@index([email])
+  @@index([deletedAt])
+}
+
+enum Role {
+  ADMIN
+  MANAGER
+  USER
+}
+
+model Department {
+  id    String @id @default(cuid())
+  name  String @unique
+  users User[]
+}
+
+model RefreshToken {
+  id        String    @id @default(cuid())
+  userId    String
+  tokenHash String    // hash ของ token — ไม่เก็บ plaintext
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId])
+  @@index([tokenHash])
+}
+
+// ===== Course & Material =====
+
+model Course {
+  id           String       @id @default(cuid())
+  title        String
+  category     String
+  description  String?      @db.Text
+  status       CourseStatus @default(DRAFT)
+  durationMin  Int?
+  passScore    Int          @default(80)
+  expiryMonths Int? // ต้องต่ออายุทุกกี่เดือน (null = ไม่หมดอายุ)
+  createdById  String?
+  version      Int          @default(1)
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  deletedAt    DateTime?
+
+  materials   Material[]
+  quiz        Quiz?
+  enrollments Enrollment[]
+
+  @@index([status, deletedAt])
+}
+
+enum CourseStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+model Material {
+  id        String       @id @default(cuid())
+  courseId  String
+  type      MaterialType
+  title     String
+  fileKey   String? // Cloudinary public_id
+  url       String? // external link/video URL
+  mimeType  String?
+  sizeBytes Int?
+  order     Int          @default(0)
+  createdAt DateTime     @default(now())
+
+  course Course @relation(fields: [courseId], references: [id])
+
+  @@index([courseId, order])
+}
+
+enum MaterialType {
+  PDF
+  VIDEO
+  LINK
+  IMAGE
+  DOC
+}
+
+// ===== Quiz Engine =====
+
+model Quiz {
+  id          String  @id @default(cuid())
+  courseId    String  @unique
+  title       String
+  maxAttempts Int? // null = ไม่จำกัด
+  shuffle     Boolean @default(true)
+
+  course    Course      @relation(fields: [courseId], references: [id])
+  questions Question[]
+  attempts  QuizAttempt[]
+}
+
+model Question {
+  id     String @id @default(cuid())
+  quizId String
+  text   String @db.Text
+  order  Int    @default(0)
+
+  quiz    Quiz     @relation(fields: [quizId], references: [id])
+  options Option[]
+
+  @@index([quizId, order])
+}
+
+model Option {
+  id         String  @id @default(cuid())
+  questionId String
+  text       String
+  isCorrect  Boolean @default(false)
+
+  question Question @relation(fields: [questionId], references: [id])
+}
+
+model QuizAttempt {
+  id        String   @id @default(cuid())
+  quizId    String
+  userId    String
+  score     Int
+  passed    Boolean
+  answers   Json // { questionId: optionId } เก็บไว้ทบทวน
+  createdAt DateTime @default(now())
+
+  quiz Quiz @relation(fields: [quizId], references: [id])
+
+  @@index([quizId, userId])
+}
+
+// ===== Enrollment & Certificate =====
+
+model Enrollment {
+  id                 String       @id @default(cuid())
+  userId             String
+  courseId           String
+  status             EnrollStatus @default(IN_PROGRESS)
+  progress           Int          @default(0) // 0-100
+  completedMaterials Json         @default("[]") // string[] ของ materialId
+  assignedAt         DateTime     @default(now())
+  dueAt              DateTime?
+  completedAt        DateTime?
+  createdAt          DateTime     @default(now())
+
+  user        User         @relation(fields: [userId], references: [id])
+  course      Course       @relation(fields: [courseId], references: [id])
+  certificate Certificate?
+
+  @@unique([userId, courseId])
+  @@index([userId, status])
+  @@index([courseId, status])
+}
+
+enum EnrollStatus {
+  ASSIGNED
+  IN_PROGRESS
+  COMPLETED
+  EXPIRED
+}
+
+model Certificate {
+  id           String    @id @default(cuid())
+  enrollmentId String    @unique
+  userId       String
+  courseId     String
+  certNumber   String    @unique // BTEC-YYYY-MMDD-XXXX
+  score        Int
+  fileKey      String? // PDF ที่ gen แล้ว เก็บใน Cloudinary
+  verifyHash   String    @unique // สำหรับ public verify
+  issuedAt     DateTime  @default(now())
+  expiresAt    DateTime? // คำนวณจาก course.expiryMonths
+  revokedAt    DateTime?
+
+  user       User       @relation(fields: [userId], references: [id])
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+
+  @@index([userId])
+  @@index([verifyHash])
+  @@index([expiresAt])
+}
+
+// ===== Training Log (offline) =====
+
+model TrainingLog {
+  id          String   @id @default(cuid())
+  title       String
+  date        DateTime
+  trainer     String
+  location    String?
+  durationMin Int?
+  type        String?
+  topics      String?  @db.Text
+  fileKey     String? // Cloudinary public_id
+  createdAt   DateTime @default(now())
+
+  attendees TrainingAttendee[]
+}
+
+model TrainingAttendee {
+  trainingId String
+  userId     String
+
+  training TrainingLog @relation(fields: [trainingId], references: [id])
+
+  @@id([trainingId, userId])
+}
+
+// ===== Announcement =====
+
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  content   String    @db.Text
+  type      String    @default("INFO")
+  fileKey   String? // Cloudinary public_id
+  link      String?
+  createdAt DateTime  @default(now())
+  deletedAt DateTime?
+
+  @@index([deletedAt, createdAt])
+}
+
+// ===== Compliance =====
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String? // userId ที่ทำ action (null = system)
+  action     String // เช่น "USER_CREATE", "CERT_ISSUE", "USER_LOGIN"
+  targetType String? // "User", "Course", "Certificate"...
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  @@index([actorId])
+  @@index([targetType, targetId])
+  @@index([createdAt])
+}
+
+model Consent {
+  id        String   @id @default(cuid())
+  userId    String
+  type      String // "PDPA_BASIC", "MARKETING"
+  granted   Boolean
+  version   String // เวอร์ชัน privacy policy เช่น "1.0"
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, type])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  body      String?
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+}

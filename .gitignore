@@ -1,0 +1,23 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.tsbuildinfo
+.turbo/
+
+# Prisma
+prisma/migrations/
+!prisma/migrations/.gitkeep
+
+# Logs
+*.log
+pino-pretty
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/settings.json
+.idea/
