@@ -1,5 +1,5 @@
 import { PrismaClient, Role } from '@prisma/client'
-import { createHash, randomBytes } from 'node:crypto'
+import { hashPassword } from '../src/lib/password.js'
 
 const prisma = new PrismaClient()
 
@@ -18,12 +18,6 @@ const DEPARTMENTS = [
   'ฝ่ายอาคารสถานที่',
   'ฝ่ายโลหิตวิทยา',
 ]
-
-async function hashPassword(password: string): Promise<string> {
-  // Phase 0: ใช้ SHA-256 เป็น placeholder เท่านั้น
-  // Phase 1 จะเปลี่ยนเป็น argon2 จริง
-  return createHash('sha256').update(password).digest('hex')
-}
 
 async function main() {
   console.log('🌱 Starting seed...')

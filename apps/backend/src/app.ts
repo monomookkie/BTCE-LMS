@@ -1,5 +1,7 @@
 import Fastify from 'fastify'
 import cookie from '@fastify/cookie'
+import multipart from '@fastify/multipart'
+import { serializerCompiler, validatorCompiler } from 'fastify-type-provider-zod'
 import { env } from './config/env.js'
 import { logger } from './lib/logger.js'
 
@@ -7,9 +9,12 @@ import { logger } from './lib/logger.js'
 import prismaPlugin from './plugins/prisma.js'
 import securityPlugin from './plugins/security.js'
 import rateLimitPlugin from './plugins/rateLimit.js'
+import authPlugin from './plugins/auth.js'
 
 // modules
 import healthRoutes from './modules/health/health.routes.js'
+import authRoutes from './modules/auth/auth.routes.js'
+import usersRoutes from './modules/users/users.routes.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -17,15 +22,27 @@ export async function buildApp() {
     trustProxy: true, // Railway / Vercel ส่ง X-Forwarded-For มา
   })
 
+  // Zod type provider — ต้องตั้งก่อน register routes
+  app.setValidatorCompiler(validatorCompiler)
+  app.setSerializerCompiler(serializerCompiler)
+
   // --- Core plugins (ลงทะเบียนก่อน route) ---
   await app.register(cookie, {
     secret: env.COOKIE_SECRET,
     hook: 'onRequest',
   })
 
+  await app.register(multipart, {
+    limits: {
+      fileSize: 5 * 1024 * 1024, // 5 MB
+      files: 1,
+    },
+  })
+
   await app.register(securityPlugin)
   await app.register(rateLimitPlugin)
   await app.register(prismaPlugin)
+  await app.register(authPlugin)
 
   // --- Global error handler ---
   app.setErrorHandler((error, _req, reply) => {
@@ -53,6 +70,8 @@ export async function buildApp() {
 
   // --- Routes ---
   await app.register(healthRoutes)
+  await app.register(authRoutes, { prefix: '/auth' })
+  await app.register(usersRoutes, { prefix: '/users' })
 
   return app
 }
