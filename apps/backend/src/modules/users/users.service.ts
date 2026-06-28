@@ -19,6 +19,7 @@ function toUserResponse(user: {
   name: string
   email: string
   role: string
+  language: string
   departmentId: string | null
   position: string | null
   avatarKey: string | null
@@ -32,6 +33,7 @@ function toUserResponse(user: {
     name: user.name,
     email: user.email,
     role: user.role as UserResponse['role'],
+    language: (user.language === 'th' ? 'th' : 'en') as UserResponse['language'],
     departmentId: user.departmentId,
     position: user.position,
     avatarKey: user.avatarKey,
@@ -47,6 +49,7 @@ const USER_SELECT = {
   name: true,
   email: true,
   role: true,
+  language: true,
   departmentId: true,
   position: true,
   avatarKey: true,
@@ -330,6 +333,7 @@ export async function updateProfile(
     data: {
       ...(input.name != null && { name: input.name }),
       ...(input.position != null && { position: input.position }),
+      ...(input.language != null && { language: input.language }),
     },
     select: USER_SELECT,
   })

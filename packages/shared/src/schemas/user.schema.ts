@@ -2,12 +2,15 @@ import { z } from 'zod'
 
 export const roleSchema = z.enum(['ADMIN', 'MANAGER', 'USER'])
 
+export const languageSchema = z.enum(['en', 'th'])
+
 export const userResponseSchema = z.object({
   id: z.string().cuid(),
   employeeId: z.string().nullable(),
   name: z.string(),
   email: z.string().email(),
   role: roleSchema,
+  language: languageSchema,
   departmentId: z.string().nullable(),
   position: z.string().nullable(),
   avatarKey: z.string().nullable(),
@@ -19,6 +22,7 @@ export const userResponseSchema = z.object({
 export const updateProfileInputSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   position: z.string().max(100).optional(),
+  language: languageSchema.optional(),
 })
 
 export const updateUserInputSchema = z.object({
@@ -40,6 +44,7 @@ export const createUserInputSchema = z.object({
 })
 
 export type Role = z.infer<typeof roleSchema>
+export type Language = z.infer<typeof languageSchema>
 export type UserResponse = z.infer<typeof userResponseSchema>
 export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>
 export type UpdateUserInput = z.infer<typeof updateUserInputSchema>

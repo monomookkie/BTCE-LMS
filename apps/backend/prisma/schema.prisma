@@ -21,6 +21,7 @@ model User {
   avatarKey         String?   // key ใน Cloudinary (ไม่เก็บ base64)
   isActive          Boolean   @default(true)
   mustChangePassword Boolean  @default(false) // บังคับเปลี่ยนรหัสหลังล็อกอินแรก
+  language          String    @default("en")  // 'en' | 'th' — user language preference
   lastLoginAt       DateTime?
   passwordChangedAt DateTime?
   createdAt         DateTime  @default(now())
