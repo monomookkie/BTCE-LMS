@@ -14,6 +14,7 @@ import type {
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
+import { onEnrollmentCompleted } from '../certificates/certificates.service.js'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -647,7 +648,7 @@ export async function submitQuiz(
     ...(ip != null && { ip }),
   })
 
-  // 8. ถ้าผ่าน + progress 100% → mark enrollment COMPLETED
+  // 8. ถ้าผ่าน + progress 100% → mark enrollment COMPLETED แล้ว auto-issue cert
   if (passed && enrollment.progress >= 100 && enrollment.status !== 'COMPLETED') {
     await prisma.enrollment.update({
       where: { id: enrollment.id },
@@ -661,6 +662,8 @@ export async function submitQuiz(
       metadata: { quizId: quizWithCourse.id, score },
       ...(ip != null && { ip }),
     })
+    // auto-issue cert (idempotent — ออกซ้ำไม่ได้)
+    await onEnrollmentCompleted(prisma, enrollment.id, ip)
   }
 
   return toAttemptResponse(attempt)

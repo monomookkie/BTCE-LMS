@@ -8,6 +8,7 @@ import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
 import { t, type Locale } from '../../lib/i18n.js'
 import type { EnrollmentListQuery } from './enrollments.schema.js'
+import { onEnrollmentCompleted } from '../certificates/certificates.service.js'
 
 const ENROLLMENT_SELECT = {
   id: true,
@@ -330,6 +331,11 @@ export async function markMaterialComplete(
     metadata: { materialId, progress, status: updated.status },
     ...(ip != null && { ip }),
   })
+
+  // auto-issue cert ถ้า enrollment เพิ่งเปลี่ยนเป็น COMPLETED (idempotent)
+  if (canComplete) {
+    await onEnrollmentCompleted(prisma, enrollmentId, ip)
+  }
 
   return toEnrollmentResponse(updated)
 }

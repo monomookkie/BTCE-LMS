@@ -13,6 +13,7 @@
     "declaration": true,
     "skipLibCheck": true,
     "esModuleInterop": false,
+    "jsx": "react-jsx",
     "paths": {}
   },
   "include": ["src"],

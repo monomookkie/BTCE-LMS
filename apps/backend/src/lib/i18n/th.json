@@ -48,5 +48,15 @@
 
   "success.quiz.deleted": "ลบแบบทดสอบแล้ว",
   "success.question.deleted": "ลบคำถามแล้ว",
-  "success.option.deleted": "ลบตัวเลือกแล้ว"
+  "success.option.deleted": "ลบตัวเลือกแล้ว",
+
+  "error.cert.notFound": "ไม่พบใบรับรอง",
+  "error.cert.alreadyIssued": "ออกใบรับรองสำหรับการลงทะเบียนนี้แล้ว",
+  "error.cert.revoked": "ใบรับรองนี้ถูกยกเลิกแล้ว",
+  "error.cert.alreadyRevoked": "ใบรับรองนี้ถูกยกเลิกไปแล้ว",
+  "error.cert.cannotIssuePending": "ไม่สามารถออกใบรับรองได้ เนื่องจากการลงทะเบียนยังไม่เสร็จสิ้น",
+
+  "error.externalCert.notFound": "ไม่พบใบรับรองภายนอก",
+
+  "success.cert.revoked": "ยกเลิกใบรับรองแล้ว"
 }

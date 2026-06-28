@@ -48,5 +48,15 @@
 
   "success.quiz.deleted": "Quiz deleted",
   "success.question.deleted": "Question deleted",
-  "success.option.deleted": "Option deleted"
+  "success.option.deleted": "Option deleted",
+
+  "error.cert.notFound": "Certificate not found",
+  "error.cert.alreadyIssued": "Certificate already issued for this enrollment",
+  "error.cert.revoked": "This certificate has been revoked",
+  "error.cert.alreadyRevoked": "Certificate is already revoked",
+  "error.cert.cannotIssuePending": "Cannot issue certificate: enrollment is not completed",
+
+  "error.externalCert.notFound": "External certificate not found",
+
+  "success.cert.revoked": "Certificate revoked"
 }

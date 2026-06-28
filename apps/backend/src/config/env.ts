@@ -22,6 +22,9 @@ const envSchema = z.object({
   CLOUDINARY_API_KEY: z.string().optional(),
   CLOUDINARY_API_SECRET: z.string().optional(),
 
+  // Frontend base URL — ใช้สร้าง verifyUrl ใน PDF QR code
+  APP_URL: z.string().url().default('http://localhost:5173'),
+
   // Email (Phase 4-5)
   RESEND_API_KEY: z.string().optional(),
 

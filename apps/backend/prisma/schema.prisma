@@ -28,12 +28,13 @@ model User {
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime? // soft delete
 
-  department    Department?    @relation(fields: [departmentId], references: [id])
-  enrollments   Enrollment[]
-  certificates  Certificate[]
-  refreshTokens RefreshToken[]
-  consents      Consent[]
-  notifications Notification[]
+  department           Department?           @relation(fields: [departmentId], references: [id])
+  enrollments          Enrollment[]
+  certificates         Certificate[]
+  externalCertificates ExternalCertificate[]
+  refreshTokens        RefreshToken[]
+  consents             Consent[]
+  notifications        Notification[]
 
   @@index([email])
   @@index([deletedAt])
@@ -220,10 +221,10 @@ model Certificate {
   enrollmentId String    @unique
   userId       String
   courseId     String
-  certNumber   String    @unique // BTEC-YYYY-MMDD-XXXX
+  certNumber   String    @unique // BTEC-YYYY-NNNN
   score        Int
-  fileKey      String? // PDF ที่ gen แล้ว เก็บใน Cloudinary
-  verifyHash   String    @unique // สำหรับ public verify
+  fileKey      String? // PDF ที่ gen แล้ว cache ใน storage
+  verifyHash   String    @unique // UUID สำหรับ public verify URL
   issuedAt     DateTime  @default(now())
   expiresAt    DateTime? // คำนวณจาก course.expiryMonths
   revokedAt    DateTime?
@@ -234,6 +235,32 @@ model Certificate {
   @@index([userId])
   @@index([verifyHash])
   @@index([expiresAt])
+}
+
+// counter สำหรับ certNumber atomic increment — กัน race condition
+model CertificateCounter {
+  year    Int @id
+  lastSeq Int @default(0) @map("last_seq")
+
+  @@map("certificate_counter")
+}
+
+// ใบรับรองภายนอกที่ผู้ใช้อัปโหลดเอง (จากองค์กรภายนอก)
+model ExternalCertificate {
+  id        String    @id @default(cuid())
+  userId    String
+  title     String
+  issuer    String
+  issuedAt  DateTime
+  expiresAt DateTime?
+  fileKey   String? // อัปโหลดขึ้น storage — ไม่เก็บ base64
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, deletedAt])
 }
 
 // ===== Training Log (offline) =====
