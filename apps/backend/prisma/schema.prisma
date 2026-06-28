@@ -105,10 +105,12 @@ model Material {
   sizeBytes Int?
   order     Int          @default(0)
   createdAt DateTime     @default(now())
+  deletedAt DateTime? // soft delete — ไฟล์จริงยังอยู่ใน Cloudinary รอ cleanup job
 
   course Course @relation(fields: [courseId], references: [id])
 
   @@index([courseId, order])
+  @@index([courseId, deletedAt])
 }
 
 enum MaterialType {

@@ -26,6 +26,7 @@
     "@fastify/rate-limit": "^9.1.0",
     "@prisma/client": "^5.17.0",
     "argon2": "^0.44.0",
+    "cloudinary": "^2.10.0",
     "csv-parse": "^7.0.0",
     "fastify": "^4.28.0",
     "fastify-plugin": "^4.5.1",
