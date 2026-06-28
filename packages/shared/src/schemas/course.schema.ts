@@ -2,7 +2,10 @@ import { z } from 'zod'
 
 export const courseStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED'])
 
-export const courseResponseSchema = z.object({
+// ─── Response schemas ──────────────────────────────────────────────────────
+
+// ข้อมูล common ที่ทุก role เห็นได้ — ผ่าน localizeField แล้ว ไม่มี raw En/Th
+const courseBaseFields = {
   id: z.string().cuid(),
   title: z.string(),
   category: z.string(),
@@ -16,12 +19,31 @@ export const courseResponseSchema = z.object({
   version: z.number().int(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
+}
+
+// USER-facing — localized fields เท่านั้น ไม่มี raw En/Th
+export const coursePublicResponseSchema = z.object(courseBaseFields)
+
+// ADMIN/MANAGER-facing — ครบทั้ง localized + raw En/Th (สำหรับ edit form)
+export const courseAdminResponseSchema = z.object({
+  ...courseBaseFields,
+  titleEn: z.string(),
+  titleTh: z.string().nullable(),
+  categoryEn: z.string(),
+  categoryTh: z.string().nullable(),
+  descriptionEn: z.string().nullable(),
+  descriptionTh: z.string().nullable(),
 })
 
+// ─── Input schemas ─────────────────────────────────────────────────────────
+
 export const createCourseInputSchema = z.object({
-  title: z.string().min(1).max(200),
-  category: z.string().min(1).max(100),
-  description: z.string().max(5000).optional(),
+  titleEn: z.string().min(1).max(200),
+  titleTh: z.string().max(200).optional(),
+  categoryEn: z.string().min(1).max(100),
+  categoryTh: z.string().max(100).optional(),
+  descriptionEn: z.string().max(5000).optional(),
+  descriptionTh: z.string().max(5000).optional(),
   durationMin: z.number().int().positive().optional(),
   passScore: z.number().int().min(0).max(100).default(80),
   expiryMonths: z.number().int().positive().nullable().optional(),
@@ -29,9 +51,12 @@ export const createCourseInputSchema = z.object({
 })
 
 export const updateCourseInputSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
-  category: z.string().min(1).max(100).optional(),
-  description: z.string().max(5000).nullable().optional(),
+  titleEn: z.string().min(1).max(200).optional(),
+  titleTh: z.string().max(200).nullable().optional(),
+  categoryEn: z.string().min(1).max(100).optional(),
+  categoryTh: z.string().max(100).nullable().optional(),
+  descriptionEn: z.string().max(5000).nullable().optional(),
+  descriptionTh: z.string().max(5000).nullable().optional(),
   durationMin: z.number().int().positive().nullable().optional(),
   passScore: z.number().int().min(0).max(100).optional(),
   expiryMonths: z.number().int().positive().nullable().optional(),
@@ -43,8 +68,11 @@ export const updateCourseStatusSchema = z.object({
   status: z.enum(['PUBLISHED', 'ARCHIVED']),
 })
 
+// ─── Types ─────────────────────────────────────────────────────────────────
+
 export type CourseStatus = z.infer<typeof courseStatusSchema>
-export type CourseResponse = z.infer<typeof courseResponseSchema>
+export type CoursePublicResponse = z.infer<typeof coursePublicResponseSchema>
+export type CourseAdminResponse = z.infer<typeof courseAdminResponseSchema>
 export type CreateCourseInput = z.infer<typeof createCourseInputSchema>
 export type UpdateCourseInput = z.infer<typeof updateCourseInputSchema>
 export type UpdateCourseStatusInput = z.infer<typeof updateCourseStatusSchema>

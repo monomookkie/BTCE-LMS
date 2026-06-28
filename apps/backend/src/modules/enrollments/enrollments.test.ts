@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { buildTestApp, createUser, loginAs, prisma } from '../../test/helpers.js'
 import type { TestApp } from '../../test/helpers.js'
-import type { EnrollmentResponse, CourseResponse } from '@btec-lms/shared'
+import type { EnrollmentResponse, CourseAdminResponse } from '@btec-lms/shared'
 
 describe('Enrollments module', () => {
   let app: TestApp
@@ -35,13 +35,13 @@ describe('Enrollments module', () => {
       url: '/courses',
       headers: { cookie: adminCookies },
       payload: {
-        title: 'Test Course',
-        category: 'Safety',
+        titleEn: 'Test Course',
+        categoryEn: 'Safety',
         passScore: 80,
         allowSelfEnroll: selfEnroll,
       },
     })
-    const course = res.json<CourseResponse>()
+    const course = res.json<CourseAdminResponse>()
 
     await app.inject({
       method: 'PATCH',
@@ -294,7 +294,7 @@ describe('Enrollments module', () => {
         method: 'POST',
         url: `/courses/${courseId}/materials/link`,
         headers: { cookie: adminCookies },
-        payload: { type: 'LINK', title: 'Unit 1', url: 'https://example.com' },
+        payload: { type: 'LINK', titleEn: 'Unit 1', url: 'https://example.com' },
       })
       return res.json<{ id: string }>().id
     }

@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import {
-  materialResponseSchema,
+  materialAdminResponseSchema,
   createLinkMaterialInputSchema,
   createFileMaterialMetaSchema,
   updateMaterialInputSchema,
@@ -36,11 +36,11 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
 
   // GET /courses/:courseId/materials — ADMIN/MANAGER หรือ enrolled USER
+  // response schema ไม่ declare ที่ route เพราะ schema ขึ้นกับ role (service จัดการ)
   server.get('/:courseId/materials', {
     preHandler: [app.verifyJwt],
     schema: {
       params: materialCourseParamsSchema,
-      response: { 200: z.array(materialResponseSchema) },
     },
   }, async (req) => {
     const locale = await resolveLocale(req, app.prisma)
@@ -54,7 +54,7 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
     schema: {
       params: materialCourseParamsSchema,
       body: createLinkMaterialInputSchema,
-      response: { 201: materialResponseSchema },
+      response: { 201: materialAdminResponseSchema },
     },
   }, async (req, reply) => {
     const locale = await resolveLocale(req, app.prisma)
@@ -90,7 +90,7 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
     preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
     schema: {
       params: materialCourseParamsSchema,
-      response: { 201: materialResponseSchema },
+      response: { 201: materialAdminResponseSchema },
     },
   }, async (req, reply) => {
     const locale = await resolveLocale(req, app.prisma)
@@ -107,7 +107,8 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
 
     const metaParse = createFileMaterialMetaSchema.safeParse({
       type: fields['type'],
-      title: fields['title'],
+      titleEn: fields['titleEn'],
+      titleTh: fields['titleTh'],
       order: fields['order'] != null ? Number(fields['order']) : undefined,
     })
     if (!metaParse.success) {
@@ -146,7 +147,7 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
     schema: {
       params: materialParamsSchema,
       body: updateMaterialInputSchema,
-      response: { 200: materialResponseSchema },
+      response: { 200: materialAdminResponseSchema },
     },
   }, async (req) => {
     const locale = await resolveLocale(req, app.prisma)

@@ -46,9 +46,10 @@ enum Role {
 }
 
 model Department {
-  id    String @id @default(cuid())
-  name  String @unique
-  users User[]
+  id     String  @id @default(cuid())
+  nameEn String  @unique
+  nameTh String?
+  users  User[]
 }
 
 model RefreshToken {
@@ -68,11 +69,14 @@ model RefreshToken {
 // ===== Course & Material =====
 
 model Course {
-  id           String       @id @default(cuid())
-  title        String
-  category     String
-  description  String?      @db.Text
-  status       CourseStatus @default(DRAFT)
+  id            String       @id @default(cuid())
+  titleEn       String
+  titleTh       String?
+  categoryEn    String
+  categoryTh    String?
+  descriptionEn String?      @db.Text
+  descriptionTh String?      @db.Text
+  status        CourseStatus @default(DRAFT)
   durationMin  Int?
   passScore    Int          @default(80)
   expiryMonths    Int? // ต้องต่ออายุทุกกี่เดือน (null = ไม่หมดอายุ)
@@ -100,7 +104,8 @@ model Material {
   id        String       @id @default(cuid())
   courseId  String
   type      MaterialType
-  title     String
+  titleEn   String
+  titleTh   String?
   fileKey   String? // Cloudinary public_id
   url       String? // external link/video URL
   mimeType  String?
@@ -128,7 +133,8 @@ enum MaterialType {
 model Quiz {
   id          String    @id @default(cuid())
   courseId    String    @unique
-  title       String
+  titleEn     String
+  titleTh     String?
   maxAttempts Int? // null = ไม่จำกัด
   shuffle     Boolean   @default(true)
   deletedAt   DateTime?
@@ -141,7 +147,8 @@ model Quiz {
 model Question {
   id        String    @id @default(cuid())
   quizId    String
-  text      String    @db.Text
+  textEn    String    @db.Text
+  textTh    String?   @db.Text
   order     Int       @default(0)
   deletedAt DateTime?
 
@@ -154,7 +161,8 @@ model Question {
 model Option {
   id         String  @id @default(cuid())
   questionId String
-  text       String
+  textEn     String
+  textTh     String?
   isCorrect  Boolean @default(false)
 
   question Question @relation(fields: [questionId], references: [id])

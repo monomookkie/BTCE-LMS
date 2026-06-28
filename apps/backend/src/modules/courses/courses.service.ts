@@ -1,20 +1,26 @@
 import type { PrismaClient } from '@prisma/client'
 import type {
-  CourseResponse,
+  CoursePublicResponse,
+  CourseAdminResponse,
   CreateCourseInput,
   UpdateCourseInput,
   UpdateCourseStatusInput,
 } from '@btec-lms/shared'
+import { coursePublicResponseSchema, courseAdminResponseSchema } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest } from '../../lib/errors.js'
-import { t, type Locale } from '../../lib/i18n.js'
+import { t, localizeField, type Locale } from '../../lib/i18n.js'
+import { serializeByRole } from '../../lib/roleResponse.js'
 import type { CourseListQuery } from './courses.schema.js'
 
 const COURSE_SELECT = {
   id: true,
-  title: true,
-  category: true,
-  description: true,
+  titleEn: true,
+  titleTh: true,
+  categoryEn: true,
+  categoryTh: true,
+  descriptionEn: true,
+  descriptionTh: true,
   status: true,
   durationMin: true,
   passScore: true,
@@ -26,11 +32,14 @@ const COURSE_SELECT = {
   updatedAt: true,
 } as const
 
-function toCourseResponse(course: {
+type CourseRecord = {
   id: string
-  title: string
-  category: string
-  description: string | null
+  titleEn: string
+  titleTh: string | null
+  categoryEn: string
+  categoryTh: string | null
+  descriptionEn: string | null
+  descriptionTh: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
   durationMin: number | null
   passScore: number
@@ -40,24 +49,56 @@ function toCourseResponse(course: {
   version: number
   createdAt: Date
   updatedAt: Date
-}): CourseResponse {
+}
+
+// สร้าง admin shape (superset) เสมอ — serializeByRole จะ strip ให้ถ้า caller เป็น USER
+function toCourseAdminShape(course: CourseRecord, locale: Locale): CourseAdminResponse {
   return {
-    ...course,
+    id: course.id,
+    title: localizeField(course.titleEn, course.titleTh, locale),
+    titleEn: course.titleEn,
+    titleTh: course.titleTh ?? null,
+    category: localizeField(course.categoryEn, course.categoryTh, locale),
+    categoryEn: course.categoryEn,
+    categoryTh: course.categoryTh ?? null,
+    description: localizeField(course.descriptionEn ?? '', course.descriptionTh, locale) || null,
+    descriptionEn: course.descriptionEn ?? null,
+    descriptionTh: course.descriptionTh ?? null,
+    status: course.status,
+    durationMin: course.durationMin,
+    passScore: course.passScore,
+    expiryMonths: course.expiryMonths,
+    allowSelfEnroll: course.allowSelfEnroll,
+    createdById: course.createdById,
+    version: course.version,
     createdAt: course.createdAt.toISOString(),
     updatedAt: course.updatedAt.toISOString(),
   }
+}
+
+function serializeCourse(
+  course: CourseRecord,
+  locale: Locale,
+  role: string,
+): CourseAdminResponse | CoursePublicResponse {
+  return serializeByRole(
+    role,
+    toCourseAdminShape(course, locale),
+    courseAdminResponseSchema,
+    coursePublicResponseSchema,
+  )
 }
 
 export async function listCourses(
   prisma: PrismaClient,
   query: CourseListQuery,
   requesterRole: string,
+  locale: Locale = 'en',
   ip?: string,
   actorId?: string,
-): Promise<{ data: CourseResponse[]; total: number; page: number; limit: number }> {
+): Promise<{ data: (CourseAdminResponse | CoursePublicResponse)[]; total: number; page: number; limit: number }> {
   const { page, limit, search, status, category } = query
 
-  // USER เห็นเฉพาะ PUBLISHED — ADMIN/MANAGER เห็นทุก status
   const statusFilter =
     requesterRole === 'USER'
       ? { status: 'PUBLISHED' as const }
@@ -68,12 +109,15 @@ export async function listCourses(
   const where = {
     deletedAt: null,
     ...statusFilter,
-    ...(category != null && { category }),
+    ...(category != null && { categoryEn: { contains: category } }),
     ...(search != null && {
       OR: [
-        { title: { contains: search } },
-        { category: { contains: search } },
-        { description: { contains: search } },
+        { titleEn: { contains: search } },
+        { titleTh: { contains: search } },
+        { categoryEn: { contains: search } },
+        { categoryTh: { contains: search } },
+        { descriptionEn: { contains: search } },
+        { descriptionTh: { contains: search } },
       ],
     }),
   }
@@ -98,7 +142,12 @@ export async function listCourses(
     })
   }
 
-  return { data: courses.map(toCourseResponse), total, page, limit }
+  return {
+    data: courses.map((c) => serializeCourse(c, locale, requesterRole)),
+    total,
+    page,
+    limit,
+  }
 }
 
 export async function getCourse(
@@ -106,7 +155,7 @@ export async function getCourse(
   id: string,
   requesterRole: string,
   locale: Locale = 'en',
-): Promise<CourseResponse> {
+): Promise<CourseAdminResponse | CoursePublicResponse> {
   const statusFilter = requesterRole === 'USER' ? { status: 'PUBLISHED' as const } : {}
 
   const course = await prisma.course.findFirst({
@@ -115,20 +164,24 @@ export async function getCourse(
   })
 
   if (!course) throw notFound(t('error.course.notFound', undefined, locale))
-  return toCourseResponse(course)
+  return serializeCourse(course, locale, requesterRole)
 }
 
 export async function createCourse(
   prisma: PrismaClient,
   input: CreateCourseInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
-): Promise<CourseResponse> {
+): Promise<CourseAdminResponse> {
   const course = await prisma.course.create({
     data: {
-      title: input.title,
-      category: input.category,
-      ...(input.description != null && { description: input.description }),
+      titleEn: input.titleEn,
+      titleTh: input.titleTh ?? null,
+      categoryEn: input.categoryEn,
+      categoryTh: input.categoryTh ?? null,
+      descriptionEn: input.descriptionEn ?? null,
+      descriptionTh: input.descriptionTh ?? null,
       ...(input.durationMin != null && { durationMin: input.durationMin }),
       passScore: input.passScore,
       ...(input.expiryMonths != null && { expiryMonths: input.expiryMonths }),
@@ -143,11 +196,12 @@ export async function createCourse(
     action: 'COURSE_CREATE',
     targetType: 'Course',
     targetId: course.id,
-    metadata: { title: input.title, category: input.category },
+    metadata: { titleEn: input.titleEn, categoryEn: input.categoryEn },
     ...(ip != null && { ip }),
   })
 
-  return toCourseResponse(course)
+  // createCourse เรียกได้จาก ADMIN/MANAGER route เท่านั้น → คืน admin shape เสมอ
+  return courseAdminResponseSchema.parse(toCourseAdminShape(course, locale))
 }
 
 export async function updateCourse(
@@ -157,16 +211,19 @@ export async function updateCourse(
   actorId: string,
   locale: Locale = 'en',
   ip?: string,
-): Promise<CourseResponse> {
+): Promise<CourseAdminResponse> {
   const existing = await prisma.course.findFirst({ where: { id, deletedAt: null } })
   if (!existing) throw notFound(t('error.course.notFound', undefined, locale))
 
   const course = await prisma.course.update({
     where: { id },
     data: {
-      ...(input.title != null && { title: input.title }),
-      ...(input.category != null && { category: input.category }),
-      ...('description' in input && { description: input.description ?? null }),
+      ...(input.titleEn != null && { titleEn: input.titleEn }),
+      ...('titleTh' in input && { titleTh: input.titleTh ?? null }),
+      ...(input.categoryEn != null && { categoryEn: input.categoryEn }),
+      ...('categoryTh' in input && { categoryTh: input.categoryTh ?? null }),
+      ...('descriptionEn' in input && { descriptionEn: input.descriptionEn ?? null }),
+      ...('descriptionTh' in input && { descriptionTh: input.descriptionTh ?? null }),
       ...('durationMin' in input && { durationMin: input.durationMin ?? null }),
       ...(input.passScore != null && { passScore: input.passScore }),
       ...('expiryMonths' in input && { expiryMonths: input.expiryMonths ?? null }),
@@ -185,7 +242,7 @@ export async function updateCourse(
     ...(ip != null && { ip }),
   })
 
-  return toCourseResponse(course)
+  return courseAdminResponseSchema.parse(toCourseAdminShape(course, locale))
 }
 
 export async function updateCourseStatus(
@@ -195,11 +252,10 @@ export async function updateCourseStatus(
   actorId: string,
   locale: Locale = 'en',
   ip?: string,
-): Promise<CourseResponse> {
+): Promise<CourseAdminResponse> {
   const existing = await prisma.course.findFirst({ where: { id, deletedAt: null } })
   if (!existing) throw notFound(t('error.course.notFound', undefined, locale))
 
-  // ARCHIVED → ไม่ให้ publish กลับ (ต้องสร้างใหม่)
   if (existing.status === 'ARCHIVED') {
     throw badRequest(t('error.course.archivedCannotChange', undefined, locale))
   }
@@ -220,7 +276,7 @@ export async function updateCourseStatus(
     ...(ip != null && { ip }),
   })
 
-  return toCourseResponse(course)
+  return courseAdminResponseSchema.parse(toCourseAdminShape(course, locale))
 }
 
 export async function softDeleteCourse(
@@ -235,7 +291,6 @@ export async function softDeleteCourse(
 
   const now = new Date()
 
-  // cascade soft delete materials ใต้ course ด้วย — ไฟล์จริงใน Cloudinary ยังอยู่ (รอ cleanup job)
   await prisma.$transaction([
     prisma.material.updateMany({
       where: { courseId: id, deletedAt: null },
@@ -252,7 +307,7 @@ export async function softDeleteCourse(
     action: 'COURSE_DELETE',
     targetType: 'Course',
     targetId: id,
-    metadata: { title: existing.title },
+    metadata: { titleEn: existing.titleEn },
     ...(ip != null && { ip }),
   })
 }

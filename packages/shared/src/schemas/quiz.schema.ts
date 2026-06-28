@@ -2,14 +2,17 @@ import { z } from 'zod'
 
 // ─── Option schemas ────────────────────────────────────────────────────────
 
-// admin sees isCorrect (answer key)
+// admin sees isCorrect (answer key) + raw bilingual fields for editing
 export const optionAdminSchema = z.object({
   id: z.string().cuid(),
-  text: z.string(),
+  text: z.string(),     // localized
+  textEn: z.string(),   // raw
+  textTh: z.string().nullable(),
   isCorrect: z.boolean(),
 })
 
 // USER ไม่เห็น isCorrect เด็ดขาด — field ไม่มีอยู่ในนี้เลย (layer 2 protection)
+// USER ก็ไม่ต้องเห็น raw En/Th
 export const optionForUserSchema = z.object({
   id: z.string().cuid(),
   text: z.string(),
@@ -19,7 +22,9 @@ export const optionForUserSchema = z.object({
 
 export const questionAdminSchema = z.object({
   id: z.string().cuid(),
-  text: z.string(),
+  text: z.string(),     // localized
+  textEn: z.string(),   // raw
+  textTh: z.string().nullable(),
   order: z.number().int(),
   options: z.array(optionAdminSchema),
 })
@@ -36,7 +41,9 @@ export const questionForUserSchema = z.object({
 export const quizAdminResponseSchema = z.object({
   id: z.string().cuid(),
   courseId: z.string().cuid(),
-  title: z.string(),
+  title: z.string(),       // localized
+  titleEn: z.string(),     // raw
+  titleTh: z.string().nullable(),
   maxAttempts: z.number().int().nullable(),
   shuffle: z.boolean(),
   questions: z.array(questionAdminSchema),
@@ -54,38 +61,44 @@ export const quizForUserResponseSchema = z.object({
 // ─── Input schemas ─────────────────────────────────────────────────────────
 
 export const createQuizInputSchema = z.object({
-  title: z.string().min(1).max(200),
+  titleEn: z.string().min(1).max(200),
+  titleTh: z.string().max(200).optional(),
   maxAttempts: z.number().int().positive().nullable().optional(),
   shuffle: z.boolean().default(true),
 })
 
 export const updateQuizInputSchema = z.object({
-  title: z.string().min(1).max(200).optional(),
+  titleEn: z.string().min(1).max(200).optional(),
+  titleTh: z.string().max(200).nullable().optional(),
   maxAttempts: z.number().int().positive().nullable().optional(),
   shuffle: z.boolean().optional(),
 })
 
 export const createQuestionInputSchema = z.object({
-  text: z.string().min(1).max(2000),
+  textEn: z.string().min(1).max(2000),
+  textTh: z.string().max(2000).optional(),
   order: z.number().int().min(0).optional(),
   options: z
-    .array(z.object({ text: z.string().min(1).max(500), isCorrect: z.boolean() }))
+    .array(z.object({ textEn: z.string().min(1).max(500), textTh: z.string().max(500).optional(), isCorrect: z.boolean() }))
     .min(2)
     .max(10),
 })
 
 export const updateQuestionInputSchema = z.object({
-  text: z.string().min(1).max(2000).optional(),
+  textEn: z.string().min(1).max(2000).optional(),
+  textTh: z.string().max(2000).nullable().optional(),
   order: z.number().int().min(0).optional(),
 })
 
 export const addOptionInputSchema = z.object({
-  text: z.string().min(1).max(500),
+  textEn: z.string().min(1).max(500),
+  textTh: z.string().max(500).optional(),
   isCorrect: z.boolean(),
 })
 
 export const updateOptionInputSchema = z.object({
-  text: z.string().min(1).max(500).optional(),
+  textEn: z.string().min(1).max(500).optional(),
+  textTh: z.string().max(500).nullable().optional(),
   isCorrect: z.boolean().optional(),
 })
 

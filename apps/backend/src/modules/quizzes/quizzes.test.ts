@@ -21,7 +21,7 @@ async function createCourse(adminCookies: string, passScore = 80): Promise<{ id:
     method: 'POST',
     url: '/courses',
     headers: { cookie: adminCookies },
-    payload: { title: 'Test Course', category: 'Safety', passScore },
+    payload: { titleEn: 'Test Course', categoryEn: 'Safety', passScore },
   })
   expect(res.statusCode).toBe(201)
   const course = res.json()
@@ -45,7 +45,7 @@ async function createQuizWithQuestions(
     method: 'POST',
     url: `/courses/${courseId}/quiz`,
     headers: { cookie: adminCookies },
-    payload: { title: 'Test Quiz', maxAttempts: opts.maxAttempts ?? null, shuffle: opts.shuffle ?? false },
+    payload: { titleEn: 'Test Quiz', maxAttempts: opts.maxAttempts ?? null, shuffle: opts.shuffle ?? false },
   })
   expect(quizRes.statusCode).toBe(201)
 
@@ -55,10 +55,10 @@ async function createQuizWithQuestions(
     url: `/courses/${courseId}/quiz/questions`,
     headers: { cookie: adminCookies },
     payload: {
-      text: 'Question 1',
+      textEn: 'Question 1',
       options: [
-        { text: 'O1a - correct', isCorrect: true },
-        { text: 'O1b - wrong', isCorrect: false },
+        { textEn: 'O1a - correct', isCorrect: true },
+        { textEn: 'O1b - wrong', isCorrect: false },
       ],
     },
   })
@@ -70,10 +70,10 @@ async function createQuizWithQuestions(
     url: `/courses/${courseId}/quiz/questions`,
     headers: { cookie: adminCookies },
     payload: {
-      text: 'Question 2',
+      textEn: 'Question 2',
       options: [
-        { text: 'O2a - wrong', isCorrect: false },
-        { text: 'O2b - correct', isCorrect: true },
+        { textEn: 'O2a - wrong', isCorrect: false },
+        { textEn: 'O2b - correct', isCorrect: true },
       ],
     },
   })
@@ -142,7 +142,7 @@ describe('Quizzes module', () => {
         method: 'POST',
         url: `/courses/${course.id}/quiz`,
         headers: { cookie: admin.cookies },
-        payload: { title: 'My Quiz', maxAttempts: 3, shuffle: true },
+        payload: { titleEn: 'My Quiz', maxAttempts: 3, shuffle: true },
       })
       expect(res.statusCode).toBe(201)
       const body = res.json()
@@ -160,13 +160,13 @@ describe('Quizzes module', () => {
         method: 'POST',
         url: `/courses/${course.id}/quiz`,
         headers: { cookie: admin.cookies },
-        payload: { title: 'Quiz 1', shuffle: false },
+        payload: { titleEn: 'Quiz 1', shuffle: false },
       })
       const res = await app.inject({
         method: 'POST',
         url: `/courses/${course.id}/quiz`,
         headers: { cookie: admin.cookies },
-        payload: { title: 'Quiz 2', shuffle: false },
+        payload: { titleEn: 'Quiz 2', shuffle: false },
       })
       expect(res.statusCode).toBe(400)
     })
@@ -180,7 +180,7 @@ describe('Quizzes module', () => {
         method: 'POST',
         url: `/courses/${course.id}/quiz`,
         headers: { cookie: user.cookies },
-        payload: { title: 'Quiz', shuffle: false },
+        payload: { titleEn: 'Quiz', shuffle: false },
       })
       expect(res.statusCode).toBe(403)
     })
@@ -192,7 +192,7 @@ describe('Quizzes module', () => {
         method: 'POST',
         url: `/courses/${course.id}/quiz`,
         headers: { cookie: admin.cookies },
-        payload: { title: 'Q', shuffle: false },
+        payload: { titleEn: 'Q', shuffle: false },
       })
 
       const res = await app.inject({
@@ -200,10 +200,10 @@ describe('Quizzes module', () => {
         url: `/courses/${course.id}/quiz/questions`,
         headers: { cookie: admin.cookies },
         payload: {
-          text: 'Capital of Thailand?',
+          textEn: 'Capital of Thailand?',
           options: [
-            { text: 'Bangkok', isCorrect: true },
-            { text: 'Chiang Mai', isCorrect: false },
+            { textEn: 'Bangkok', isCorrect: true },
+            { textEn: 'Chiang Mai', isCorrect: false },
           ],
         },
       })
@@ -224,10 +224,10 @@ describe('Quizzes module', () => {
         method: 'PATCH',
         url: `/courses/${course.id}/quiz`,
         headers: { cookie: admin.cookies },
-        payload: { title: 'Renamed', maxAttempts: 5 },
+        payload: { titleEn: 'Renamed', maxAttempts: 5 },
       })
       expect(res.statusCode).toBe(200)
-      expect(res.json().title).toBe('Renamed')
+      expect(res.json().title).toBe('Renamed') // localized field
       expect(res.json().maxAttempts).toBe(5)
     })
 
@@ -281,7 +281,7 @@ describe('Quizzes module', () => {
         method: 'PATCH',
         url: `/courses/${course.id}/quiz/questions/${q1Id}`,
         headers: { cookie: admin.cookies },
-        payload: { text: 'Updated Q1' },
+        payload: { textEn: 'Updated Q1' },
       })
       expect(res.statusCode).toBe(200)
       const found = (res.json().questions as ApiQuestion[]).find((q) => q.id === q1Id)
@@ -297,7 +297,7 @@ describe('Quizzes module', () => {
         method: 'POST',
         url: `/courses/${course.id}/quiz/questions/${q1Id}/options`,
         headers: { cookie: admin.cookies },
-        payload: { text: 'New Option', isCorrect: false },
+        payload: { textEn: 'New Option', isCorrect: false },
       })
       expect(addRes.statusCode).toBe(201)
 
@@ -305,7 +305,7 @@ describe('Quizzes module', () => {
         method: 'PATCH',
         url: `/courses/${course.id}/quiz/questions/${q1Id}/options/${q1CorrectOptionId}`,
         headers: { cookie: admin.cookies },
-        payload: { text: 'Correct updated' },
+        payload: { textEn: 'Correct updated' },
       })
       expect(updRes.statusCode).toBe(200)
 

@@ -257,7 +257,12 @@ export async function importFromCsv(
   let skipped = 0
 
   const departments = await prisma.department.findMany()
-  const deptMap = new Map(departments.map((d) => [d.name.trim(), d.id]))
+  // ตรวจทั้ง nameEn และ nameTh เพื่อให้ CSV ใส่ชื่อภาษาไหนก็ได้
+  const deptMap = new Map<string, string>()
+  for (const d of departments) {
+    deptMap.set(d.nameEn.trim(), d.id)
+    if (d.nameTh) deptMap.set(d.nameTh.trim(), d.id)
+  }
 
   for (let i = 0; i < records.length; i++) {
     const row = records[i]!

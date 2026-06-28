@@ -4,19 +4,19 @@ import { hashPassword } from '../src/lib/password.js'
 const prisma = new PrismaClient()
 
 // departments จริงของศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย
-const DEPARTMENTS = [
-  'ฝ่ายบริหาร',
-  'ฝ่ายการแพทย์',
-  'ฝ่ายธนาคารเลือด',
-  'ฝ่ายเทคโนโลยีสารสนเทศ',
-  'ฝ่ายประชาสัมพันธ์',
-  'ฝ่ายวิจัยและพัฒนา',
-  'ฝ่ายจัดการคุณภาพ',
-  'ฝ่ายรับบริจาคโลหิต',
-  'ฝ่ายบัญชีและการเงิน',
-  'ฝ่ายทรัพยากรบุคคล',
-  'ฝ่ายอาคารสถานที่',
-  'ฝ่ายโลหิตวิทยา',
+const DEPARTMENTS: { nameEn: string; nameTh: string }[] = [
+  { nameEn: 'Administration Division', nameTh: 'ฝ่ายบริหาร' },
+  { nameEn: 'Medical Division', nameTh: 'ฝ่ายการแพทย์' },
+  { nameEn: 'Blood Bank Division', nameTh: 'ฝ่ายธนาคารเลือด' },
+  { nameEn: 'Information Technology Division', nameTh: 'ฝ่ายเทคโนโลยีสารสนเทศ' },
+  { nameEn: 'Public Relations Division', nameTh: 'ฝ่ายประชาสัมพันธ์' },
+  { nameEn: 'Research and Development Division', nameTh: 'ฝ่ายวิจัยและพัฒนา' },
+  { nameEn: 'Quality Management Division', nameTh: 'ฝ่ายจัดการคุณภาพ' },
+  { nameEn: 'Blood Donation Division', nameTh: 'ฝ่ายรับบริจาคโลหิต' },
+  { nameEn: 'Accounting and Finance Division', nameTh: 'ฝ่ายบัญชีและการเงิน' },
+  { nameEn: 'Human Resources Division', nameTh: 'ฝ่ายทรัพยากรบุคคล' },
+  { nameEn: 'Facilities Division', nameTh: 'ฝ่ายอาคารสถานที่' },
+  { nameEn: 'Hematology Division', nameTh: 'ฝ่ายโลหิตวิทยา' },
 ]
 
 async function main() {
@@ -25,11 +25,11 @@ async function main() {
   // --- Departments ---
   console.log('  Creating departments...')
   await Promise.all(
-    DEPARTMENTS.map((name) =>
+    DEPARTMENTS.map((dept) =>
       prisma.department.upsert({
-        where: { name },
-        update: {},
-        create: { name },
+        where: { nameEn: dept.nameEn },
+        update: { nameTh: dept.nameTh },
+        create: { nameEn: dept.nameEn, nameTh: dept.nameTh },
       }),
     ),
   )
@@ -64,16 +64,19 @@ async function main() {
     update: {},
     create: {
       id: 'seed-course-001',
-      title: 'ความปลอดภัยในการทำงาน (ตัวอย่าง)',
-      category: 'ความปลอดภัย',
-      description: 'หลักสูตรตัวอย่างสำหรับทดสอบระบบ',
+      titleEn: 'Workplace Safety (Sample)',
+      titleTh: 'ความปลอดภัยในการทำงาน (ตัวอย่าง)',
+      categoryEn: 'Safety',
+      categoryTh: 'ความปลอดภัย',
+      descriptionEn: 'A sample course for system testing',
+      descriptionTh: 'หลักสูตรตัวอย่างสำหรับทดสอบระบบ',
       status: 'DRAFT',
       passScore: 80,
       expiryMonths: 12,
     },
   })
 
-  console.log(`  Sample course: ${sampleCourse.title} (DRAFT)`)
+  console.log(`  Sample course: ${sampleCourse.titleEn} (DRAFT)`)
 
   console.log('✅ Seed complete')
   console.log(`   Admin: ${adminEmail}`)

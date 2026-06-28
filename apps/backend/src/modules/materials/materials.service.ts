@@ -1,21 +1,25 @@
 import type { PrismaClient } from '@prisma/client'
 import type {
-  MaterialResponse,
+  MaterialAdminResponse,
+  MaterialPublicResponse,
   CreateLinkMaterialInput,
   CreateFileMaterialMeta,
   UpdateMaterialInput,
   ReorderMaterialsInput,
 } from '@btec-lms/shared'
+import { materialAdminResponseSchema, materialPublicResponseSchema } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
-import { t, type Locale } from '../../lib/i18n.js'
+import { t, localizeField, type Locale } from '../../lib/i18n.js'
+import { serializeByRole } from '../../lib/roleResponse.js'
 import { type StorageProvider } from '../../lib/storage.js'
 
 const MATERIAL_SELECT = {
   id: true,
   courseId: true,
   type: true,
-  title: true,
+  titleEn: true,
+  titleTh: true,
   fileKey: true,
   url: true,
   mimeType: true,
@@ -28,7 +32,8 @@ type MaterialRecord = {
   id: string
   courseId: string
   type: string
-  title: string
+  titleEn: string
+  titleTh: string | null
   fileKey: string | null
   url: string | null
   mimeType: string | null
@@ -37,12 +42,15 @@ type MaterialRecord = {
   createdAt: Date
 }
 
-function toMaterialResponse(m: MaterialRecord, storage: StorageProvider): MaterialResponse {
+// สร้าง admin shape (superset) เสมอ — serializeByRole จะ strip ให้ถ้า caller เป็น USER
+function toMaterialAdminShape(m: MaterialRecord, storage: StorageProvider, locale: Locale): MaterialAdminResponse {
   return {
     id: m.id,
     courseId: m.courseId,
-    type: m.type as MaterialResponse['type'],
-    title: m.title,
+    type: m.type as MaterialAdminResponse['type'],
+    title: localizeField(m.titleEn, m.titleTh, locale),
+    titleEn: m.titleEn,
+    titleTh: m.titleTh ?? null,
     fileKey: m.fileKey,
     url: m.url,
     signedUrl: m.fileKey != null ? storage.getSignedUrl(m.fileKey) : null,
@@ -51,6 +59,20 @@ function toMaterialResponse(m: MaterialRecord, storage: StorageProvider): Materi
     order: m.order,
     createdAt: m.createdAt.toISOString(),
   }
+}
+
+function serializeMaterial(
+  m: MaterialRecord,
+  storage: StorageProvider,
+  locale: Locale,
+  role: string,
+): MaterialAdminResponse | MaterialPublicResponse {
+  return serializeByRole(
+    role,
+    toMaterialAdminShape(m, storage, locale),
+    materialAdminResponseSchema,
+    materialPublicResponseSchema,
+  )
 }
 
 async function assertCourseExists(prisma: PrismaClient, courseId: string, locale: Locale = 'en'): Promise<void> {
@@ -65,11 +87,10 @@ export async function listMaterials(
   actorId: string,
   locale: Locale = 'en',
   ip?: string,
-  requesterRole?: string,
-): Promise<MaterialResponse[]> {
+  requesterRole: string = 'USER',
+): Promise<(MaterialAdminResponse | MaterialPublicResponse)[]> {
   await assertCourseExists(prisma, courseId, locale)
 
-  // USER ต้อง enrolled (active) จึงเข้าถึง materials ได้
   if (requesterRole === 'USER') {
     const enrollment = await prisma.enrollment.findFirst({
       where: { userId: actorId, courseId, deletedAt: null },
@@ -86,7 +107,6 @@ export async function listMaterials(
     orderBy: { order: 'asc' },
   })
 
-  // บันทึกการเข้าถึง — signedUrl ถูก generate ณ จุดนี้ ถือเป็น "file access" event
   await logAudit(prisma, {
     actorId,
     action: 'MATERIAL_LIST',
@@ -96,7 +116,7 @@ export async function listMaterials(
     ...(ip != null && { ip }),
   })
 
-  return materials.map((m) => toMaterialResponse(m, storage))
+  return materials.map((m) => serializeMaterial(m, storage, locale, requesterRole))
 }
 
 export async function createLinkMaterial(
@@ -107,10 +127,9 @@ export async function createLinkMaterial(
   storage: StorageProvider,
   locale: Locale = 'en',
   ip?: string,
-): Promise<MaterialResponse> {
+): Promise<MaterialAdminResponse> {
   await assertCourseExists(prisma, courseId, locale)
 
-  // ถ้าไม่ระบุ order ให้ต่อท้าย
   const maxOrder = await prisma.material.aggregate({
     where: { courseId, deletedAt: null },
     _max: { order: true },
@@ -121,7 +140,8 @@ export async function createLinkMaterial(
     data: {
       courseId,
       type: input.type,
-      title: input.title,
+      titleEn: input.titleEn,
+      titleTh: input.titleTh ?? null,
       url: input.url,
       order,
     },
@@ -133,11 +153,12 @@ export async function createLinkMaterial(
     action: 'MATERIAL_CREATE',
     targetType: 'Material',
     targetId: material.id,
-    metadata: { courseId, type: input.type, title: input.title },
+    metadata: { courseId, type: input.type, titleEn: input.titleEn },
     ...(ip != null && { ip }),
   })
 
-  return toMaterialResponse(material, storage)
+  // createLinkMaterial เรียกจาก ADMIN/MANAGER route เท่านั้น → คืน admin shape เสมอ
+  return materialAdminResponseSchema.parse(toMaterialAdminShape(material, storage, locale))
 }
 
 export async function createFileMaterial(
@@ -151,7 +172,7 @@ export async function createFileMaterial(
   storage: StorageProvider,
   locale: Locale = 'en',
   ip?: string,
-): Promise<MaterialResponse> {
+): Promise<MaterialAdminResponse> {
   await assertCourseExists(prisma, courseId, locale)
 
   const { fileKey, mimeType: resolvedMime, sizeBytes } = await storage.upload(
@@ -171,7 +192,8 @@ export async function createFileMaterial(
     data: {
       courseId,
       type: meta.type,
-      title: meta.title,
+      titleEn: meta.titleEn,
+      titleTh: meta.titleTh ?? null,
       fileKey,
       mimeType: resolvedMime,
       sizeBytes,
@@ -185,11 +207,11 @@ export async function createFileMaterial(
     action: 'MATERIAL_CREATE',
     targetType: 'Material',
     targetId: material.id,
-    metadata: { courseId, type: meta.type, title: meta.title, fileKey },
+    metadata: { courseId, type: meta.type, titleEn: meta.titleEn, fileKey },
     ...(ip != null && { ip }),
   })
 
-  return toMaterialResponse(material, storage)
+  return materialAdminResponseSchema.parse(toMaterialAdminShape(material, storage, locale))
 }
 
 export async function updateMaterial(
@@ -201,7 +223,7 @@ export async function updateMaterial(
   storage: StorageProvider,
   locale: Locale = 'en',
   ip?: string,
-): Promise<MaterialResponse> {
+): Promise<MaterialAdminResponse> {
   const existing = await prisma.material.findFirst({
     where: { id: materialId, courseId, deletedAt: null },
   })
@@ -210,7 +232,8 @@ export async function updateMaterial(
   const material = await prisma.material.update({
     where: { id: materialId },
     data: {
-      ...(input.title != null && { title: input.title }),
+      ...(input.titleEn != null && { titleEn: input.titleEn }),
+      ...('titleTh' in input && { titleTh: input.titleTh ?? null }),
       ...(input.url != null && { url: input.url }),
       ...(input.order != null && { order: input.order }),
     },
@@ -226,7 +249,7 @@ export async function updateMaterial(
     ...(ip != null && { ip }),
   })
 
-  return toMaterialResponse(material, storage)
+  return materialAdminResponseSchema.parse(toMaterialAdminShape(material, storage, locale))
 }
 
 export async function reorderMaterials(
@@ -239,7 +262,6 @@ export async function reorderMaterials(
 ): Promise<void> {
   await assertCourseExists(prisma, courseId, locale)
 
-  // ยืนยันว่า materialIds ทั้งหมด belong to courseId
   const count = await prisma.material.count({
     where: { id: { in: input.materialIds }, courseId, deletedAt: null },
   })
@@ -247,7 +269,6 @@ export async function reorderMaterials(
     throw badRequest(t('error.material.someNotFound', undefined, locale))
   }
 
-  // update order ตาม index ใน array
   await prisma.$transaction(
     input.materialIds.map((id: string, index: number) =>
       prisma.material.update({ where: { id }, data: { order: index } }),
@@ -277,7 +298,6 @@ export async function softDeleteMaterial(
   })
   if (!existing) throw notFound(t('error.material.notFound', undefined, locale))
 
-  // ไฟล์ใน Cloudinary ยังอยู่ — รอ cleanup job ทีหลัง
   await prisma.material.update({
     where: { id: materialId },
     data: { deletedAt: new Date() },
@@ -288,7 +308,7 @@ export async function softDeleteMaterial(
     action: 'MATERIAL_DELETE',
     targetType: 'Material',
     targetId: materialId,
-    metadata: { courseId, title: existing.title, fileKey: existing.fileKey },
+    metadata: { courseId, titleEn: existing.titleEn, fileKey: existing.fileKey },
     ...(ip != null && { ip }),
   })
 }

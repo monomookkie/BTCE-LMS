@@ -13,7 +13,7 @@ import type {
 } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
-import { t, type Locale } from '../../lib/i18n.js'
+import { t, localizeField, type Locale } from '../../lib/i18n.js'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -32,7 +32,7 @@ const QUIZ_ADMIN_INCLUDE = {
     where: { deletedAt: null },
     orderBy: { order: 'asc' as const },
     include: {
-      options: { select: { id: true, text: true, isCorrect: true } },
+      options: { select: { id: true, textEn: true, textTh: true, isCorrect: true } },
     },
   },
 } as const
@@ -41,7 +41,8 @@ const QUIZ_ADMIN_INCLUDE = {
 const QUIZ_USER_SELECT = {
   id: true,
   courseId: true,
-  title: true,
+  titleEn: true,
+  titleTh: true,
   maxAttempts: true,
   shuffle: true,
   questions: {
@@ -49,12 +50,14 @@ const QUIZ_USER_SELECT = {
     orderBy: { order: 'asc' as const },
     select: {
       id: true,
-      text: true,
+      textEn: true,
+      textTh: true,
       order: true,
       options: {
         select: {
           id: true,
-          text: true,
+          textEn: true,
+          textTh: true,
           // isCorrect ไม่ select เด็ดขาด
         },
       },
@@ -65,54 +68,68 @@ const QUIZ_USER_SELECT = {
 type QuizWithQuestionsAdmin = {
   id: string
   courseId: string
-  title: string
+  titleEn: string
+  titleTh: string | null
   maxAttempts: number | null
   shuffle: boolean
   questions: Array<{
     id: string
-    text: string
+    textEn: string
+    textTh: string | null
     order: number
-    options: Array<{ id: string; text: string; isCorrect: boolean }>
+    options: Array<{ id: string; textEn: string; textTh: string | null; isCorrect: boolean }>
   }>
 }
 
 type QuizWithQuestionsUser = {
   id: string
   courseId: string
-  title: string
+  titleEn: string
+  titleTh: string | null
   maxAttempts: number | null
   shuffle: boolean
   questions: Array<{
     id: string
-    text: string
+    textEn: string
+    textTh: string | null
     order: number
-    options: Array<{ id: string; text: string }>
+    options: Array<{ id: string; textEn: string; textTh: string | null }>
   }>
 }
 
 // layer 2 protection: map ด้วยมือ — ไม่มีทางที่ isCorrect จะหลุดไปกับ user
-function toQuizAdminResponse(quiz: QuizWithQuestionsAdmin): QuizAdminResponse {
+function toQuizAdminResponse(quiz: QuizWithQuestionsAdmin, locale: Locale): QuizAdminResponse {
   return {
     id: quiz.id,
     courseId: quiz.courseId,
-    title: quiz.title,
+    title: localizeField(quiz.titleEn, quiz.titleTh, locale),
+    titleEn: quiz.titleEn,
+    titleTh: quiz.titleTh ?? null,
     maxAttempts: quiz.maxAttempts,
     shuffle: quiz.shuffle,
     questions: quiz.questions.map((q) => ({
       id: q.id,
-      text: q.text,
+      text: localizeField(q.textEn, q.textTh, locale),
+      textEn: q.textEn,
+      textTh: q.textTh ?? null,
       order: q.order,
-      options: q.options.map((o) => ({ id: o.id, text: o.text, isCorrect: o.isCorrect })),
+      options: q.options.map((o) => ({
+        id: o.id,
+        text: localizeField(o.textEn, o.textTh, locale),
+        textEn: o.textEn,
+        textTh: o.textTh ?? null,
+        isCorrect: o.isCorrect,
+      })),
     })),
   }
 }
 
-function toQuizForUserResponse(quiz: QuizWithQuestionsUser): QuizForUserResponse {
+function toQuizForUserResponse(quiz: QuizWithQuestionsUser, locale: Locale): QuizForUserResponse {
   let questions = quiz.questions.map((q) => ({
     id: q.id,
-    text: q.text,
+    text: localizeField(q.textEn, q.textTh, locale),
     order: q.order,
-    options: q.options.map((o) => ({ id: o.id, text: o.text })), // isCorrect ไม่ map เลย
+    options: q.options.map((o) => ({ id: o.id, text: localizeField(o.textEn, o.textTh, locale) })), // isCorrect ไม่ map เลย
   }))
 
   if (quiz.shuffle) {
@@ -122,7 +139,7 @@ function toQuizForUserResponse(quiz: QuizWithQuestionsUser): QuizForUserResponse
   return {
     id: quiz.id,
     courseId: quiz.courseId,
-    title: quiz.title,
+    title: localizeField(quiz.titleEn, quiz.titleTh, locale),
     maxAttempts: quiz.maxAttempts,
     questions,
   }
@@ -185,7 +202,8 @@ export async function createQuiz(
   const quiz = await prisma.quiz.create({
     data: {
       courseId,
-      title: input.title,
+      titleEn: input.titleEn,
+      titleTh: input.titleTh ?? null,
       maxAttempts: input.maxAttempts ?? null,
       shuffle: input.shuffle,
     },
@@ -197,11 +215,11 @@ export async function createQuiz(
     action: 'QUIZ_CREATE',
     targetType: 'Quiz',
     targetId: quiz.id,
-    metadata: { courseId, title: input.title },
+    metadata: { courseId, titleEn: input.titleEn },
     ...(ip != null && { ip }),
   })
 
-  return toQuizAdminResponse(quiz)
+  return toQuizAdminResponse(quiz, locale)
 }
 
 export async function getQuizAdmin(
@@ -214,7 +232,7 @@ export async function getQuizAdmin(
     include: QUIZ_ADMIN_INCLUDE,
   })
   if (!quiz) throw notFound(t('error.quiz.notFound', undefined, locale))
-  return toQuizAdminResponse(quiz)
+  return toQuizAdminResponse(quiz, locale)
 }
 
 export async function updateQuiz(
@@ -230,7 +248,8 @@ export async function updateQuiz(
   const quiz = await prisma.quiz.update({
     where: { id: existing.id },
     data: {
-      ...(input.title != null && { title: input.title }),
+      ...(input.titleEn != null && { titleEn: input.titleEn }),
+      ...('titleTh' in input && { titleTh: input.titleTh ?? null }),
       ...('maxAttempts' in input && { maxAttempts: input.maxAttempts ?? null }),
       ...(input.shuffle != null && { shuffle: input.shuffle }),
     },
@@ -246,7 +265,7 @@ export async function updateQuiz(
     ...(ip != null && { ip }),
   })
 
-  return toQuizAdminResponse(quiz)
+  return toQuizAdminResponse(quiz, locale)
 }
 
 export async function deleteQuiz(
@@ -301,9 +320,10 @@ export async function addQuestion(
   const question = await prisma.question.create({
     data: {
       quizId: quiz.id,
-      text: input.text,
+      textEn: input.textEn,
+      textTh: input.textTh ?? null,
       order,
-      options: { create: input.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) },
+      options: { create: input.options.map((o) => ({ textEn: o.textEn, textTh: o.textTh ?? null, isCorrect: o.isCorrect })) },
     },
     select: { id: true },
   })
@@ -340,7 +360,8 @@ export async function updateQuestion(
   await prisma.question.update({
     where: { id: questionId },
     data: {
-      ...(input.text != null && { text: input.text }),
+      ...(input.textEn != null && { textEn: input.textEn }),
+      ...('textTh' in input && { textTh: input.textTh ?? null }),
       ...(input.order != null && { order: input.order }),
     },
   })
@@ -417,7 +438,7 @@ export async function addOption(
   await requireQuestionInQuiz(prisma, courseId, questionId, locale)
 
   const option = await prisma.option.create({
-    data: { questionId, text: input.text, isCorrect: input.isCorrect },
+    data: { questionId, textEn: input.textEn, textTh: input.textTh ?? null, isCorrect: input.isCorrect },
     select: { id: true },
   })
 
@@ -454,7 +475,8 @@ export async function updateOption(
   await prisma.option.update({
     where: { id: optionId },
     data: {
-      ...(input.text != null && { text: input.text }),
+      ...(input.textEn != null && { textEn: input.textEn }),
+      ...('textTh' in input && { textTh: input.textTh ?? null }),
       ...(input.isCorrect != null && { isCorrect: input.isCorrect }),
     },
   })
@@ -524,7 +546,7 @@ export async function getQuizForUser(
   if (!quiz) throw notFound(t('error.quiz.notFound', undefined, locale))
 
   // layer 2: toQuizForUserResponse ไม่ map isCorrect
-  return toQuizForUserResponse(quiz)
+  return toQuizForUserResponse(quiz, locale)
 }
 
 export async function submitQuiz(

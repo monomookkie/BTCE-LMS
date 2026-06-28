@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { buildTestApp, createUser, loginAs, prisma } from '../../test/helpers.js'
 import type { TestApp } from '../../test/helpers.js'
-import type { CourseResponse, MaterialResponse } from '@btec-lms/shared'
+import type { CourseAdminResponse, MaterialAdminResponse, MaterialPublicResponse } from '@btec-lms/shared'
 
 describe('Materials module', () => {
   let app: TestApp
@@ -23,9 +23,9 @@ describe('Materials module', () => {
       method: 'POST',
       url: '/courses',
       headers: { cookie: cookies },
-      payload: { title: 'Test Course', category: 'Safety', passScore: 80 },
+      payload: { titleEn: 'Test Course', categoryEn: 'Safety', passScore: 80 },
     })
-    return { admin, cookies, course: courseRes.json<CourseResponse>() }
+    return { admin, cookies, course: courseRes.json<CourseAdminResponse>() }
   }
 
   // ─── RBAC ─────────────────────────────────────────────────────────────────
@@ -53,7 +53,7 @@ describe('Materials module', () => {
         method: 'POST',
         url: `/courses/${course.id}/materials/link`,
         headers: { cookie: cookies },
-        payload: { type: 'LINK', title: 'Some Link', url: 'https://example.com' },
+        payload: { type: 'LINK', titleEn: 'Some Link', url: 'https://example.com' },
       })
       expect(res.statusCode).toBe(403)
     })
@@ -69,11 +69,11 @@ describe('Materials module', () => {
         method: 'POST',
         url: `/courses/${course.id}/materials/link`,
         headers: { cookie: cookies },
-        payload: { type: 'LINK', title: 'Reference Article', url: 'https://example.com/article' },
+        payload: { type: 'LINK', titleEn: 'Reference Article', url: 'https://example.com/article' },
       })
 
       expect(res.statusCode).toBe(201)
-      const body = res.json<MaterialResponse>()
+      const body = res.json<MaterialAdminResponse>()
       expect(body.url).toBe('https://example.com/article')
       expect(body.fileKey).toBeNull()
       expect(body.signedUrl).toBeNull() // ไม่ใช่ file upload
@@ -92,11 +92,11 @@ describe('Materials module', () => {
         method: 'POST',
         url: `/courses/${course.id}/materials/link`,
         headers: { cookie: cookies },
-        payload: { type: 'VIDEO', title: 'Training Video', url: 'https://youtu.be/abc123' },
+        payload: { type: 'VIDEO', titleEn: 'Training Video', url: 'https://youtu.be/abc123' },
       })
 
       expect(res.statusCode).toBe(201)
-      expect(res.json<MaterialResponse>().type).toBe('VIDEO')
+      expect(res.json<MaterialAdminResponse>().type).toBe('VIDEO')
     })
 
     it('audit log MATERIAL_CREATE written', async () => {
@@ -106,9 +106,9 @@ describe('Materials module', () => {
         method: 'POST',
         url: `/courses/${course.id}/materials/link`,
         headers: { cookie: cookies },
-        payload: { type: 'LINK', title: 'Audited Link', url: 'https://example.com' },
+        payload: { type: 'LINK', titleEn: 'Audited Link', url: 'https://example.com' },
       })
-      const materialId = res.json<MaterialResponse>().id
+      const materialId = res.json<MaterialAdminResponse>().id
 
       const log = await prisma.auditLog.findFirst({
         where: { action: 'MATERIAL_CREATE', targetId: materialId },
@@ -130,7 +130,7 @@ describe('Materials module', () => {
         '--boundary\r\n',
         'Content-Disposition: form-data; name="type"\r\n\r\nPDF\r\n',
         '--boundary\r\n',
-        'Content-Disposition: form-data; name="title"\r\n\r\nBlood Safety Protocol\r\n',
+        'Content-Disposition: form-data; name="titleEn"\r\n\r\nBlood Safety Protocol\r\n',
         '--boundary\r\n',
         `Content-Disposition: form-data; name="file"; filename="protocol.pdf"\r\n`,
         'Content-Type: application/pdf\r\n\r\n',
@@ -150,7 +150,7 @@ describe('Materials module', () => {
       })
 
       expect(res.statusCode).toBe(201)
-      const mat = res.json<MaterialResponse>()
+      const mat = res.json<MaterialAdminResponse>()
 
       // ต้องมี fileKey (ไม่ใช่ base64)
       expect(mat.fileKey).not.toBeNull()
@@ -175,7 +175,7 @@ describe('Materials module', () => {
         '--b\r\n',
         'Content-Disposition: form-data; name="type"\r\n\r\nPDF\r\n',
         '--b\r\n',
-        'Content-Disposition: form-data; name="title"\r\n\r\nFake PDF\r\n',
+        'Content-Disposition: form-data; name="titleEn"\r\n\r\nFake PDF\r\n',
         '--b\r\n',
         'Content-Disposition: form-data; name="file"; filename="virus.exe"\r\n',
         'Content-Type: application/x-msdownload\r\n\r\n',
@@ -213,9 +213,9 @@ describe('Materials module', () => {
           method: 'POST',
           url: `/courses/${course.id}/materials/link`,
           headers: { cookie: cookies },
-          payload: { type: 'LINK', title, url: 'https://example.com' },
+          payload: { type: 'LINK', titleEn: title, url: 'https://example.com' },
         })
-        ids.push(res.json<MaterialResponse>().id)
+        ids.push(res.json<MaterialAdminResponse>().id)
       }
 
       // reverse order
@@ -250,9 +250,9 @@ describe('Materials module', () => {
         method: 'POST',
         url: `/courses/${otherCourse.id}/materials/link`,
         headers: { cookie: cookies },
-        payload: { type: 'LINK', title: 'Other', url: 'https://other.com' },
+        payload: { type: 'LINK', titleEn: 'Other', url: 'https://other.com' },
       })
-      const otherId = otherMat.json<MaterialResponse>().id
+      const otherId = otherMat.json<MaterialAdminResponse>().id
 
       const res = await app.inject({
         method: 'PATCH',
@@ -274,8 +274,8 @@ describe('Materials module', () => {
         method: 'POST',
         url: `/courses/${course.id}/materials/link`,
         headers: { cookie: cookies },
-        payload: { type: 'LINK', title: 'To Delete', url: 'https://example.com' },
-      })).json<MaterialResponse>()
+        payload: { type: 'LINK', titleEn: 'To Delete', url: 'https://example.com' },
+      })).json<MaterialAdminResponse>()
 
       const delRes = await app.inject({
         method: 'DELETE',
@@ -294,8 +294,98 @@ describe('Materials module', () => {
         url: `/courses/${course.id}/materials`,
         headers: { cookie: cookies },
       })
-      const ids = listRes.json<MaterialResponse[]>().map((m) => m.id)
+      const ids = listRes.json<MaterialAdminResponse[]>().map((m) => m.id)
       expect(ids).not.toContain(created.id)
+    })
+  })
+
+  // ─── Role-based response schema (public vs admin) ──────────────────────────
+
+  describe('Role-based material response schema', () => {
+    it('enrolled USER GET /materials → response has NO raw titleEn/titleTh', async () => {
+      const { cookies: adminCookies, course } = await setupAdminAndCourse()
+
+      // publish course เพื่อให้ user enroll ได้
+      await app.inject({
+        method: 'PATCH',
+        url: `/courses/${course.id}/status`,
+        headers: { cookie: adminCookies },
+        payload: { status: 'PUBLISHED' },
+      })
+
+      // สร้าง material
+      await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/materials/link`,
+        headers: { cookie: adminCookies },
+        payload: { type: 'LINK', titleEn: 'User Visible Material', titleTh: 'เนื้อหา', url: 'https://example.com' },
+      })
+
+      // enroll user
+      const { user, plainPassword } = await createUser({ role: 'USER' })
+      const { cookies: userCookies } = await loginAs(app, user.email, plainPassword)
+      await app.inject({
+        method: 'POST',
+        url: '/enrollments',
+        headers: { cookie: adminCookies },
+        payload: { userId: user.id, courseId: course.id },
+      })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/courses/${course.id}/materials`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(200)
+      const materials = res.json<MaterialPublicResponse[]>()
+      expect(materials.length).toBeGreaterThan(0)
+
+      const mat = materials[0]!
+      // ต้องมี localized title
+      expect(mat.title).toBeDefined()
+
+      // ห้ามมี raw bilingual fields
+      expect('titleEn' in mat).toBe(false)
+      expect('titleTh' in mat).toBe(false)
+    })
+
+    it('ADMIN GET /materials → response includes raw titleEn/titleTh', async () => {
+      const { cookies, course } = await setupAdminAndCourse()
+
+      const created = (await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/materials/link`,
+        headers: { cookie: cookies },
+        payload: { type: 'LINK', titleEn: 'Admin Material', titleTh: 'เนื้อหาแอดมิน', url: 'https://example.com' },
+      })).json<MaterialAdminResponse>()
+
+      const listRes = await app.inject({
+        method: 'GET',
+        url: `/courses/${course.id}/materials`,
+        headers: { cookie: cookies },
+      })
+      expect(listRes.statusCode).toBe(200)
+      const materials = listRes.json<MaterialAdminResponse[]>()
+      const mat = materials.find((m) => m.id === created.id)!
+
+      expect(mat.titleEn).toBe('Admin Material')
+      expect(mat.titleTh).toBe('เนื้อหาแอดมิน')
+      expect(mat.title).toBeDefined()
+    })
+
+    it('ADMIN POST /materials/link → response includes raw titleEn/titleTh', async () => {
+      const { cookies, course } = await setupAdminAndCourse()
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/materials/link`,
+        headers: { cookie: cookies },
+        payload: { type: 'LINK', titleEn: 'Bilingual Link', titleTh: 'ลิงค์สองภาษา', url: 'https://example.com' },
+      })
+      expect(res.statusCode).toBe(201)
+      const body = res.json<MaterialAdminResponse>()
+      expect(body.titleEn).toBe('Bilingual Link')
+      expect(body.titleTh).toBe('ลิงค์สองภาษา')
     })
   })
 })
