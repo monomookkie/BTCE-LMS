@@ -21,6 +21,7 @@ import {
   recordConsent,
 } from './users.service.js'
 import { badRequest } from '../../lib/errors.js'
+import { t, resolveLocale } from '../../lib/i18n.js'
 
 const usersRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -59,7 +60,8 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const user = await createUser(app.prisma, req.body, req.user.id, req.ip)
+      const locale = await resolveLocale(req, app.prisma)
+      const user = await createUser(app.prisma, req.body, req.user.id, locale, req.ip)
       return reply.status(201).send(user)
     },
   )
@@ -72,7 +74,8 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       schema: { response: { 200: userResponseSchema } },
     },
     async (req, reply) => {
-      const user = await getProfile(app.prisma, req.user.id)
+      const locale = await resolveLocale(req, app.prisma)
+      const user = await getProfile(app.prisma, req.user.id, locale)
       return reply.send(user)
     },
   )
@@ -118,17 +121,18 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       schema: { response: { 200: importResultSchema } },
     },
     async (req, reply) => {
+      const locale = await resolveLocale(req, app.prisma)
       const file = await req.file()
-      if (!file) throw badRequest('No file uploaded')
+      if (!file) throw badRequest(t('error.file.noFile', undefined, locale))
 
       const mimeOk =
         file.mimetype === 'text/csv' ||
         file.mimetype === 'text/plain' ||
         file.mimetype === 'application/vnd.ms-excel'
-      if (!mimeOk) throw badRequest('กรุณาอัปโหลดไฟล์ CSV')
+      if (!mimeOk) throw badRequest(t('error.file.invalidCsv', undefined, locale))
 
       const buffer = await file.toBuffer()
-      const result = await importFromCsv(app.prisma, buffer, req.user.id, req.ip)
+      const result = await importFromCsv(app.prisma, buffer, req.user.id, locale, req.ip)
       return reply.send(result)
     },
   )
@@ -144,7 +148,8 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const user = await getUser(app.prisma, req.params.id, req.user.id, req.ip)
+      const locale = await resolveLocale(req, app.prisma)
+      const user = await getUser(app.prisma, req.params.id, req.user.id, locale, req.ip)
       return reply.send(user)
     },
   )
@@ -161,7 +166,8 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const user = await updateUser(app.prisma, req.params.id, req.body, req.user.id, req.ip)
+      const locale = await resolveLocale(req, app.prisma)
+      const user = await updateUser(app.prisma, req.params.id, req.body, req.user.id, locale, req.ip)
       return reply.send(user)
     },
   )
@@ -177,7 +183,8 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      await softDeleteUser(app.prisma, req.params.id, req.user.id, req.ip)
+      const locale = await resolveLocale(req, app.prisma)
+      await softDeleteUser(app.prisma, req.params.id, req.user.id, locale, req.ip)
       return reply.send({ message: 'ok' as const })
     },
   )

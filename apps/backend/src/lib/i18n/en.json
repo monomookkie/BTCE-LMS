@@ -1,9 +1,10 @@
 {
   "error.auth.invalidCredentials": "Invalid email or password",
   "error.auth.accountSuspended": "Invalid email or password",
-  "error.auth.tokenExpired": "Token has expired or is invalid",
   "error.auth.refreshTokenInvalid": "Refresh token has expired or is invalid",
+  "error.auth.refreshTokenMissing": "Refresh token missing",
   "error.auth.accountDeactivated": "This account has been suspended",
+  "error.auth.wrongCurrentPassword": "Current password is incorrect",
   "error.auth.required": "Authentication required",
   "error.auth.insufficientPermissions": "Insufficient permissions",
   "error.auth.mustChangePassword": "You must change your password before continuing",
@@ -15,20 +16,27 @@
 
   "error.course.notFound": "Course not found",
   "error.course.notPublished": "This course is not available",
+  "error.course.archivedCannotChange": "Archived courses cannot change status",
   "error.course.invalidStatusTransition": "Invalid status transition",
 
   "error.material.notFound": "Material not found",
   "error.material.uploadFailed": "File upload failed",
   "error.material.invalidType": "Unsupported file type",
+  "error.material.someNotFound": "Some material IDs were not found in this course",
+  "error.material.invalidMetadata": "Invalid metadata: {{detail}}",
+  "error.material.mimeNotAllowed": "File type \"{{mimeType}}\" is not allowed for material type {{type}}",
+  "error.material.notEnrolled": "You must be enrolled in this course to view materials",
 
   "error.enrollment.notFound": "Enrollment not found",
   "error.enrollment.alreadyEnrolled": "User is already enrolled in this course",
   "error.enrollment.selfEnrollNotAllowed": "This course does not allow self-enrollment",
   "error.enrollment.notEnrolled": "You must be enrolled in this course",
+  "error.enrollment.alreadyCompleted": "This course has already been completed",
 
   "error.quiz.notFound": "Quiz not found for this course",
   "error.quiz.alreadyExists": "This course already has a quiz",
   "error.quiz.maxAttemptsReached": "Maximum attempts ({{count}}) reached for this quiz",
+  "error.quiz.attemptsNotFound": "Attempts not found",
 
   "error.question.notFound": "Question not found",
   "error.option.notFound": "Option not found",

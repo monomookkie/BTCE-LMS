@@ -7,6 +7,7 @@ import type {
 } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest } from '../../lib/errors.js'
+import { t, type Locale } from '../../lib/i18n.js'
 import type { CourseListQuery } from './courses.schema.js'
 
 const COURSE_SELECT = {
@@ -104,6 +105,7 @@ export async function getCourse(
   prisma: PrismaClient,
   id: string,
   requesterRole: string,
+  locale: Locale = 'en',
 ): Promise<CourseResponse> {
   const statusFilter = requesterRole === 'USER' ? { status: 'PUBLISHED' as const } : {}
 
@@ -112,7 +114,7 @@ export async function getCourse(
     select: COURSE_SELECT,
   })
 
-  if (!course) throw notFound('Course not found')
+  if (!course) throw notFound(t('error.course.notFound', undefined, locale))
   return toCourseResponse(course)
 }
 
@@ -153,10 +155,11 @@ export async function updateCourse(
   id: string,
   input: UpdateCourseInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<CourseResponse> {
   const existing = await prisma.course.findFirst({ where: { id, deletedAt: null } })
-  if (!existing) throw notFound('Course not found')
+  if (!existing) throw notFound(t('error.course.notFound', undefined, locale))
 
   const course = await prisma.course.update({
     where: { id },
@@ -190,14 +193,15 @@ export async function updateCourseStatus(
   id: string,
   input: UpdateCourseStatusInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<CourseResponse> {
   const existing = await prisma.course.findFirst({ where: { id, deletedAt: null } })
-  if (!existing) throw notFound('Course not found')
+  if (!existing) throw notFound(t('error.course.notFound', undefined, locale))
 
   // ARCHIVED → ไม่ให้ publish กลับ (ต้องสร้างใหม่)
   if (existing.status === 'ARCHIVED') {
-    throw badRequest('Archived course cannot change status')
+    throw badRequest(t('error.course.archivedCannotChange', undefined, locale))
   }
 
   const course = await prisma.course.update({
@@ -223,10 +227,11 @@ export async function softDeleteCourse(
   prisma: PrismaClient,
   id: string,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
   const existing = await prisma.course.findFirst({ where: { id, deletedAt: null } })
-  if (!existing) throw notFound('Course not found')
+  if (!existing) throw notFound(t('error.course.notFound', undefined, locale))
 
   const now = new Date()
 

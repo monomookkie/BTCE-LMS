@@ -16,6 +16,7 @@ import {
   markMaterialComplete,
   cancelEnrollment,
 } from './enrollments.service.js'
+import { resolveLocale } from '../../lib/i18n.js'
 
 const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -35,10 +36,12 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       response: { 201: enrollmentResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const enrollment = await assignEnrollment(
       app.prisma,
       req.body,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.code(201).send(enrollment)
@@ -52,10 +55,12 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       response: { 201: enrollmentResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const enrollment = await selfEnroll(
       app.prisma,
       req.body,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.code(201).send(enrollment)
@@ -93,11 +98,13 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: enrollmentResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const enrollment = await getEnrollment(
       app.prisma,
       req.params.id,
       req.user.id,
       req.user.role,
+      locale,
       req.ip,
     )
     return reply.send(enrollment)
@@ -111,11 +118,13 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: enrollmentResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const enrollment = await markMaterialComplete(
       app.prisma,
       req.params.id,
       req.params.materialId,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.send(enrollment)
@@ -129,7 +138,8 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.object({ message: z.string() }) },
     },
   }, async (req, reply) => {
-    await cancelEnrollment(app.prisma, req.params.id, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    await cancelEnrollment(app.prisma, req.params.id, req.user.id, locale, req.ip)
     return reply.send({ message: 'Enrollment cancelled' })
   })
 }

@@ -4,6 +4,7 @@ import type { LoginInput, ChangePasswordInput } from '@btec-lms/shared'
 import { verifyPassword, hashPassword } from '../../lib/password.js'
 import { logAudit } from '../../lib/audit.js'
 import { unauthorized, notFound, badRequest } from '../../lib/errors.js'
+import { t, type Locale } from '../../lib/i18n.js'
 import { env } from '../../config/env.js'
 import type { MeResponse } from './auth.schema.js'
 
@@ -38,6 +39,7 @@ export async function loginUser(
   prisma: PrismaClient,
   sign: SignFn,
   input: LoginInput,
+  locale: Locale = 'en',
   ip?: string,
   userAgent?: string,
 ): Promise<{ accessToken: string; refreshToken: string; user: MeResponse }> {
@@ -59,7 +61,7 @@ export async function loginUser(
       },
       ...(ip != null && { ip }),
     })
-    throw unauthorized('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+    throw unauthorized(t('error.auth.invalidCredentials', undefined, locale))
   }
 
   if (!user.isActive) {
@@ -71,7 +73,7 @@ export async function loginUser(
       targetId: user.id,
       ...(ip != null && { ip }),
     })
-    throw unauthorized('อีเมลหรือรหัสผ่านไม่ถูกต้อง')
+    throw unauthorized(t('error.auth.invalidCredentials', undefined, locale))
   }
 
   const accessToken = sign({ sub: user.id, role: user.role })
@@ -140,6 +142,7 @@ export async function rotateRefreshToken(
   prisma: PrismaClient,
   sign: SignFn,
   refreshRaw: string,
+  locale: Locale = 'en',
 ): Promise<{ accessToken: string; refreshToken: string }> {
   const tokenHash = hashToken(refreshRaw)
 
@@ -153,11 +156,11 @@ export async function rotateRefreshToken(
   })
 
   if (!stored) {
-    throw unauthorized('Refresh token หมดอายุหรือไม่ถูกต้อง')
+    throw unauthorized(t('error.auth.refreshTokenInvalid', undefined, locale))
   }
 
   if (!stored.user.isActive || stored.user.deletedAt) {
-    throw unauthorized('บัญชีนี้ถูกระงับการใช้งาน')
+    throw unauthorized(t('error.auth.accountDeactivated', undefined, locale))
   }
 
   const newRefreshRaw = generateRefreshToken()
@@ -179,12 +182,16 @@ export async function rotateRefreshToken(
   return { accessToken, refreshToken: newRefreshRaw }
 }
 
-export async function getMe(prisma: PrismaClient, userId: string): Promise<MeResponse> {
+export async function getMe(
+  prisma: PrismaClient,
+  userId: string,
+  locale: Locale = 'en',
+): Promise<MeResponse> {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null },
   })
 
-  if (!user) throw notFound('User not found')
+  if (!user) throw notFound(t('error.user.notFound', undefined, locale))
 
   return {
     id: user.id,
@@ -207,13 +214,14 @@ export async function changePassword(
   prisma: PrismaClient,
   userId: string,
   input: ChangePasswordInput,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
   const user = await prisma.user.findFirst({ where: { id: userId, deletedAt: null } })
-  if (!user) throw notFound('User not found')
+  if (!user) throw notFound(t('error.user.notFound', undefined, locale))
 
   const valid = await verifyPassword(user.password, input.currentPassword)
-  if (!valid) throw badRequest('รหัสผ่านปัจจุบันไม่ถูกต้อง')
+  if (!valid) throw badRequest(t('error.auth.wrongCurrentPassword', undefined, locale))
 
   const newHash = await hashPassword(input.newPassword)
 

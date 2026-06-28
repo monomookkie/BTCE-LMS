@@ -16,6 +16,7 @@ import {
   updateCourseStatus,
   softDeleteCourse,
 } from './courses.service.js'
+import { resolveLocale } from '../../lib/i18n.js'
 
 const coursesRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -58,7 +59,8 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: courseResponseSchema },
     },
   }, async (req) => {
-    return getCourse(app.prisma, req.params.id, req.user.role)
+    const locale = await resolveLocale(req, app.prisma)
+    return getCourse(app.prisma, req.params.id, req.user.role, locale)
   })
 
   // PATCH /courses/:id — ADMIN/MANAGER (metadata เท่านั้น ไม่รวม status)
@@ -70,7 +72,8 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: courseResponseSchema },
     },
   }, async (req) => {
-    return updateCourse(app.prisma, req.params.id, req.body, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    return updateCourse(app.prisma, req.params.id, req.body, req.user.id, locale, req.ip)
   })
 
   // PATCH /courses/:id/status — ADMIN only (publish / archive)
@@ -82,7 +85,8 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: courseResponseSchema },
     },
   }, async (req) => {
-    return updateCourseStatus(app.prisma, req.params.id, req.body, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    return updateCourseStatus(app.prisma, req.params.id, req.body, req.user.id, locale, req.ip)
   })
 
   // DELETE /courses/:id — ADMIN only (soft delete + cascade materials)
@@ -93,7 +97,8 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.object({ message: z.string() }) },
     },
   }, async (req, reply) => {
-    await softDeleteCourse(app.prisma, req.params.id, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    await softDeleteCourse(app.prisma, req.params.id, req.user.id, locale, req.ip)
     return reply.send({ message: 'Course deleted' })
   })
 }

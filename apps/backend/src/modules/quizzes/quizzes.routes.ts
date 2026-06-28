@@ -34,6 +34,7 @@ import {
   submitQuiz,
   getAttempts,
 } from './quizzes.service.js'
+import { resolveLocale } from '../../lib/i18n.js'
 
 const quizzesRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -49,7 +50,8 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 201: quizAdminResponseSchema },
     },
   }, async (req, reply) => {
-    const quiz = await createQuiz(app.prisma, req.params.courseId, req.body, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    const quiz = await createQuiz(app.prisma, req.params.courseId, req.body, req.user.id, locale, req.ip)
     return reply.code(201).send(quiz)
   })
 
@@ -61,7 +63,8 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: quizAdminResponseSchema },
     },
   }, async (req, reply) => {
-    const quiz = await getQuizAdmin(app.prisma, req.params.courseId)
+    const locale = await resolveLocale(req, app.prisma)
+    const quiz = await getQuizAdmin(app.prisma, req.params.courseId, locale)
     return reply.send(quiz)
   })
 
@@ -74,7 +77,8 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: quizAdminResponseSchema },
     },
   }, async (req, reply) => {
-    const quiz = await updateQuiz(app.prisma, req.params.courseId, req.body, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    const quiz = await updateQuiz(app.prisma, req.params.courseId, req.body, req.user.id, locale, req.ip)
     return reply.send(quiz)
   })
 
@@ -86,7 +90,8 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.object({ message: z.string() }) },
     },
   }, async (req, reply) => {
-    await deleteQuiz(app.prisma, req.params.courseId, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    await deleteQuiz(app.prisma, req.params.courseId, req.user.id, locale, req.ip)
     return reply.send({ message: 'Quiz deleted' })
   })
 
@@ -101,7 +106,8 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 201: quizAdminResponseSchema },
     },
   }, async (req, reply) => {
-    const quiz = await addQuestion(app.prisma, req.params.courseId, req.body, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    const quiz = await addQuestion(app.prisma, req.params.courseId, req.body, req.user.id, locale, req.ip)
     return reply.code(201).send(quiz)
   })
 
@@ -114,12 +120,14 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: quizAdminResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const quiz = await updateQuestion(
       app.prisma,
       req.params.courseId,
       req.params.questionId,
       req.body,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.send(quiz)
@@ -133,11 +141,13 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.object({ message: z.string() }) },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     await deleteQuestion(
       app.prisma,
       req.params.courseId,
       req.params.questionId,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.send({ message: 'Question deleted' })
@@ -154,12 +164,14 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 201: quizAdminResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const quiz = await addOption(
       app.prisma,
       req.params.courseId,
       req.params.questionId,
       req.body,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.code(201).send(quiz)
@@ -174,6 +186,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: quizAdminResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const quiz = await updateOption(
       app.prisma,
       req.params.courseId,
@@ -181,6 +194,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       req.params.optionId,
       req.body,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.send(quiz)
@@ -194,12 +208,14 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.object({ message: z.string() }) },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     await deleteOption(
       app.prisma,
       req.params.courseId,
       req.params.questionId,
       req.params.optionId,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.send({ message: 'Option deleted' })
@@ -215,7 +231,8 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: quizForUserResponseSchema }, // Zod strips unknown fields รวม isCorrect
     },
   }, async (req, reply) => {
-    const quiz = await getQuizForUser(app.prisma, req.params.courseId, req.user.id)
+    const locale = await resolveLocale(req, app.prisma)
+    const quiz = await getQuizForUser(app.prisma, req.params.courseId, req.user.id, locale)
     return reply.send(quiz)
   })
 
@@ -228,11 +245,13 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 201: quizAttemptResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const attempt = await submitQuiz(
       app.prisma,
       req.params.courseId,
       req.user.id,
       req.body,
+      locale,
       req.ip,
     )
     return reply.code(201).send(attempt)
@@ -247,12 +266,14 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.array(quizAttemptResponseSchema) },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const attempts = await getAttempts(
       app.prisma,
       req.params.courseId,
       req.user.id,
       req.user.role,
       req.query.userId,
+      locale,
     )
     return reply.send(attempts)
   })

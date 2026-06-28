@@ -6,6 +6,7 @@ import type {
 } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
+import { t, type Locale } from '../../lib/i18n.js'
 import type { EnrollmentListQuery } from './enrollments.schema.js'
 
 const ENROLLMENT_SELECT = {
@@ -104,23 +105,24 @@ export async function assignEnrollment(
   prisma: PrismaClient,
   input: AssignEnrollmentInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<EnrollmentResponse> {
   const course = await prisma.course.findFirst({
     where: { id: input.courseId, deletedAt: null, status: 'PUBLISHED' },
     select: { id: true },
   })
-  if (!course) throw notFound('Course not found or not published')
+  if (!course) throw notFound(t('error.course.notFound', undefined, locale))
 
   const user = await prisma.user.findFirst({
     where: { id: input.userId, deletedAt: null },
     select: { id: true },
   })
-  if (!user) throw notFound('User not found')
+  if (!user) throw notFound(t('error.user.notFound', undefined, locale))
 
   // app-level uniqueness: ตรวจเฉพาะ active enrollment
   const existing = await findActiveEnrollment(prisma, input.userId, input.courseId)
-  if (existing) throw badRequest('User is already enrolled in this course')
+  if (existing) throw badRequest(t('error.enrollment.alreadyEnrolled', undefined, locale))
 
   const enrollment = await prisma.enrollment.create({
     data: {
@@ -148,17 +150,18 @@ export async function selfEnroll(
   prisma: PrismaClient,
   input: SelfEnrollInput,
   userId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<EnrollmentResponse> {
   const course = await prisma.course.findFirst({
     where: { id: input.courseId, deletedAt: null, status: 'PUBLISHED' },
     select: { id: true, allowSelfEnroll: true },
   })
-  if (!course) throw notFound('Course not found or not published')
-  if (!course.allowSelfEnroll) throw forbidden('This course does not allow self-enrollment')
+  if (!course) throw notFound(t('error.course.notFound', undefined, locale))
+  if (!course.allowSelfEnroll) throw forbidden(t('error.enrollment.selfEnrollNotAllowed', undefined, locale))
 
   const existing = await findActiveEnrollment(prisma, userId, input.courseId)
-  if (existing) throw badRequest('Already enrolled in this course')
+  if (existing) throw badRequest(t('error.enrollment.alreadyEnrolled', undefined, locale))
 
   const enrollment = await prisma.enrollment.create({
     data: { userId, courseId: input.courseId, status: 'IN_PROGRESS' },
@@ -239,6 +242,7 @@ export async function getEnrollment(
   id: string,
   requesterId: string,
   requesterRole: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<EnrollmentResponse> {
   const enrollment = await prisma.enrollment.findFirst({
@@ -246,10 +250,10 @@ export async function getEnrollment(
     select: ENROLLMENT_SELECT,
   })
   // ใช้ notFound เสมอ ทั้ง "ไม่มี" และ "ไม่ใช่ของตัวเอง" — กัน enumeration
-  if (!enrollment) throw notFound('Enrollment not found')
+  if (!enrollment) throw notFound(t('error.enrollment.notFound', undefined, locale))
 
   if (requesterRole === 'USER' && enrollment.userId !== requesterId) {
-    throw notFound('Enrollment not found')
+    throw notFound(t('error.enrollment.notFound', undefined, locale))
   }
 
   // PDPA: log เมื่อ ADMIN/MANAGER ดู enrollment ของ user อื่น
@@ -272,6 +276,7 @@ export async function markMaterialComplete(
   enrollmentId: string,
   materialId: string,
   userId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<EnrollmentResponse> {
   const enrollment = await prisma.enrollment.findFirst({
@@ -279,15 +284,15 @@ export async function markMaterialComplete(
     select: ENROLLMENT_SELECT,
   })
   // notFound เสมอ — กัน enumeration ของ enrollment ID
-  if (!enrollment) throw notFound('Enrollment not found')
-  if (enrollment.userId !== userId) throw notFound('Enrollment not found')
-  if (enrollment.status === 'COMPLETED') throw badRequest('Course already completed')
+  if (!enrollment) throw notFound(t('error.enrollment.notFound', undefined, locale))
+  if (enrollment.userId !== userId) throw notFound(t('error.enrollment.notFound', undefined, locale))
+  if (enrollment.status === 'COMPLETED') throw badRequest(t('error.enrollment.alreadyCompleted', undefined, locale))
 
   const material = await prisma.material.findFirst({
     where: { id: materialId, courseId: enrollment.courseId, deletedAt: null },
     select: { id: true },
   })
-  if (!material) throw notFound('Material not found in this course')
+  if (!material) throw notFound(t('error.material.notFound', undefined, locale))
 
   const currentCompleted = (enrollment.completedMaterials as string[]) ?? []
   const newCompleted = [...new Set([...currentCompleted, materialId])]
@@ -333,13 +338,14 @@ export async function cancelEnrollment(
   prisma: PrismaClient,
   id: string,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
   const enrollment = await prisma.enrollment.findFirst({
     where: { id, deletedAt: null },
     select: { id: true, userId: true, courseId: true },
   })
-  if (!enrollment) throw notFound('Enrollment not found')
+  if (!enrollment) throw notFound(t('error.enrollment.notFound', undefined, locale))
 
   // soft delete — ไม่ลบจริง ให้ audit trail ยังอยู่ใน DB
   await prisma.enrollment.update({

@@ -7,7 +7,8 @@ import type {
   ReorderMaterialsInput,
 } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
-import { notFound, badRequest } from '../../lib/errors.js'
+import { notFound, badRequest, forbidden } from '../../lib/errors.js'
+import { t, type Locale } from '../../lib/i18n.js'
 import { type StorageProvider } from '../../lib/storage.js'
 
 const MATERIAL_SELECT = {
@@ -52,9 +53,9 @@ function toMaterialResponse(m: MaterialRecord, storage: StorageProvider): Materi
   }
 }
 
-async function assertCourseExists(prisma: PrismaClient, courseId: string): Promise<void> {
+async function assertCourseExists(prisma: PrismaClient, courseId: string, locale: Locale = 'en'): Promise<void> {
   const course = await prisma.course.findFirst({ where: { id: courseId, deletedAt: null }, select: { id: true } })
-  if (!course) throw notFound('Course not found')
+  if (!course) throw notFound(t('error.course.notFound', undefined, locale))
 }
 
 export async function listMaterials(
@@ -62,10 +63,11 @@ export async function listMaterials(
   courseId: string,
   storage: StorageProvider,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
   requesterRole?: string,
 ): Promise<MaterialResponse[]> {
-  await assertCourseExists(prisma, courseId)
+  await assertCourseExists(prisma, courseId, locale)
 
   // USER ต้อง enrolled (active) จึงเข้าถึง materials ได้
   if (requesterRole === 'USER') {
@@ -74,8 +76,7 @@ export async function listMaterials(
       select: { id: true },
     })
     if (!enrollment) {
-      const { forbidden } = await import('../../lib/errors.js')
-      throw forbidden('You must be enrolled in this course to view materials')
+      throw forbidden(t('error.material.notEnrolled', undefined, locale))
     }
   }
 
@@ -104,9 +105,10 @@ export async function createLinkMaterial(
   input: CreateLinkMaterialInput,
   actorId: string,
   storage: StorageProvider,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<MaterialResponse> {
-  await assertCourseExists(prisma, courseId)
+  await assertCourseExists(prisma, courseId, locale)
 
   // ถ้าไม่ระบุ order ให้ต่อท้าย
   const maxOrder = await prisma.material.aggregate({
@@ -147,9 +149,10 @@ export async function createFileMaterial(
   meta: CreateFileMaterialMeta,
   actorId: string,
   storage: StorageProvider,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<MaterialResponse> {
-  await assertCourseExists(prisma, courseId)
+  await assertCourseExists(prisma, courseId, locale)
 
   const { fileKey, mimeType: resolvedMime, sizeBytes } = await storage.upload(
     buffer,
@@ -196,12 +199,13 @@ export async function updateMaterial(
   input: UpdateMaterialInput,
   actorId: string,
   storage: StorageProvider,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<MaterialResponse> {
   const existing = await prisma.material.findFirst({
     where: { id: materialId, courseId, deletedAt: null },
   })
-  if (!existing) throw notFound('Material not found')
+  if (!existing) throw notFound(t('error.material.notFound', undefined, locale))
 
   const material = await prisma.material.update({
     where: { id: materialId },
@@ -230,16 +234,17 @@ export async function reorderMaterials(
   courseId: string,
   input: ReorderMaterialsInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
-  await assertCourseExists(prisma, courseId)
+  await assertCourseExists(prisma, courseId, locale)
 
   // ยืนยันว่า materialIds ทั้งหมด belong to courseId
   const count = await prisma.material.count({
     where: { id: { in: input.materialIds }, courseId, deletedAt: null },
   })
   if (count !== input.materialIds.length) {
-    throw badRequest('Some material IDs not found in this course')
+    throw badRequest(t('error.material.someNotFound', undefined, locale))
   }
 
   // update order ตาม index ใน array
@@ -264,12 +269,13 @@ export async function softDeleteMaterial(
   courseId: string,
   materialId: string,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
   const existing = await prisma.material.findFirst({
     where: { id: materialId, courseId, deletedAt: null },
   })
-  if (!existing) throw notFound('Material not found')
+  if (!existing) throw notFound(t('error.material.notFound', undefined, locale))
 
   // ไฟล์ใน Cloudinary ยังอยู่ — รอ cleanup job ทีหลัง
   await prisma.material.update({

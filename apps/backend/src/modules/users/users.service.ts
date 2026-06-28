@@ -11,6 +11,7 @@ import type {
 import { hashPassword } from '../../lib/password.js'
 import { logAudit } from '../../lib/audit.js'
 import { conflict, notFound, badRequest } from '../../lib/errors.js'
+import { t, type Locale } from '../../lib/i18n.js'
 import type { UserListQuery, ImportResult } from './users.schema.js'
 
 function toUserResponse(user: {
@@ -106,12 +107,13 @@ export async function createUser(
   prisma: PrismaClient,
   input: CreateUserInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<UserResponse> {
   const exists = await prisma.user.findFirst({
     where: { email: input.email, deletedAt: null },
   })
-  if (exists) throw conflict(`อีเมล ${input.email} ถูกใช้งานแล้ว`)
+  if (exists) throw conflict(t('error.user.emailConflict', undefined, locale))
 
   const password = await hashPassword(input.password)
 
@@ -146,13 +148,14 @@ export async function getUser(
   prisma: PrismaClient,
   id: string,
   requesterId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<UserResponse> {
   const user = await prisma.user.findFirst({
     where: { id, deletedAt: null },
     select: USER_SELECT,
   })
-  if (!user) throw notFound('User not found')
+  if (!user) throw notFound(t('error.user.notFound', undefined, locale))
 
   await logAudit(prisma, {
     actorId: requesterId,
@@ -170,10 +173,11 @@ export async function updateUser(
   id: string,
   input: UpdateUserInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<UserResponse> {
   const exists = await prisma.user.findFirst({ where: { id, deletedAt: null } })
-  if (!exists) throw notFound('User not found')
+  if (!exists) throw notFound(t('error.user.notFound', undefined, locale))
 
   const user = await prisma.user.update({
     where: { id },
@@ -203,11 +207,12 @@ export async function softDeleteUser(
   prisma: PrismaClient,
   id: string,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
   const user = await prisma.user.findFirst({ where: { id, deletedAt: null } })
-  if (!user) throw notFound('User not found')
-  if (id === actorId) throw badRequest('ไม่สามารถลบบัญชีตัวเองได้')
+  if (!user) throw notFound(t('error.user.notFound', undefined, locale))
+  if (id === actorId) throw badRequest(t('error.user.cannotDeleteSelf', undefined, locale))
 
   await prisma.$transaction([
     prisma.user.update({ where: { id }, data: { deletedAt: new Date() } }),
@@ -231,6 +236,7 @@ export async function importFromCsv(
   prisma: PrismaClient,
   buffer: Buffer,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<ImportResult> {
   let records: Record<string, string>[]
@@ -242,7 +248,7 @@ export async function importFromCsv(
       trim: true,
     }) as Record<string, string>[]
   } catch {
-    throw badRequest('ไฟล์ CSV ไม่ถูกต้อง')
+    throw badRequest(t('error.file.invalidCsv', undefined, locale))
   }
 
   const errors: ImportResult['errors'] = []
@@ -313,12 +319,16 @@ export async function importFromCsv(
   return { created, skipped, errors, tempPasswords }
 }
 
-export async function getProfile(prisma: PrismaClient, userId: string): Promise<UserResponse> {
+export async function getProfile(
+  prisma: PrismaClient,
+  userId: string,
+  locale: Locale = 'en',
+): Promise<UserResponse> {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null },
     select: USER_SELECT,
   })
-  if (!user) throw notFound('User not found')
+  if (!user) throw notFound(t('error.user.notFound', undefined, locale))
   return toUserResponse(user)
 }
 

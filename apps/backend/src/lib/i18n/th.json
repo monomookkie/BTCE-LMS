@@ -1,9 +1,10 @@
 {
   "error.auth.invalidCredentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
   "error.auth.accountSuspended": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
-  "error.auth.tokenExpired": "Token หมดอายุหรือไม่ถูกต้อง",
   "error.auth.refreshTokenInvalid": "Refresh token หมดอายุหรือไม่ถูกต้อง",
+  "error.auth.refreshTokenMissing": "ไม่พบ Refresh Token",
   "error.auth.accountDeactivated": "บัญชีนี้ถูกระงับการใช้งาน",
+  "error.auth.wrongCurrentPassword": "รหัสผ่านปัจจุบันไม่ถูกต้อง",
   "error.auth.required": "กรุณาเข้าสู่ระบบก่อน",
   "error.auth.insufficientPermissions": "คุณไม่มีสิทธิ์เข้าถึงส่วนนี้",
   "error.auth.mustChangePassword": "กรุณาเปลี่ยนรหัสผ่านก่อนดำเนินการต่อ",
@@ -15,20 +16,27 @@
 
   "error.course.notFound": "ไม่พบหลักสูตร",
   "error.course.notPublished": "หลักสูตรนี้ยังไม่เปิดให้เรียน",
+  "error.course.archivedCannotChange": "หลักสูตรที่เก็บถาวรแล้วไม่สามารถเปลี่ยนสถานะได้",
   "error.course.invalidStatusTransition": "ไม่สามารถเปลี่ยนสถานะนี้ได้",
 
   "error.material.notFound": "ไม่พบสื่อการเรียน",
   "error.material.uploadFailed": "อัปโหลดไฟล์ไม่สำเร็จ",
   "error.material.invalidType": "ประเภทไฟล์ไม่รองรับ",
+  "error.material.someNotFound": "ไม่พบสื่อการเรียนบางรายการในหลักสูตรนี้",
+  "error.material.invalidMetadata": "ข้อมูล metadata ไม่ถูกต้อง: {{detail}}",
+  "error.material.mimeNotAllowed": "ประเภทไฟล์ \"{{mimeType}}\" ไม่รองรับสำหรับประเภท {{type}}",
+  "error.material.notEnrolled": "คุณต้องลงทะเบียนหลักสูตรนี้ก่อนจึงจะเข้าถึงสื่อการเรียนได้",
 
   "error.enrollment.notFound": "ไม่พบข้อมูลการลงทะเบียน",
   "error.enrollment.alreadyEnrolled": "ผู้ใช้ลงทะเบียนหลักสูตรนี้แล้ว",
   "error.enrollment.selfEnrollNotAllowed": "หลักสูตรนี้ไม่อนุญาตให้ลงทะเบียนด้วยตัวเอง",
   "error.enrollment.notEnrolled": "คุณต้องลงทะเบียนหลักสูตรนี้ก่อน",
+  "error.enrollment.alreadyCompleted": "หลักสูตรนี้เรียนจบแล้ว",
 
   "error.quiz.notFound": "ไม่พบแบบทดสอบสำหรับหลักสูตรนี้",
   "error.quiz.alreadyExists": "หลักสูตรนี้มีแบบทดสอบอยู่แล้ว",
   "error.quiz.maxAttemptsReached": "ทำแบบทดสอบครบจำนวนครั้งสูงสุด ({{count}} ครั้ง) แล้ว",
+  "error.quiz.attemptsNotFound": "ไม่พบประวัติการทำแบบทดสอบ",
 
   "error.question.notFound": "ไม่พบคำถาม",
   "error.option.notFound": "ไม่พบตัวเลือก",

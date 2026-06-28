@@ -19,6 +19,7 @@ import {
 } from './materials.service.js'
 import { getStorage } from '../../lib/storage.js'
 import { badRequest } from '../../lib/errors.js'
+import { t, resolveLocale } from '../../lib/i18n.js'
 import { randomUUID } from 'node:crypto'
 
 // MIME types ที่อนุญาตต่อ material type — ป้องกันอัปโหลดไฟล์อันตราย
@@ -42,7 +43,8 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.array(materialResponseSchema) },
     },
   }, async (req) => {
-    return listMaterials(app.prisma, req.params.courseId, getStorage(), req.user.id, req.ip, req.user.role)
+    const locale = await resolveLocale(req, app.prisma)
+    return listMaterials(app.prisma, req.params.courseId, getStorage(), req.user.id, locale, req.ip, req.user.role)
   })
 
   // POST /courses/:courseId/materials/link — ADMIN/MANAGER (VIDEO / LINK via JSON)
@@ -55,12 +57,14 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       response: { 201: materialResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const material = await createLinkMaterial(
       app.prisma,
       req.params.courseId,
       req.body,
       req.user.id,
       getStorage(),
+      locale,
       req.ip,
     )
     return reply.code(201).send(material)
@@ -76,7 +80,8 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.object({ message: z.string() }) },
     },
   }, async (req, reply) => {
-    await reorderMaterials(app.prisma, req.params.courseId, req.body, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    await reorderMaterials(app.prisma, req.params.courseId, req.body, req.user.id, locale, req.ip)
     return reply.send({ message: 'Materials reordered' })
   })
 
@@ -88,8 +93,9 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       response: { 201: materialResponseSchema },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     const data = await req.file()
-    if (!data) throw badRequest('No file uploaded')
+    if (!data) throw badRequest(t('error.file.noFile', undefined, locale))
 
     // parse metadata จาก multipart fields
     const fields: Record<string, string> = {}
@@ -105,13 +111,13 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       order: fields['order'] != null ? Number(fields['order']) : undefined,
     })
     if (!metaParse.success) {
-      throw badRequest(`Invalid metadata: ${metaParse.error.message}`)
+      throw badRequest(t('error.material.invalidMetadata', { detail: metaParse.error.message }, locale))
     }
 
     const mimeType = data.mimetype
     const allowedMimes = ALLOWED_MIME[metaParse.data.type]
     if (!allowedMimes?.includes(mimeType)) {
-      throw badRequest(`File MIME type "${mimeType}" is not allowed for type ${metaParse.data.type}`)
+      throw badRequest(t('error.material.mimeNotAllowed', { mimeType, type: metaParse.data.type }, locale))
     }
 
     const buffer = await data.toBuffer()
@@ -128,6 +134,7 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       metaParse.data,
       req.user.id,
       getStorage(),
+      locale,
       req.ip,
     )
     return reply.code(201).send(material)
@@ -142,6 +149,7 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: materialResponseSchema },
     },
   }, async (req) => {
+    const locale = await resolveLocale(req, app.prisma)
     return updateMaterial(
       app.prisma,
       req.params.courseId,
@@ -149,6 +157,7 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       req.body,
       req.user.id,
       getStorage(),
+      locale,
       req.ip,
     )
   })
@@ -161,11 +170,13 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: z.object({ message: z.string() }) },
     },
   }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
     await softDeleteMaterial(
       app.prisma,
       req.params.courseId,
       req.params.materialId,
       req.user.id,
+      locale,
       req.ip,
     )
     return reply.send({ message: 'Material deleted' })

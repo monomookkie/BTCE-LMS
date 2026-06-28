@@ -13,6 +13,7 @@ import type {
 } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
+import { t, type Locale } from '../../lib/i18n.js'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -156,9 +157,9 @@ async function getActiveQuiz(prisma: PrismaClient, courseId: string) {
   return quiz
 }
 
-async function requireActiveQuiz(prisma: PrismaClient, courseId: string) {
+async function requireActiveQuiz(prisma: PrismaClient, courseId: string, locale: Locale = 'en') {
   const quiz = await getActiveQuiz(prisma, courseId)
-  if (!quiz) throw notFound('Quiz not found for this course')
+  if (!quiz) throw notFound(t('error.quiz.notFound', undefined, locale))
   return quiz
 }
 
@@ -169,16 +170,17 @@ export async function createQuiz(
   courseId: string,
   input: CreateQuizInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<QuizAdminResponse> {
   const course = await prisma.course.findFirst({
     where: { id: courseId, deletedAt: null },
     select: { id: true },
   })
-  if (!course) throw notFound('Course not found')
+  if (!course) throw notFound(t('error.course.notFound', undefined, locale))
 
   const existing = await getActiveQuiz(prisma, courseId)
-  if (existing) throw badRequest('Course already has a quiz')
+  if (existing) throw badRequest(t('error.quiz.alreadyExists', undefined, locale))
 
   const quiz = await prisma.quiz.create({
     data: {
@@ -205,12 +207,13 @@ export async function createQuiz(
 export async function getQuizAdmin(
   prisma: PrismaClient,
   courseId: string,
+  locale: Locale = 'en',
 ): Promise<QuizAdminResponse> {
   const quiz = await prisma.quiz.findFirst({
     where: { courseId, deletedAt: null },
     include: QUIZ_ADMIN_INCLUDE,
   })
-  if (!quiz) throw notFound('Quiz not found for this course')
+  if (!quiz) throw notFound(t('error.quiz.notFound', undefined, locale))
   return toQuizAdminResponse(quiz)
 }
 
@@ -219,9 +222,10 @@ export async function updateQuiz(
   courseId: string,
   input: UpdateQuizInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<QuizAdminResponse> {
-  const existing = await requireActiveQuiz(prisma, courseId)
+  const existing = await requireActiveQuiz(prisma, courseId, locale)
 
   const quiz = await prisma.quiz.update({
     where: { id: existing.id },
@@ -249,9 +253,10 @@ export async function deleteQuiz(
   prisma: PrismaClient,
   courseId: string,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
-  const quiz = await requireActiveQuiz(prisma, courseId)
+  const quiz = await requireActiveQuiz(prisma, courseId, locale)
   const now = new Date()
 
   // cascade soft delete questions ด้วย (options ยังอยู่ใน DB แต่ไม่ถูกแสดง)
@@ -283,9 +288,10 @@ export async function addQuestion(
   courseId: string,
   input: CreateQuestionInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<QuizAdminResponse> {
-  const quiz = await requireActiveQuiz(prisma, courseId)
+  const quiz = await requireActiveQuiz(prisma, courseId, locale)
 
   // หา order ถัดไปถ้าไม่ได้ระบุมา
   const order =
@@ -312,7 +318,7 @@ export async function addQuestion(
   })
 
   // คืน quiz ทั้งหมดอัปเดตแล้ว
-  return getQuizAdmin(prisma, courseId)
+  return getQuizAdmin(prisma, courseId, locale)
 }
 
 export async function updateQuestion(
@@ -321,14 +327,15 @@ export async function updateQuestion(
   questionId: string,
   input: UpdateQuestionInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<QuizAdminResponse> {
-  const quiz = await requireActiveQuiz(prisma, courseId)
+  const quiz = await requireActiveQuiz(prisma, courseId, locale)
   const question = await prisma.question.findFirst({
     where: { id: questionId, quizId: quiz.id, deletedAt: null },
     select: { id: true },
   })
-  if (!question) throw notFound('Question not found')
+  if (!question) throw notFound(t('error.question.notFound', undefined, locale))
 
   await prisma.question.update({
     where: { id: questionId },
@@ -347,7 +354,7 @@ export async function updateQuestion(
     ...(ip != null && { ip }),
   })
 
-  return getQuizAdmin(prisma, courseId)
+  return getQuizAdmin(prisma, courseId, locale)
 }
 
 export async function deleteQuestion(
@@ -355,14 +362,15 @@ export async function deleteQuestion(
   courseId: string,
   questionId: string,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
-  const quiz = await requireActiveQuiz(prisma, courseId)
+  const quiz = await requireActiveQuiz(prisma, courseId, locale)
   const question = await prisma.question.findFirst({
     where: { id: questionId, quizId: quiz.id, deletedAt: null },
     select: { id: true },
   })
-  if (!question) throw notFound('Question not found')
+  if (!question) throw notFound(t('error.question.notFound', undefined, locale))
 
   // soft delete เท่านั้น — ไม่แตะ options (สอดคล้องกับ quiz soft delete)
   await prisma.question.update({
@@ -386,13 +394,14 @@ async function requireQuestionInQuiz(
   prisma: PrismaClient,
   courseId: string,
   questionId: string,
+  locale: Locale = 'en',
 ) {
-  const quiz = await requireActiveQuiz(prisma, courseId)
+  const quiz = await requireActiveQuiz(prisma, courseId, locale)
   const question = await prisma.question.findFirst({
     where: { id: questionId, quizId: quiz.id, deletedAt: null },
     select: { id: true },
   })
-  if (!question) throw notFound('Question not found')
+  if (!question) throw notFound(t('error.question.notFound', undefined, locale))
   return { quiz, question }
 }
 
@@ -402,9 +411,10 @@ export async function addOption(
   questionId: string,
   input: AddOptionInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<QuizAdminResponse> {
-  await requireQuestionInQuiz(prisma, courseId, questionId)
+  await requireQuestionInQuiz(prisma, courseId, questionId, locale)
 
   const option = await prisma.option.create({
     data: { questionId, text: input.text, isCorrect: input.isCorrect },
@@ -420,7 +430,7 @@ export async function addOption(
     ...(ip != null && { ip }),
   })
 
-  return getQuizAdmin(prisma, courseId)
+  return getQuizAdmin(prisma, courseId, locale)
 }
 
 export async function updateOption(
@@ -430,15 +440,16 @@ export async function updateOption(
   optionId: string,
   input: UpdateOptionInput,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<QuizAdminResponse> {
-  await requireQuestionInQuiz(prisma, courseId, questionId)
+  await requireQuestionInQuiz(prisma, courseId, questionId, locale)
 
   const option = await prisma.option.findFirst({
     where: { id: optionId, questionId },
     select: { id: true },
   })
-  if (!option) throw notFound('Option not found')
+  if (!option) throw notFound(t('error.option.notFound', undefined, locale))
 
   await prisma.option.update({
     where: { id: optionId },
@@ -457,7 +468,7 @@ export async function updateOption(
     ...(ip != null && { ip }),
   })
 
-  return getQuizAdmin(prisma, courseId)
+  return getQuizAdmin(prisma, courseId, locale)
 }
 
 export async function deleteOption(
@@ -466,15 +477,16 @@ export async function deleteOption(
   questionId: string,
   optionId: string,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<void> {
-  await requireQuestionInQuiz(prisma, courseId, questionId)
+  await requireQuestionInQuiz(prisma, courseId, questionId, locale)
 
   const option = await prisma.option.findFirst({
     where: { id: optionId, questionId },
     select: { id: true },
   })
-  if (!option) throw notFound('Option not found')
+  if (!option) throw notFound(t('error.option.notFound', undefined, locale))
 
   // hard delete — Option ไม่มี deletedAt (Options ไม่มีความหมายเดี่ยว)
   await prisma.option.delete({ where: { id: optionId } })
@@ -495,20 +507,21 @@ export async function getQuizForUser(
   prisma: PrismaClient,
   courseId: string,
   userId: string,
+  locale: Locale = 'en',
 ): Promise<QuizForUserResponse> {
   // enrollment gate → 403 (ไม่ใช่ 404 — IDOR กัน enumeration quiz ไม่ใช่ประเด็นหลัก)
   const enrollment = await prisma.enrollment.findFirst({
     where: { userId, courseId, deletedAt: null },
     select: { id: true },
   })
-  if (!enrollment) throw forbidden('You must be enrolled in this course to take the quiz')
+  if (!enrollment) throw forbidden(t('error.enrollment.notEnrolled', undefined, locale))
 
   // layer 1: Prisma select ไม่ดึง isCorrect จาก DB
   const quiz = await prisma.quiz.findFirst({
     where: { courseId, deletedAt: null },
     select: QUIZ_USER_SELECT,
   })
-  if (!quiz) throw notFound('Quiz not found for this course')
+  if (!quiz) throw notFound(t('error.quiz.notFound', undefined, locale))
 
   // layer 2: toQuizForUserResponse ไม่ map isCorrect
   return toQuizForUserResponse(quiz)
@@ -519,6 +532,7 @@ export async function submitQuiz(
   courseId: string,
   userId: string,
   input: SubmitQuizInput,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<QuizAttemptResponse> {
   // 1. enrollment gate → 403
@@ -526,7 +540,7 @@ export async function submitQuiz(
     where: { userId, courseId, deletedAt: null },
     select: { id: true, progress: true, status: true },
   })
-  if (!enrollment) throw forbidden('You must be enrolled in this course to submit the quiz')
+  if (!enrollment) throw forbidden(t('error.enrollment.notEnrolled', undefined, locale))
 
   // 2. ดึง quiz + course.passScore
   const quizWithCourse = await prisma.quiz.findFirst({
@@ -544,7 +558,7 @@ export async function submitQuiz(
       },
     },
   })
-  if (!quizWithCourse) throw notFound('Quiz not found for this course')
+  if (!quizWithCourse) throw notFound(t('error.quiz.notFound', undefined, locale))
 
   // 3. maxAttempts check — นับก่อนสอบ
   if (quizWithCourse.maxAttempts != null) {
@@ -552,9 +566,7 @@ export async function submitQuiz(
       where: { quizId: quizWithCourse.id, userId },
     })
     if (attemptCount >= quizWithCourse.maxAttempts) {
-      throw badRequest(
-        `Maximum attempts (${quizWithCourse.maxAttempts}) reached for this quiz`,
-      )
+      throw badRequest(t('error.quiz.maxAttemptsReached', { count: quizWithCourse.maxAttempts }, locale))
     }
   }
 
@@ -572,9 +584,9 @@ export async function submitQuiz(
   // 5. validate submitted answers — ทุก optionId ต้องเป็นของ questionId ใน quiz นี้จริง
   for (const [qId, oId] of Object.entries(input.answers)) {
     const q = questionMap.get(qId)
-    if (!q) throw badRequest(`Question "${qId}" is not in this quiz`)
+    if (!q) throw badRequest(t('error.answer.wrongQuestion', { questionId: qId }, locale))
     if (!q.options.has(oId))
-      throw badRequest(`Option "${oId}" does not belong to question "${qId}"`)
+      throw badRequest(t('error.option.wrongQuestion', { optionId: oId, questionId: qId }, locale))
   }
 
   // 6. auto-grade — ข้อที่ไม่ตอบ = ผิด
@@ -638,16 +650,17 @@ export async function getAttempts(
   requesterId: string,
   requesterRole: string,
   filterUserId?: string,
+  locale: Locale = 'en',
 ): Promise<QuizAttemptResponse[]> {
   const quiz = await getActiveQuiz(prisma, courseId)
-  if (!quiz) throw notFound('Quiz not found for this course')
+  if (!quiz) throw notFound(t('error.quiz.notFound', undefined, locale))
 
   // USER เห็นแค่ของตัวเอง เสมอ — ไม่สนใจ filterUserId จาก query
   const userId = requesterRole === 'USER' ? requesterId : filterUserId
 
   // IDOR: ถ้า USER พยายาม filter เป็น userId คนอื่น → 404
   if (requesterRole === 'USER' && filterUserId != null && filterUserId !== requesterId) {
-    throw notFound('Attempts not found')
+    throw notFound(t('error.quiz.attemptsNotFound', undefined, locale))
   }
 
   const attempts = await prisma.quizAttempt.findMany({

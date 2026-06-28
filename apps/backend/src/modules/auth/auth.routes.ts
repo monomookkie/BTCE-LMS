@@ -12,6 +12,7 @@ import {
 } from './auth.service.js'
 import { meResponseSchema, authSuccessSchema } from './auth.schema.js'
 import { unauthorized } from '../../lib/errors.js'
+import { t, resolveLocale } from '../../lib/i18n.js'
 
 const authRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -27,10 +28,12 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
+      const locale = await resolveLocale(req, app.prisma)
       const { accessToken, refreshToken, user } = await loginUser(
         app.prisma,
         (p) => app.jwt.sign(p),
         req.body,
+        locale,
         req.ip,
         req.headers['user-agent'],
       )
@@ -73,12 +76,14 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     },
     async (req, reply) => {
       const refreshRaw = req.cookies['refresh_token']
-      if (!refreshRaw) throw unauthorized('Refresh token missing')
+      const locale = await resolveLocale(req, app.prisma)
+      if (!refreshRaw) throw unauthorized(t('error.auth.refreshTokenMissing', undefined, locale))
 
       const { accessToken, refreshToken } = await rotateRefreshToken(
         app.prisma,
         (p) => app.jwt.sign(p),
         refreshRaw,
+        locale,
       )
 
       reply
@@ -97,7 +102,8 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       schema: { response: { 200: meResponseSchema } },
     },
     async (req, reply) => {
-      const user = await getMe(app.prisma, req.user.id)
+      const locale = await resolveLocale(req, app.prisma)
+      const user = await getMe(app.prisma, req.user.id, locale)
       return reply.send(user)
     },
   )
@@ -113,7 +119,8 @@ const authRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      await changePassword(app.prisma, req.user.id, req.body, req.ip)
+      const locale = await resolveLocale(req, app.prisma)
+      await changePassword(app.prisma, req.user.id, req.body, locale, req.ip)
 
       // clear cookies เพื่อบังคับ login ใหม่
       reply
