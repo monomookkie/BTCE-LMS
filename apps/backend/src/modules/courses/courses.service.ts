@@ -18,6 +18,7 @@ const COURSE_SELECT = {
   durationMin: true,
   passScore: true,
   expiryMonths: true,
+  allowSelfEnroll: true,
   createdById: true,
   version: true,
   createdAt: true,
@@ -33,6 +34,7 @@ function toCourseResponse(course: {
   durationMin: number | null
   passScore: number
   expiryMonths: number | null
+  allowSelfEnroll: boolean
   createdById: string | null
   version: number
   createdAt: Date
@@ -128,6 +130,7 @@ export async function createCourse(
       ...(input.durationMin != null && { durationMin: input.durationMin }),
       passScore: input.passScore,
       ...(input.expiryMonths != null && { expiryMonths: input.expiryMonths }),
+      allowSelfEnroll: input.allowSelfEnroll,
       createdById: actorId,
     },
     select: COURSE_SELECT,
@@ -164,6 +167,7 @@ export async function updateCourse(
       ...('durationMin' in input && { durationMin: input.durationMin ?? null }),
       ...(input.passScore != null && { passScore: input.passScore }),
       ...('expiryMonths' in input && { expiryMonths: input.expiryMonths ?? null }),
+      ...(input.allowSelfEnroll != null && { allowSelfEnroll: input.allowSelfEnroll }),
       version: { increment: 1 },
     },
     select: COURSE_SELECT,

@@ -11,6 +11,7 @@ export const courseResponseSchema = z.object({
   durationMin: z.number().int().nullable(),
   passScore: z.number().int(),
   expiryMonths: z.number().int().nullable(),
+  allowSelfEnroll: z.boolean(),
   createdById: z.string().nullable(),
   version: z.number().int(),
   createdAt: z.string().datetime(),
@@ -24,6 +25,7 @@ export const createCourseInputSchema = z.object({
   durationMin: z.number().int().positive().optional(),
   passScore: z.number().int().min(0).max(100).default(80),
   expiryMonths: z.number().int().positive().nullable().optional(),
+  allowSelfEnroll: z.boolean().default(false),
 })
 
 export const updateCourseInputSchema = z.object({
@@ -33,6 +35,7 @@ export const updateCourseInputSchema = z.object({
   durationMin: z.number().int().positive().nullable().optional(),
   passScore: z.number().int().min(0).max(100).optional(),
   expiryMonths: z.number().int().positive().nullable().optional(),
+  allowSelfEnroll: z.boolean().optional(),
 })
 
 // DRAFT → PUBLISHED หรือ PUBLISHED/DRAFT → ARCHIVED (ADMIN only)

@@ -63,8 +63,21 @@ export async function listMaterials(
   storage: StorageProvider,
   actorId: string,
   ip?: string,
+  requesterRole?: string,
 ): Promise<MaterialResponse[]> {
   await assertCourseExists(prisma, courseId)
+
+  // USER ต้อง enrolled (active) จึงเข้าถึง materials ได้
+  if (requesterRole === 'USER') {
+    const enrollment = await prisma.enrollment.findFirst({
+      where: { userId: actorId, courseId, deletedAt: null },
+      select: { id: true },
+    })
+    if (!enrollment) {
+      const { forbidden } = await import('../../lib/errors.js')
+      throw forbidden('You must be enrolled in this course to view materials')
+    }
+  }
 
   const materials = await prisma.material.findMany({
     where: { courseId, deletedAt: null },

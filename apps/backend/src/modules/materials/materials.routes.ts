@@ -34,15 +34,15 @@ const ALLOWED_MIME: Record<string, string[]> = {
 const materialsRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
 
-  // GET /courses/:courseId/materials — ADMIN/MANAGER
+  // GET /courses/:courseId/materials — ADMIN/MANAGER หรือ enrolled USER
   server.get('/:courseId/materials', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.verifyJwt],
     schema: {
       params: materialCourseParamsSchema,
       response: { 200: z.array(materialResponseSchema) },
     },
   }, async (req) => {
-    return listMaterials(app.prisma, req.params.courseId, getStorage(), req.user.id, req.ip)
+    return listMaterials(app.prisma, req.params.courseId, getStorage(), req.user.id, req.ip, req.user.role)
   })
 
   // POST /courses/:courseId/materials/link — ADMIN/MANAGER (VIDEO / LINK via JSON)

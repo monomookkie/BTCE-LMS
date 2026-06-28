@@ -74,8 +74,9 @@ model Course {
   status       CourseStatus @default(DRAFT)
   durationMin  Int?
   passScore    Int          @default(80)
-  expiryMonths Int? // ต้องต่ออายุทุกกี่เดือน (null = ไม่หมดอายุ)
-  createdById  String?
+  expiryMonths    Int? // ต้องต่ออายุทุกกี่เดือน (null = ไม่หมดอายุ)
+  allowSelfEnroll Boolean  @default(false) // อนุญาตให้ USER ลงทะเบียนเอง
+  createdById     String?
   version      Int          @default(1)
   createdAt    DateTime     @default(now())
   updatedAt    DateTime     @updatedAt
@@ -124,22 +125,24 @@ enum MaterialType {
 // ===== Quiz Engine =====
 
 model Quiz {
-  id          String  @id @default(cuid())
-  courseId    String  @unique
+  id          String    @id @default(cuid())
+  courseId    String    @unique
   title       String
   maxAttempts Int? // null = ไม่จำกัด
-  shuffle     Boolean @default(true)
+  shuffle     Boolean   @default(true)
+  deletedAt   DateTime?
 
-  course    Course      @relation(fields: [courseId], references: [id])
+  course    Course        @relation(fields: [courseId], references: [id])
   questions Question[]
   attempts  QuizAttempt[]
 }
 
 model Question {
-  id     String @id @default(cuid())
-  quizId String
-  text   String @db.Text
-  order  Int    @default(0)
+  id        String    @id @default(cuid())
+  quizId    String
+  text      String    @db.Text
+  order     Int       @default(0)
+  deletedAt DateTime?
 
   quiz    Quiz     @relation(fields: [quizId], references: [id])
   options Option[]
@@ -183,14 +186,17 @@ model Enrollment {
   dueAt              DateTime?
   completedAt        DateTime?
   createdAt          DateTime     @default(now())
+  deletedAt          DateTime? // soft delete — unique ตรวจที่ app level เพื่อรองรับ re-enroll หลัง cancel
 
   user        User         @relation(fields: [userId], references: [id])
   course      Course       @relation(fields: [courseId], references: [id])
   certificate Certificate?
 
-  @@unique([userId, courseId])
-  @@index([userId, status])
-  @@index([courseId, status])
+  // unique constraint อยู่ที่ service layer (ตรวจ deletedAt: null) — ไม่ใช่ DB
+  // เพราะ MySQL ไม่รองรับ partial/filtered unique index
+  @@index([userId, courseId])
+  @@index([userId, status, deletedAt])
+  @@index([courseId, status, deletedAt])
 }
 
 enum EnrollStatus {
