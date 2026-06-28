@@ -1,0 +1,144 @@
+{
+  "common": {
+    "save": "บันทึก",
+    "cancel": "ยกเลิก",
+    "delete": "ลบ",
+    "edit": "แก้ไข",
+    "loading": "กำลังโหลด...",
+    "error": "เกิดข้อผิดพลาด",
+    "retry": "ลองใหม่",
+    "close": "ปิด",
+    "confirm": "ยืนยัน",
+    "search": "ค้นหา",
+    "noResults": "ไม่พบผลลัพธ์",
+    "language": "ภาษา",
+    "required": "กรุณากรอกข้อมูลในช่องนี้",
+    "submit": "ส่ง",
+    "back": "กลับ",
+    "next": "ถัดไป"
+  },
+  "auth": {
+    "login": "เข้าสู่ระบบ",
+    "logout": "ออกจากระบบ",
+    "register": "ลงทะเบียน",
+    "email": "อีเมล",
+    "password": "รหัสผ่าน",
+    "currentPassword": "รหัสผ่านปัจจุบัน",
+    "newPassword": "รหัสผ่านใหม่",
+    "confirmPassword": "ยืนยันรหัสผ่าน",
+    "forgotPassword": "ลืมรหัสผ่าน?",
+    "loginTitle": "เข้าสู่ระบบบัญชีของคุณ",
+    "loginSubtitle": "BTEC LMS — ศูนย์บริการโลหิตแห่งชาติ",
+    "invalidCredentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
+    "accountLocked": "บัญชีถูกล็อก กรุณาติดต่อผู้ดูแลระบบ",
+    "sessionExpired": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่"
+  },
+  "course": {
+    "label": "หลักสูตร",
+    "courses": "หลักสูตรทั้งหมด",
+    "myCourses": "หลักสูตรของฉัน",
+    "allCourses": "หลักสูตรทั้งหมด",
+    "status": {
+      "DRAFT": "ฉบับร่าง",
+      "PUBLISHED": "เผยแพร่แล้ว",
+      "ARCHIVED": "เก็บถาวร"
+    },
+    "enroll": "ลงทะเบียนเรียน",
+    "enrolled": "ลงทะเบียนแล้ว",
+    "passScore": "คะแนนผ่าน",
+    "duration": "ระยะเวลา (นาที)",
+    "expiryMonths": "ใบรับรองมีอายุ",
+    "months": "เดือน",
+    "category": "หมวดหมู่",
+    "description": "คำอธิบาย",
+    "selfEnroll": "อนุญาตให้ลงทะเบียนด้วยตนเอง",
+    "createCourse": "สร้างหลักสูตร",
+    "editCourse": "แก้ไขหลักสูตร",
+    "publish": "เผยแพร่",
+    "archive": "เก็บถาวร",
+    "draft": "บันทึกเป็นร่าง"
+  },
+  "material": {
+    "label": "สื่อการเรียน",
+    "materials": "สื่อการเรียนทั้งหมด",
+    "types": {
+      "PDF": "เอกสาร PDF",
+      "VIDEO": "วิดีโอ",
+      "LINK": "ลิงก์ภายนอก",
+      "SCORM": "แพ็กเกจ SCORM",
+      "IMAGE": "รูปภาพ"
+    },
+    "upload": "อัปโหลดไฟล์",
+    "addLink": "เพิ่มลิงก์",
+    "title": "ชื่อสื่อ",
+    "url": "URL"
+  },
+  "quiz": {
+    "label": "แบบทดสอบ",
+    "quizzes": "แบบทดสอบ",
+    "startQuiz": "เริ่มทำแบบทดสอบ",
+    "submitQuiz": "ส่งคำตอบ",
+    "question": "คำถาม",
+    "questions": "คำถามทั้งหมด",
+    "option": "ตัวเลือก",
+    "attempts": "จำนวนครั้งที่สอบ",
+    "maxAttempts": "จำนวนครั้งสูงสุด",
+    "score": "คะแนน",
+    "passed": "ผ่าน",
+    "failed": "ไม่ผ่าน",
+    "result": "ผลการสอบ"
+  },
+  "enrollment": {
+    "label": "การลงทะเบียน",
+    "enrollments": "การลงทะเบียนทั้งหมด",
+    "enroll": "ลงทะเบียนผู้ใช้",
+    "dueDate": "กำหนดส่ง",
+    "progress": "ความคืบหน้า",
+    "completed": "เสร็จสิ้น",
+    "inProgress": "กำลังเรียน",
+    "notStarted": "ยังไม่เริ่ม",
+    "completedAt": "เสร็จสิ้นเมื่อ"
+  },
+  "certificate": {
+    "label": "ใบรับรอง",
+    "certificates": "ใบรับรองทั้งหมด",
+    "issued": "ออกให้เมื่อ",
+    "expires": "หมดอายุ",
+    "verify": "ตรวจสอบใบรับรอง",
+    "download": "ดาวน์โหลด PDF",
+    "certNumber": "หมายเลขใบรับรอง"
+  },
+  "user": {
+    "label": "ผู้ใช้",
+    "users": "ผู้ใช้ทั้งหมด",
+    "name": "ชื่อ-นามสกุล",
+    "role": "บทบาท",
+    "department": "แผนก",
+    "roles": {
+      "ADMIN": "ผู้ดูแลระบบ",
+      "MANAGER": "ผู้จัดการ",
+      "USER": "เจ้าหน้าที่"
+    },
+    "profile": "โปรไฟล์",
+    "changePassword": "เปลี่ยนรหัสผ่าน",
+    "importCsv": "นำเข้าจาก CSV",
+    "active": "ใช้งานอยู่",
+    "inactive": "ไม่ได้ใช้งาน (ลบแล้ว)"
+  },
+  "nav": {
+    "home": "หน้าหลัก",
+    "courses": "หลักสูตร",
+    "profile": "โปรไฟล์",
+    "admin": "ผู้ดูแลระบบ",
+    "users": "ผู้ใช้",
+    "reports": "รายงาน",
+    "announcements": "ประกาศ"
+  },
+  "demo": {
+    "title": "BTEC LMS v2",
+    "subtitle": "ศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย",
+    "phase": "เฟส 0 — รากฐานพร้อมแล้ว",
+    "i18nReady": "ระบบ i18n พร้อมใช้งาน",
+    "switchHint": "สลับภาษา — ข้อความเปลี่ยนทันที เมื่อเข้าสู่ระบบแล้วจะบันทึกการตั้งค่าไปยังบัญชีของคุณ"
+  }
+}

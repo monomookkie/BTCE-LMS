@@ -1,0 +1,144 @@
+{
+  "common": {
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Retry",
+    "close": "Close",
+    "confirm": "Confirm",
+    "search": "Search",
+    "noResults": "No results found",
+    "language": "Language",
+    "required": "This field is required",
+    "submit": "Submit",
+    "back": "Back",
+    "next": "Next"
+  },
+  "auth": {
+    "login": "Login",
+    "logout": "Logout",
+    "register": "Register",
+    "email": "Email",
+    "password": "Password",
+    "currentPassword": "Current password",
+    "newPassword": "New password",
+    "confirmPassword": "Confirm password",
+    "forgotPassword": "Forgot password?",
+    "loginTitle": "Sign in to your account",
+    "loginSubtitle": "BTEC LMS — National Blood Centre",
+    "invalidCredentials": "Invalid email or password",
+    "accountLocked": "Account is locked. Please contact your administrator.",
+    "sessionExpired": "Your session has expired. Please login again."
+  },
+  "course": {
+    "label": "Course",
+    "courses": "Courses",
+    "myCourses": "My Courses",
+    "allCourses": "All Courses",
+    "status": {
+      "DRAFT": "Draft",
+      "PUBLISHED": "Published",
+      "ARCHIVED": "Archived"
+    },
+    "enroll": "Enroll",
+    "enrolled": "Enrolled",
+    "passScore": "Passing score",
+    "duration": "Duration (minutes)",
+    "expiryMonths": "Certificate valid for",
+    "months": "months",
+    "category": "Category",
+    "description": "Description",
+    "selfEnroll": "Self-enroll allowed",
+    "createCourse": "Create course",
+    "editCourse": "Edit course",
+    "publish": "Publish",
+    "archive": "Archive",
+    "draft": "Save as draft"
+  },
+  "material": {
+    "label": "Material",
+    "materials": "Materials",
+    "types": {
+      "PDF": "PDF Document",
+      "VIDEO": "Video",
+      "LINK": "External Link",
+      "SCORM": "SCORM Package",
+      "IMAGE": "Image"
+    },
+    "upload": "Upload file",
+    "addLink": "Add link",
+    "title": "Title",
+    "url": "URL"
+  },
+  "quiz": {
+    "label": "Quiz",
+    "quizzes": "Quizzes",
+    "startQuiz": "Start quiz",
+    "submitQuiz": "Submit answers",
+    "question": "Question",
+    "questions": "Questions",
+    "option": "Option",
+    "attempts": "Attempts",
+    "maxAttempts": "Maximum attempts",
+    "score": "Score",
+    "passed": "Passed",
+    "failed": "Failed",
+    "result": "Result"
+  },
+  "enrollment": {
+    "label": "Enrollment",
+    "enrollments": "Enrollments",
+    "enroll": "Enroll user",
+    "dueDate": "Due date",
+    "progress": "Progress",
+    "completed": "Completed",
+    "inProgress": "In progress",
+    "notStarted": "Not started",
+    "completedAt": "Completed on"
+  },
+  "certificate": {
+    "label": "Certificate",
+    "certificates": "Certificates",
+    "issued": "Issued",
+    "expires": "Expires",
+    "verify": "Verify certificate",
+    "download": "Download PDF",
+    "certNumber": "Certificate number"
+  },
+  "user": {
+    "label": "User",
+    "users": "Users",
+    "name": "Full name",
+    "role": "Role",
+    "department": "Department",
+    "roles": {
+      "ADMIN": "Administrator",
+      "MANAGER": "Manager",
+      "USER": "Staff"
+    },
+    "profile": "Profile",
+    "changePassword": "Change password",
+    "importCsv": "Import from CSV",
+    "active": "Active",
+    "inactive": "Inactive (deleted)"
+  },
+  "nav": {
+    "home": "Home",
+    "courses": "Courses",
+    "profile": "Profile",
+    "admin": "Administration",
+    "users": "Users",
+    "reports": "Reports",
+    "announcements": "Announcements"
+  },
+  "demo": {
+    "title": "BTEC LMS v2",
+    "subtitle": "National Blood Centre, Thai Red Cross Society",
+    "phase": "Phase 0 — Foundation ready",
+    "i18nReady": "i18n infrastructure ready",
+    "switchHint": "Switch language — text updates instantly. Login syncs preference to your account."
+  }
+}
