@@ -18,6 +18,7 @@ import usersRoutes from './modules/users/users.routes.js'
 import coursesRoutes from './modules/courses/courses.routes.js'
 import materialsRoutes from './modules/materials/materials.routes.js'
 import enrollmentsRoutes from './modules/enrollments/enrollments.routes.js'
+import quizzesRoutes from './modules/quizzes/quizzes.routes.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -78,6 +79,7 @@ export async function buildApp() {
   await app.register(coursesRoutes, { prefix: '/courses' })
   await app.register(materialsRoutes, { prefix: '/courses' })
   await app.register(enrollmentsRoutes, { prefix: '/enrollments' })
+  await app.register(quizzesRoutes, { prefix: '/courses' })
 
   return app
 }

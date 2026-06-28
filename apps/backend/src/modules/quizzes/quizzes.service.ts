@@ -1,0 +1,673 @@
+import type { PrismaClient } from '@prisma/client'
+import type {
+  QuizAdminResponse,
+  QuizForUserResponse,
+  QuizAttemptResponse,
+  CreateQuizInput,
+  UpdateQuizInput,
+  CreateQuestionInput,
+  UpdateQuestionInput,
+  AddOptionInput,
+  UpdateOptionInput,
+  SubmitQuizInput,
+} from '@btec-lms/shared'
+import { logAudit } from '../../lib/audit.js'
+import { notFound, badRequest, forbidden } from '../../lib/errors.js'
+
+// ─── Helpers ───────────────────────────────────────────────────────────────
+
+function shuffleArray<T>(arr: T[]): T[] {
+  const copy = [...arr]
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[copy[i], copy[j]] = [copy[j]!, copy[i]!]
+  }
+  return copy
+}
+
+// Prisma select ที่ใช้ร่วมกันสำหรับ admin (รวม isCorrect)
+const QUIZ_ADMIN_INCLUDE = {
+  questions: {
+    where: { deletedAt: null },
+    orderBy: { order: 'asc' as const },
+    include: {
+      options: { select: { id: true, text: true, isCorrect: true } },
+    },
+  },
+} as const
+
+// Prisma select ที่ใช้สำหรับ USER — layer 1 protection: ไม่ดึง isCorrect จาก DB เลย
+const QUIZ_USER_SELECT = {
+  id: true,
+  courseId: true,
+  title: true,
+  maxAttempts: true,
+  shuffle: true,
+  questions: {
+    where: { deletedAt: null },
+    orderBy: { order: 'asc' as const },
+    select: {
+      id: true,
+      text: true,
+      order: true,
+      options: {
+        select: {
+          id: true,
+          text: true,
+          // isCorrect ไม่ select เด็ดขาด
+        },
+      },
+    },
+  },
+} as const
+
+type QuizWithQuestionsAdmin = {
+  id: string
+  courseId: string
+  title: string
+  maxAttempts: number | null
+  shuffle: boolean
+  questions: Array<{
+    id: string
+    text: string
+    order: number
+    options: Array<{ id: string; text: string; isCorrect: boolean }>
+  }>
+}
+
+type QuizWithQuestionsUser = {
+  id: string
+  courseId: string
+  title: string
+  maxAttempts: number | null
+  shuffle: boolean
+  questions: Array<{
+    id: string
+    text: string
+    order: number
+    options: Array<{ id: string; text: string }>
+  }>
+}
+
+// layer 2 protection: map ด้วยมือ — ไม่มีทางที่ isCorrect จะหลุดไปกับ user
+function toQuizAdminResponse(quiz: QuizWithQuestionsAdmin): QuizAdminResponse {
+  return {
+    id: quiz.id,
+    courseId: quiz.courseId,
+    title: quiz.title,
+    maxAttempts: quiz.maxAttempts,
+    shuffle: quiz.shuffle,
+    questions: quiz.questions.map((q) => ({
+      id: q.id,
+      text: q.text,
+      order: q.order,
+      options: q.options.map((o) => ({ id: o.id, text: o.text, isCorrect: o.isCorrect })),
+    })),
+  }
+}
+
+function toQuizForUserResponse(quiz: QuizWithQuestionsUser): QuizForUserResponse {
+  let questions = quiz.questions.map((q) => ({
+    id: q.id,
+    text: q.text,
+    order: q.order,
+    options: q.options.map((o) => ({ id: o.id, text: o.text })), // isCorrect ไม่ map เลย
+  }))
+
+  if (quiz.shuffle) {
+    questions = shuffleArray(questions).map((q) => ({ ...q, options: shuffleArray(q.options) }))
+  }
+
+  return {
+    id: quiz.id,
+    courseId: quiz.courseId,
+    title: quiz.title,
+    maxAttempts: quiz.maxAttempts,
+    questions,
+  }
+}
+
+function toAttemptResponse(a: {
+  id: string
+  quizId: string
+  userId: string
+  score: number
+  passed: boolean
+  answers: unknown
+  createdAt: Date
+}): QuizAttemptResponse {
+  return {
+    id: a.id,
+    quizId: a.quizId,
+    userId: a.userId,
+    score: a.score,
+    passed: a.passed,
+    answers: a.answers as Record<string, string>,
+    createdAt: a.createdAt.toISOString(),
+  }
+}
+
+// ─── Internal: ดึง active quiz + ตรวจ course ───────────────────────────────
+
+async function getActiveQuiz(prisma: PrismaClient, courseId: string) {
+  const quiz = await prisma.quiz.findFirst({
+    where: { courseId, deletedAt: null },
+  })
+  return quiz
+}
+
+async function requireActiveQuiz(prisma: PrismaClient, courseId: string) {
+  const quiz = await getActiveQuiz(prisma, courseId)
+  if (!quiz) throw notFound('Quiz not found for this course')
+  return quiz
+}
+
+// ─── Admin: Quiz CRUD ──────────────────────────────────────────────────────
+
+export async function createQuiz(
+  prisma: PrismaClient,
+  courseId: string,
+  input: CreateQuizInput,
+  actorId: string,
+  ip?: string,
+): Promise<QuizAdminResponse> {
+  const course = await prisma.course.findFirst({
+    where: { id: courseId, deletedAt: null },
+    select: { id: true },
+  })
+  if (!course) throw notFound('Course not found')
+
+  const existing = await getActiveQuiz(prisma, courseId)
+  if (existing) throw badRequest('Course already has a quiz')
+
+  const quiz = await prisma.quiz.create({
+    data: {
+      courseId,
+      title: input.title,
+      maxAttempts: input.maxAttempts ?? null,
+      shuffle: input.shuffle,
+    },
+    include: QUIZ_ADMIN_INCLUDE,
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'QUIZ_CREATE',
+    targetType: 'Quiz',
+    targetId: quiz.id,
+    metadata: { courseId, title: input.title },
+    ...(ip != null && { ip }),
+  })
+
+  return toQuizAdminResponse(quiz)
+}
+
+export async function getQuizAdmin(
+  prisma: PrismaClient,
+  courseId: string,
+): Promise<QuizAdminResponse> {
+  const quiz = await prisma.quiz.findFirst({
+    where: { courseId, deletedAt: null },
+    include: QUIZ_ADMIN_INCLUDE,
+  })
+  if (!quiz) throw notFound('Quiz not found for this course')
+  return toQuizAdminResponse(quiz)
+}
+
+export async function updateQuiz(
+  prisma: PrismaClient,
+  courseId: string,
+  input: UpdateQuizInput,
+  actorId: string,
+  ip?: string,
+): Promise<QuizAdminResponse> {
+  const existing = await requireActiveQuiz(prisma, courseId)
+
+  const quiz = await prisma.quiz.update({
+    where: { id: existing.id },
+    data: {
+      ...(input.title != null && { title: input.title }),
+      ...('maxAttempts' in input && { maxAttempts: input.maxAttempts ?? null }),
+      ...(input.shuffle != null && { shuffle: input.shuffle }),
+    },
+    include: QUIZ_ADMIN_INCLUDE,
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'QUIZ_UPDATE',
+    targetType: 'Quiz',
+    targetId: quiz.id,
+    metadata: input as Record<string, unknown>,
+    ...(ip != null && { ip }),
+  })
+
+  return toQuizAdminResponse(quiz)
+}
+
+export async function deleteQuiz(
+  prisma: PrismaClient,
+  courseId: string,
+  actorId: string,
+  ip?: string,
+): Promise<void> {
+  const quiz = await requireActiveQuiz(prisma, courseId)
+  const now = new Date()
+
+  // cascade soft delete questions ด้วย (options ยังอยู่ใน DB แต่ไม่ถูกแสดง)
+  await prisma.$transaction([
+    prisma.question.updateMany({
+      where: { quizId: quiz.id, deletedAt: null },
+      data: { deletedAt: now },
+    }),
+    prisma.quiz.update({
+      where: { id: quiz.id },
+      data: { deletedAt: now },
+    }),
+  ])
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'QUIZ_DELETE',
+    targetType: 'Quiz',
+    targetId: quiz.id,
+    metadata: { courseId },
+    ...(ip != null && { ip }),
+  })
+}
+
+// ─── Admin: Question CRUD ──────────────────────────────────────────────────
+
+export async function addQuestion(
+  prisma: PrismaClient,
+  courseId: string,
+  input: CreateQuestionInput,
+  actorId: string,
+  ip?: string,
+): Promise<QuizAdminResponse> {
+  const quiz = await requireActiveQuiz(prisma, courseId)
+
+  // หา order ถัดไปถ้าไม่ได้ระบุมา
+  const order =
+    input.order ??
+    (await prisma.question.count({ where: { quizId: quiz.id, deletedAt: null } }))
+
+  const question = await prisma.question.create({
+    data: {
+      quizId: quiz.id,
+      text: input.text,
+      order,
+      options: { create: input.options.map((o) => ({ text: o.text, isCorrect: o.isCorrect })) },
+    },
+    select: { id: true },
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'QUESTION_CREATE',
+    targetType: 'Question',
+    targetId: question.id,
+    metadata: { quizId: quiz.id, courseId },
+    ...(ip != null && { ip }),
+  })
+
+  // คืน quiz ทั้งหมดอัปเดตแล้ว
+  return getQuizAdmin(prisma, courseId)
+}
+
+export async function updateQuestion(
+  prisma: PrismaClient,
+  courseId: string,
+  questionId: string,
+  input: UpdateQuestionInput,
+  actorId: string,
+  ip?: string,
+): Promise<QuizAdminResponse> {
+  const quiz = await requireActiveQuiz(prisma, courseId)
+  const question = await prisma.question.findFirst({
+    where: { id: questionId, quizId: quiz.id, deletedAt: null },
+    select: { id: true },
+  })
+  if (!question) throw notFound('Question not found')
+
+  await prisma.question.update({
+    where: { id: questionId },
+    data: {
+      ...(input.text != null && { text: input.text }),
+      ...(input.order != null && { order: input.order }),
+    },
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'QUESTION_UPDATE',
+    targetType: 'Question',
+    targetId: questionId,
+    metadata: input as Record<string, unknown>,
+    ...(ip != null && { ip }),
+  })
+
+  return getQuizAdmin(prisma, courseId)
+}
+
+export async function deleteQuestion(
+  prisma: PrismaClient,
+  courseId: string,
+  questionId: string,
+  actorId: string,
+  ip?: string,
+): Promise<void> {
+  const quiz = await requireActiveQuiz(prisma, courseId)
+  const question = await prisma.question.findFirst({
+    where: { id: questionId, quizId: quiz.id, deletedAt: null },
+    select: { id: true },
+  })
+  if (!question) throw notFound('Question not found')
+
+  // soft delete เท่านั้น — ไม่แตะ options (สอดคล้องกับ quiz soft delete)
+  await prisma.question.update({
+    where: { id: questionId },
+    data: { deletedAt: new Date() },
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'QUESTION_DELETE',
+    targetType: 'Question',
+    targetId: questionId,
+    metadata: { quizId: quiz.id, courseId },
+    ...(ip != null && { ip }),
+  })
+}
+
+// ─── Admin: Option CRUD ────────────────────────────────────────────────────
+
+async function requireQuestionInQuiz(
+  prisma: PrismaClient,
+  courseId: string,
+  questionId: string,
+) {
+  const quiz = await requireActiveQuiz(prisma, courseId)
+  const question = await prisma.question.findFirst({
+    where: { id: questionId, quizId: quiz.id, deletedAt: null },
+    select: { id: true },
+  })
+  if (!question) throw notFound('Question not found')
+  return { quiz, question }
+}
+
+export async function addOption(
+  prisma: PrismaClient,
+  courseId: string,
+  questionId: string,
+  input: AddOptionInput,
+  actorId: string,
+  ip?: string,
+): Promise<QuizAdminResponse> {
+  await requireQuestionInQuiz(prisma, courseId, questionId)
+
+  const option = await prisma.option.create({
+    data: { questionId, text: input.text, isCorrect: input.isCorrect },
+    select: { id: true },
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'OPTION_CREATE',
+    targetType: 'Option',
+    targetId: option.id,
+    metadata: { questionId, courseId },
+    ...(ip != null && { ip }),
+  })
+
+  return getQuizAdmin(prisma, courseId)
+}
+
+export async function updateOption(
+  prisma: PrismaClient,
+  courseId: string,
+  questionId: string,
+  optionId: string,
+  input: UpdateOptionInput,
+  actorId: string,
+  ip?: string,
+): Promise<QuizAdminResponse> {
+  await requireQuestionInQuiz(prisma, courseId, questionId)
+
+  const option = await prisma.option.findFirst({
+    where: { id: optionId, questionId },
+    select: { id: true },
+  })
+  if (!option) throw notFound('Option not found')
+
+  await prisma.option.update({
+    where: { id: optionId },
+    data: {
+      ...(input.text != null && { text: input.text }),
+      ...(input.isCorrect != null && { isCorrect: input.isCorrect }),
+    },
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'OPTION_UPDATE',
+    targetType: 'Option',
+    targetId: optionId,
+    metadata: input as Record<string, unknown>,
+    ...(ip != null && { ip }),
+  })
+
+  return getQuizAdmin(prisma, courseId)
+}
+
+export async function deleteOption(
+  prisma: PrismaClient,
+  courseId: string,
+  questionId: string,
+  optionId: string,
+  actorId: string,
+  ip?: string,
+): Promise<void> {
+  await requireQuestionInQuiz(prisma, courseId, questionId)
+
+  const option = await prisma.option.findFirst({
+    where: { id: optionId, questionId },
+    select: { id: true },
+  })
+  if (!option) throw notFound('Option not found')
+
+  // hard delete — Option ไม่มี deletedAt (Options ไม่มีความหมายเดี่ยว)
+  await prisma.option.delete({ where: { id: optionId } })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'OPTION_DELETE',
+    targetType: 'Option',
+    targetId: optionId,
+    metadata: { questionId, courseId },
+    ...(ip != null && { ip }),
+  })
+}
+
+// ─── User: Take + Submit ───────────────────────────────────────────────────
+
+export async function getQuizForUser(
+  prisma: PrismaClient,
+  courseId: string,
+  userId: string,
+): Promise<QuizForUserResponse> {
+  // enrollment gate → 403 (ไม่ใช่ 404 — IDOR กัน enumeration quiz ไม่ใช่ประเด็นหลัก)
+  const enrollment = await prisma.enrollment.findFirst({
+    where: { userId, courseId, deletedAt: null },
+    select: { id: true },
+  })
+  if (!enrollment) throw forbidden('You must be enrolled in this course to take the quiz')
+
+  // layer 1: Prisma select ไม่ดึง isCorrect จาก DB
+  const quiz = await prisma.quiz.findFirst({
+    where: { courseId, deletedAt: null },
+    select: QUIZ_USER_SELECT,
+  })
+  if (!quiz) throw notFound('Quiz not found for this course')
+
+  // layer 2: toQuizForUserResponse ไม่ map isCorrect
+  return toQuizForUserResponse(quiz)
+}
+
+export async function submitQuiz(
+  prisma: PrismaClient,
+  courseId: string,
+  userId: string,
+  input: SubmitQuizInput,
+  ip?: string,
+): Promise<QuizAttemptResponse> {
+  // 1. enrollment gate → 403
+  const enrollment = await prisma.enrollment.findFirst({
+    where: { userId, courseId, deletedAt: null },
+    select: { id: true, progress: true, status: true },
+  })
+  if (!enrollment) throw forbidden('You must be enrolled in this course to submit the quiz')
+
+  // 2. ดึง quiz + course.passScore
+  const quizWithCourse = await prisma.quiz.findFirst({
+    where: { courseId, deletedAt: null },
+    select: {
+      id: true,
+      maxAttempts: true,
+      course: { select: { passScore: true } },
+      questions: {
+        where: { deletedAt: null },
+        select: {
+          id: true,
+          options: { select: { id: true, isCorrect: true } }, // isCorrect สำหรับ grading ภายใน เท่านั้น
+        },
+      },
+    },
+  })
+  if (!quizWithCourse) throw notFound('Quiz not found for this course')
+
+  // 3. maxAttempts check — นับก่อนสอบ
+  if (quizWithCourse.maxAttempts != null) {
+    const attemptCount = await prisma.quizAttempt.count({
+      where: { quizId: quizWithCourse.id, userId },
+    })
+    if (attemptCount >= quizWithCourse.maxAttempts) {
+      throw badRequest(
+        `Maximum attempts (${quizWithCourse.maxAttempts}) reached for this quiz`,
+      )
+    }
+  }
+
+  // 4. สร้าง map ของ valid (questionId → Set<optionId>) สำหรับ validate + grade
+  const questionMap = new Map<
+    string,
+    { options: Map<string, { isCorrect: boolean }> }
+  >()
+  for (const q of quizWithCourse.questions) {
+    const optMap = new Map<string, { isCorrect: boolean }>()
+    for (const o of q.options) optMap.set(o.id, { isCorrect: o.isCorrect })
+    questionMap.set(q.id, { options: optMap })
+  }
+
+  // 5. validate submitted answers — ทุก optionId ต้องเป็นของ questionId ใน quiz นี้จริง
+  for (const [qId, oId] of Object.entries(input.answers)) {
+    const q = questionMap.get(qId)
+    if (!q) throw badRequest(`Question "${qId}" is not in this quiz`)
+    if (!q.options.has(oId))
+      throw badRequest(`Option "${oId}" does not belong to question "${qId}"`)
+  }
+
+  // 6. auto-grade — ข้อที่ไม่ตอบ = ผิด
+  let correct = 0
+  for (const [qId, qData] of questionMap) {
+    const submittedOptionId = input.answers[qId]
+    if (submittedOptionId != null) {
+      const opt = qData.options.get(submittedOptionId)
+      if (opt?.isCorrect) correct++
+    }
+    // else: ไม่ตอบ → ผิด
+  }
+
+  const total = questionMap.size
+  const score = total === 0 ? 0 : Math.round((correct / total) * 100)
+  const passScore = quizWithCourse.course.passScore
+  const passed = score >= passScore
+
+  // 7. บันทึก attempt
+  const attempt = await prisma.quizAttempt.create({
+    data: {
+      quizId: quizWithCourse.id,
+      userId,
+      score,
+      passed,
+      answers: input.answers as object,
+    },
+  })
+
+  await logAudit(prisma, {
+    actorId: userId,
+    action: 'QUIZ_SUBMIT',
+    targetType: 'QuizAttempt',
+    targetId: attempt.id,
+    metadata: { quizId: quizWithCourse.id, courseId, score, passed },
+    ...(ip != null && { ip }),
+  })
+
+  // 8. ถ้าผ่าน + progress 100% → mark enrollment COMPLETED
+  if (passed && enrollment.progress >= 100 && enrollment.status !== 'COMPLETED') {
+    await prisma.enrollment.update({
+      where: { id: enrollment.id },
+      data: { status: 'COMPLETED', completedAt: new Date() },
+    })
+    await logAudit(prisma, {
+      actorId: userId,
+      action: 'ENROLLMENT_COMPLETE',
+      targetType: 'Enrollment',
+      targetId: enrollment.id,
+      metadata: { quizId: quizWithCourse.id, score },
+      ...(ip != null && { ip }),
+    })
+  }
+
+  return toAttemptResponse(attempt)
+}
+
+export async function getAttempts(
+  prisma: PrismaClient,
+  courseId: string,
+  requesterId: string,
+  requesterRole: string,
+  filterUserId?: string,
+): Promise<QuizAttemptResponse[]> {
+  const quiz = await getActiveQuiz(prisma, courseId)
+  if (!quiz) throw notFound('Quiz not found for this course')
+
+  // USER เห็นแค่ของตัวเอง เสมอ — ไม่สนใจ filterUserId จาก query
+  const userId = requesterRole === 'USER' ? requesterId : filterUserId
+
+  // IDOR: ถ้า USER พยายาม filter เป็น userId คนอื่น → 404
+  if (requesterRole === 'USER' && filterUserId != null && filterUserId !== requesterId) {
+    throw notFound('Attempts not found')
+  }
+
+  const attempts = await prisma.quizAttempt.findMany({
+    where: {
+      quizId: quiz.id,
+      ...(userId != null && { userId }),
+    },
+    orderBy: { createdAt: 'desc' },
+  })
+
+  // PDPA: log admin access to other users' attempt data (behavioral personal data)
+  if (requesterRole !== 'USER') {
+    await logAudit(prisma, {
+      actorId: requesterId,
+      action: 'QUIZ_ATTEMPTS_VIEW',
+      targetType: 'QuizAttempt',
+      targetId: quiz.id,
+      metadata: { courseId, filterUserId: filterUserId ?? 'all' },
+    })
+  }
+
+  return attempts.map(toAttemptResponse)
+}
