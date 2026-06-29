@@ -69,5 +69,8 @@
 
   "success.announcement.deleted": "ลบประกาศแล้ว",
 
-  "error.notification.notFound": "ไม่พบการแจ้งเตือน"
+  "error.notification.notFound": "ไม่พบการแจ้งเตือน",
+
+  "email.cert.expiry.subject": "ใบรับรองใกล้หมดอายุ — {{certNumber}}",
+  "email.cert.expiry.body": "เรียน {{name}},\n\nใบรับรองหลักสูตร \"{{courseTitle}}\" ({{certNumber}}) จะหมดอายุในวันที่ {{expiresAt}}\n\nกรุณาต่ออายุก่อนถึงกำหนด: {{link}}\n\nศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย"
 }

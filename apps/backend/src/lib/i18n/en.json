@@ -69,5 +69,8 @@
 
   "success.announcement.deleted": "Announcement deleted",
 
-  "error.notification.notFound": "Notification not found"
+  "error.notification.notFound": "Notification not found",
+
+  "email.cert.expiry.subject": "Certificate Expiring Soon — {{certNumber}}",
+  "email.cert.expiry.body": "Dear {{name}},\n\nYour certificate for \"{{courseTitle}}\" ({{certNumber}}) will expire on {{expiresAt}}.\n\nPlease renew before the deadline: {{link}}\n\nThailand Red Cross Society — National Blood Centre"
 }
