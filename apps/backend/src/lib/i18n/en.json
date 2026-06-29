@@ -61,5 +61,11 @@
   "error.externalCert.mimeNotAllowed": "File type \"{{mimeType}}\" is not allowed for external certificates",
 
   "success.cert.revoked": "Certificate revoked",
-  "success.externalCert.deleted": "External certificate deleted"
+  "success.externalCert.deleted": "External certificate deleted",
+
+  "error.announcement.notFound": "Announcement not found",
+  "error.announcement.mimeNotAllowed": "File type \"{{mimeType}}\" is not allowed for announcements",
+  "error.announcement.invalidMetadata": "Invalid announcement data: {{detail}}",
+
+  "success.announcement.deleted": "Announcement deleted"
 }

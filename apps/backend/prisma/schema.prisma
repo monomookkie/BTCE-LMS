@@ -291,17 +291,28 @@ model TrainingAttendee {
 
 // ===== Announcement =====
 
-model Announcement {
-  id        String    @id @default(cuid())
-  title     String
-  content   String    @db.Text
-  type      String    @default("INFO")
-  fileKey   String? // Cloudinary public_id
-  link      String?
-  createdAt DateTime  @default(now())
-  deletedAt DateTime?
+enum AnnouncementStatus {
+  DRAFT
+  PUBLISHED
+}
 
-  @@index([deletedAt, createdAt])
+model Announcement {
+  id          String             @id @default(cuid())
+  titleEn     String
+  titleTh     String?
+  contentEn   String             @db.Text
+  contentTh   String?            @db.Text
+  type        String             @default("INFO")
+  status      AnnouncementStatus @default(DRAFT)
+  fileKey     String?
+  link        String?
+  publishedAt DateTime?
+  createdById String?
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
+  deletedAt   DateTime?
+
+  @@index([status, deletedAt, createdAt])
 }
 
 // ===== Compliance =====

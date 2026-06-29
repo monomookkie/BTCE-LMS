@@ -61,5 +61,11 @@
   "error.externalCert.mimeNotAllowed": "ประเภทไฟล์ \"{{mimeType}}\" ไม่รองรับสำหรับใบรับรองภายนอก",
 
   "success.cert.revoked": "ยกเลิกใบรับรองแล้ว",
-  "success.externalCert.deleted": "ลบใบรับรองภายนอกแล้ว"
+  "success.externalCert.deleted": "ลบใบรับรองภายนอกแล้ว",
+
+  "error.announcement.notFound": "ไม่พบประกาศ",
+  "error.announcement.mimeNotAllowed": "ประเภทไฟล์ \"{{mimeType}}\" ไม่รองรับสำหรับประกาศ",
+  "error.announcement.invalidMetadata": "ข้อมูลประกาศไม่ถูกต้อง: {{detail}}",
+
+  "success.announcement.deleted": "ลบประกาศแล้ว"
 }

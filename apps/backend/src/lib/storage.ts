@@ -8,7 +8,7 @@ export type UploadResult = {
   sizeBytes: number
 }
 
-export type StorageFolder = 'avatars' | 'materials' | 'certificates' | 'training-logs'
+export type StorageFolder = 'avatars' | 'materials' | 'certificates' | 'training-logs' | 'announcements'
 
 export interface StorageProvider {
   upload(buffer: Buffer, folder: StorageFolder, filename: string, mimeType: string): Promise<UploadResult>

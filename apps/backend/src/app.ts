@@ -21,6 +21,7 @@ import enrollmentsRoutes from './modules/enrollments/enrollments.routes.js'
 import quizzesRoutes from './modules/quizzes/quizzes.routes.js'
 import certificatesRoutes from './modules/certificates/certificates.routes.js'
 import reportsRoutes from './modules/reports/reports.routes.js'
+import announcementsRoutes from './modules/announcements/announcements.routes.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -84,6 +85,7 @@ export async function buildApp() {
   await app.register(quizzesRoutes, { prefix: '/courses' })
   await app.register(certificatesRoutes)
   await app.register(reportsRoutes)
+  await app.register(announcementsRoutes)
 
   return app
 }
