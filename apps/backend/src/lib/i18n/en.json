@@ -57,6 +57,9 @@
   "error.cert.cannotIssuePending": "Cannot issue certificate: enrollment is not completed",
 
   "error.externalCert.notFound": "External certificate not found",
+  "error.externalCert.invalidMetadata": "Invalid metadata: {{detail}}",
+  "error.externalCert.mimeNotAllowed": "File type \"{{mimeType}}\" is not allowed for external certificates",
 
-  "success.cert.revoked": "Certificate revoked"
+  "success.cert.revoked": "Certificate revoked",
+  "success.externalCert.deleted": "External certificate deleted"
 }

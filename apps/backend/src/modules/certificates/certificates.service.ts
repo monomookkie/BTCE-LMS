@@ -379,8 +379,8 @@ export async function verifyByHash(
     },
   })
 
-  // 404 ทั้ง "ไม่มี" และ "revoked" — ไม่ให้ enumerate
-  if (!cert || cert.revokedAt) throw notFound(t('error.cert.notFound', undefined, locale))
+  // 404 เฉพาะ hash ไม่มีจริง — revoked คืน 200 status='revoked' เพื่อ UX ที่ดีกว่า
+  if (!cert) throw notFound(t('error.cert.notFound', undefined, locale))
 
   await logAudit(prisma, {
     ...(actorId != null && { actorId }),
@@ -433,6 +433,17 @@ export async function generateCertPdf(
     throw notFound(t('error.cert.notFound', undefined, locale))
   }
   if (cert.revokedAt) throw badRequest(t('error.cert.revoked', undefined, locale))
+
+  // PDPA: log เมื่อ ADMIN/MANAGER ดาวน์โหลด cert PDF ของ user อื่น — personal data export
+  if (role !== 'USER' && cert.userId !== requesterId) {
+    await logAudit(prisma, {
+      actorId: requesterId,
+      action: 'CERT_PDF_DOWNLOAD',
+      targetType: 'Certificate',
+      targetId: id,
+      metadata: { targetUserId: cert.userId },
+    })
+  }
 
   const courseTitle = localizeField(
     cert.enrollment.course.titleEn,
