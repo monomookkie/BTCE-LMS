@@ -31,7 +31,8 @@
     "loginSubtitle": "BTEC LMS — National Blood Centre",
     "invalidCredentials": "Invalid email or password",
     "accountLocked": "Account is locked. Please contact your administrator.",
-    "sessionExpired": "Your session has expired. Please login again."
+    "sessionExpired": "Your session has expired. Please login again.",
+    "loggingIn": "Signing in..."
   },
   "course": {
     "label": "Course",
@@ -127,7 +128,11 @@
   },
   "nav": {
     "home": "Home",
+    "dashboard": "Dashboard",
+    "adminDashboard": "Dashboard",
     "courses": "Courses",
+    "certificates": "My Certificates",
+    "myReport": "My Report",
     "profile": "Profile",
     "admin": "Administration",
     "users": "Users",

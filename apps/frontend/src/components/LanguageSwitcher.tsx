@@ -26,9 +26,9 @@ export function LanguageSwitcher({ isAuthenticated = false, className }: Props) 
           type="button"
           onClick={() => void changeLanguage(value)}
           className={[
-            'px-3 py-1 text-sm font-medium transition-colors first:rounded-l last:rounded-r focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-red',
+            'px-3 py-1 text-sm font-medium transition-colors first:rounded-l last:rounded-r focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-500',
             language === value
-              ? 'bg-brand-red text-white'
+              ? 'bg-brand-500 text-white'
               : 'text-gray-600 hover:bg-gray-50',
           ].join(' ')}
           aria-pressed={language === value}
