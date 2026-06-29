@@ -67,5 +67,7 @@
   "error.announcement.mimeNotAllowed": "ประเภทไฟล์ \"{{mimeType}}\" ไม่รองรับสำหรับประกาศ",
   "error.announcement.invalidMetadata": "ข้อมูลประกาศไม่ถูกต้อง: {{detail}}",
 
-  "success.announcement.deleted": "ลบประกาศแล้ว"
+  "success.announcement.deleted": "ลบประกาศแล้ว",
+
+  "error.notification.notFound": "ไม่พบการแจ้งเตือน"
 }

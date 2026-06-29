@@ -67,5 +67,7 @@
   "error.announcement.mimeNotAllowed": "File type \"{{mimeType}}\" is not allowed for announcements",
   "error.announcement.invalidMetadata": "Invalid announcement data: {{detail}}",
 
-  "success.announcement.deleted": "Announcement deleted"
+  "success.announcement.deleted": "Announcement deleted",
+
+  "error.notification.notFound": "Notification not found"
 }
