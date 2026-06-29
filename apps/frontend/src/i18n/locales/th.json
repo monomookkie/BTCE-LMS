@@ -137,7 +137,47 @@
     "admin": "ผู้ดูแลระบบ",
     "users": "ผู้ใช้",
     "reports": "รายงาน",
-    "announcements": "ประกาศ"
+    "announcements": "ประกาศ",
+    "notifications": "การแจ้งเตือน",
+    "courseManagement": "จัดการหลักสูตร",
+    "certEngine": "ใบรับรอง"
+  },
+  "status": {
+    "cert": {
+      "valid": "ใช้งานได้",
+      "expiringSoon": "ใกล้หมดอายุ",
+      "expired": "หมดอายุ",
+      "revoked": "ถูกยกเลิก"
+    },
+    "enrollment": {
+      "ASSIGNED": "มอบหมายแล้ว",
+      "IN_PROGRESS": "กำลังเรียน",
+      "COMPLETED": "เสร็จสิ้น",
+      "EXPIRED": "หมดอายุ"
+    },
+    "announcement": {
+      "DRAFT": "ฉบับร่าง",
+      "PUBLISHED": "เผยแพร่แล้ว"
+    },
+    "unknown": "ไม่ทราบสถานะ"
+  },
+  "ui": {
+    "pagination": {
+      "previous": "ก่อนหน้า",
+      "next": "ถัดไป",
+      "pageOf": "หน้า {{current}} จาก {{total}}",
+      "showing": "แสดง {{from}}–{{to}} จาก {{total}} รายการ"
+    },
+    "table": {
+      "empty": "ไม่มีข้อมูล"
+    },
+    "confirmDialog": {
+      "defaultTitle": "ยืนยันการดำเนินการ?",
+      "defaultMessage": "การดำเนินการนี้ไม่สามารถยกเลิกได้"
+    },
+    "toast": {
+      "dismiss": "ปิด"
+    }
   },
   "demo": {
     "title": "BTEC LMS v2",

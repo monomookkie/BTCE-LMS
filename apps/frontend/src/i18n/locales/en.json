@@ -137,7 +137,47 @@
     "admin": "Administration",
     "users": "Users",
     "reports": "Reports",
-    "announcements": "Announcements"
+    "announcements": "Announcements",
+    "notifications": "Notifications",
+    "courseManagement": "Course Management",
+    "certEngine": "Certificates"
+  },
+  "status": {
+    "cert": {
+      "valid": "Valid",
+      "expiringSoon": "Expiring Soon",
+      "expired": "Expired",
+      "revoked": "Revoked"
+    },
+    "enrollment": {
+      "ASSIGNED": "Assigned",
+      "IN_PROGRESS": "In Progress",
+      "COMPLETED": "Completed",
+      "EXPIRED": "Expired"
+    },
+    "announcement": {
+      "DRAFT": "Draft",
+      "PUBLISHED": "Published"
+    },
+    "unknown": "Unknown"
+  },
+  "ui": {
+    "pagination": {
+      "previous": "Previous",
+      "next": "Next",
+      "pageOf": "Page {{current}} of {{total}}",
+      "showing": "Showing {{from}}–{{to}} of {{total}}"
+    },
+    "table": {
+      "empty": "No data available"
+    },
+    "confirmDialog": {
+      "defaultTitle": "Are you sure?",
+      "defaultMessage": "This action cannot be undone."
+    },
+    "toast": {
+      "dismiss": "Dismiss"
+    }
   },
   "demo": {
     "title": "BTEC LMS v2",
