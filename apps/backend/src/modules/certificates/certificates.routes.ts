@@ -67,6 +67,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
   // ─── GET /certificates/:id/pdf ─────────────────────────────────────────────
   // ต้องอยู่ก่อน /:id เพื่อให้ static segment "pdf" ไม่ถูก match เป็น :id
   server.get('/certificates/:id/pdf', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     preHandler: [app.verifyJwt],
     schema: {
       params: certParamsSchema,
@@ -132,6 +133,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
   // ไม่ต้อง login — ใช้ verifyHash (UUID) เพื่อ public certificate verification
   // resolveLocale ใช้ Accept-Language header เป็น fallback (req.user ไม่มี)
   server.get('/verify/:hash', {
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     schema: {
       params: certVerifyParamsSchema,
       response: { 200: certificateVerifyResponseSchema },
@@ -161,6 +163,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
   // รับ metadata เป็น multipart fields + optional file (PDF/image)
   // ส่ง multipart/form-data เสมอ แม้ไม่มีไฟล์
   server.post('/external-certs', {
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
     preHandler: [app.verifyJwt],
     schema: {
       response: { 201: externalCertResponseSchema },
