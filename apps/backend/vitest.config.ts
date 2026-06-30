@@ -1,7 +1,7 @@
 import { defineConfig } from 'vitest/config'
 
 // Test DB URL — แยกจาก dev DB (btec_lms_test vs btec_lms)
-const TEST_DATABASE_URL = 'mysql://btec:btecpassword@localhost:3306/btec_lms_test'
+const TEST_DATABASE_URL = 'mysql://btec:btecpassword@localhost:3307/btec_lms_test'
 
 export default defineConfig({
   test: {

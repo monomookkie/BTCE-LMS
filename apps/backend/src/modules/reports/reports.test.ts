@@ -81,6 +81,8 @@ describe('Reports module', () => {
           enrollmentId: enrollment.id,
           userId,
           courseId: course.id,
+          courseTitleEn: course.titleEn,
+          courseTitleTh: null,
           certNumber: `BTEC-RPT-${randomUUID().slice(0, 8).toUpperCase()}`,
           score: 90,
           verifyHash: randomUUID(),

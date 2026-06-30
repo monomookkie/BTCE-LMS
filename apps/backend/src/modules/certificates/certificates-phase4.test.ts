@@ -561,6 +561,8 @@ describe('Phase 4 — Certificate issuance, compliance, cron', () => {
           enrollmentId: enrollment.id,
           userId: user.id,
           courseId: course.id,
+          courseTitleEn: course.titleEn,
+          courseTitleTh: null,
           certNumber: `BTEC-CRON-${randomUUID().slice(0, 8).toUpperCase()}`,
           score: 90,
           verifyHash: randomUUID(),
@@ -594,7 +596,7 @@ describe('Phase 4 — Certificate issuance, compliance, cron', () => {
       const { user } = await createUser()
       const course = await prisma.course.create({
         data: { titleEn: 'Far Future Course', categoryEn: 'Safety', status: 'PUBLISHED' },
-        select: { id: true },
+        select: { id: true, titleEn: true },
       })
       const enrollment = await prisma.enrollment.create({
         data: { userId: user.id, courseId: course.id, status: 'COMPLETED' },
@@ -605,6 +607,8 @@ describe('Phase 4 — Certificate issuance, compliance, cron', () => {
           enrollmentId: enrollment.id,
           userId: user.id,
           courseId: course.id,
+          courseTitleEn: course.titleEn,
+          courseTitleTh: null,
           certNumber: `BTEC-FAR-${randomUUID().slice(0, 8).toUpperCase()}`,
           score: 90,
           verifyHash: randomUUID(),

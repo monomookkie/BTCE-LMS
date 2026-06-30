@@ -1,7 +1,7 @@
 import { spawnSync } from 'node:child_process'
 
 // ต้อง match กับ vitest.config.ts — globalSetup รันใน main thread ไม่ได้รับ test.env
-const TEST_DATABASE_URL = 'mysql://btec:btecpassword@localhost:3306/btec_lms_test'
+const TEST_DATABASE_URL = 'mysql://btec:btecpassword@localhost:3307/btec_lms_test'
 
 export async function setup() {
   console.log('\n[test] Resetting test DB and applying migrations...')

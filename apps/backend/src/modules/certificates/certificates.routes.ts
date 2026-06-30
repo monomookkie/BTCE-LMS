@@ -51,7 +51,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
       querystring: certListQuerySchema,
     },
   }, async (req) => {
-    // exactOptionalPropertyTypes: spread only present values — ไม่ส่ง undefined ตรง ๆ
+    const locale = await resolveLocale(req, app.prisma)
     return listCertificates(
       app.prisma,
       req.user.id,
@@ -61,6 +61,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
         limit: req.query.limit,
         ...(req.query.userId != null && { userId: req.query.userId }),
       },
+      locale,
     )
   })
 

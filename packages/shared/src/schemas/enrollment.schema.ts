@@ -6,6 +6,7 @@ export const enrollmentResponseSchema = z.object({
   id: z.string().cuid(),
   userId: z.string().cuid(),
   courseId: z.string().cuid(),
+  courseTitle: z.string(),
   status: enrollStatusSchema,
   progress: z.number().int().min(0).max(100),
   completedMaterials: z.array(z.string()),

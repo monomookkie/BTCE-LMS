@@ -79,7 +79,7 @@ async function issueCertificate(
       userId: true,
       courseId: true,
       status: true,
-      course: { select: { expiryMonths: true } },
+      course: { select: { expiryMonths: true, titleEn: true, titleTh: true } },
     },
   })
   if (!enrollment || enrollment.status !== 'COMPLETED') return
@@ -122,6 +122,8 @@ async function issueCertificate(
         enrollmentId,
         userId: enrollment.userId,
         courseId: enrollment.courseId,
+        courseTitleEn: enrollment.course.titleEn,
+        courseTitleTh: enrollment.course.titleTh ?? null,
         certNumber,
         score,
         verifyHash,
@@ -208,6 +210,8 @@ type CertRecord = {
   enrollmentId: string
   userId: string
   courseId: string
+  courseTitleEn: string
+  courseTitleTh: string | null
   certNumber: string
   score: number
   fileKey: string | null
@@ -217,11 +221,12 @@ type CertRecord = {
   revokedAt: Date | null
 }
 
-function toCertAdminShape(c: CertRecord): CertificateAdminResponse {
+function toCertAdminShape(c: CertRecord, locale: Locale = 'en'): CertificateAdminResponse {
   return {
     id: c.id,
     certNumber: c.certNumber,
     courseId: c.courseId,
+    courseTitle: localizeField(c.courseTitleEn, c.courseTitleTh, locale),
     score: c.score,
     status: getCertStatus(c),
     issuedAt: c.issuedAt.toISOString(),
@@ -237,10 +242,11 @@ function toCertAdminShape(c: CertRecord): CertificateAdminResponse {
 function serializeCert(
   c: CertRecord,
   role: string,
+  locale: Locale = 'en',
 ): CertificateAdminResponse | CertificatePublicResponse {
   return serializeByRole(
     role,
-    toCertAdminShape(c),
+    toCertAdminShape(c, locale),
     certificateAdminResponseSchema,
     certificatePublicResponseSchema,
   )
@@ -251,6 +257,8 @@ const CERT_SELECT = {
   enrollmentId: true,
   userId: true,
   courseId: true,
+  courseTitleEn: true,
+  courseTitleTh: true,
   certNumber: true,
   score: true,
   fileKey: true,
@@ -267,6 +275,7 @@ export async function listCertificates(
   requesterId: string,
   role: string,
   query: { userId?: string; page: number; limit: number },
+  locale: Locale = 'en',
 ): Promise<{ data: (CertificateAdminResponse | CertificatePublicResponse)[]; total: number; page: number; limit: number }> {
   // USER ดูเฉพาะของตัวเอง — ไม่สนใจ query.userId
   const targetUserId = role === 'USER' ? requesterId : query.userId
@@ -286,7 +295,7 @@ export async function listCertificates(
   ])
 
   return {
-    data: certs.map((c) => serializeCert(c, role)),
+    data: certs.map((c) => serializeCert(c, role, locale)),
     total,
     page,
     limit,
@@ -321,7 +330,7 @@ export async function getCertificate(
     })
   }
 
-  return serializeCert(cert, role)
+  return serializeCert(cert, role, locale)
 }
 
 // ─── Revoke ───────────────────────────────────────────────────────────────────
@@ -353,7 +362,7 @@ export async function revokeCertificate(
     ...(ip != null && { ip }),
   })
 
-  return toCertAdminShape(updated)
+  return toCertAdminShape(updated, locale)
 }
 
 // ─── Public verify by verifyHash (UUID) ──────────────────────────────────────
@@ -371,11 +380,6 @@ export async function verifyByHash(
     select: {
       ...CERT_SELECT,
       user: { select: { name: true } },
-      enrollment: {
-        select: {
-          course: { select: { titleEn: true, titleTh: true } },
-        },
-      },
     },
   })
 
@@ -391,11 +395,7 @@ export async function verifyByHash(
     ...(ip != null && { ip }),
   })
 
-  const courseName = localizeField(
-    cert.enrollment.course.titleEn,
-    cert.enrollment.course.titleTh,
-    locale,
-  )
+  const courseName = localizeField(cert.courseTitleEn, cert.courseTitleTh, locale)
 
   return certificateVerifyResponseSchema.parse({
     certNumber: cert.certNumber,
@@ -421,11 +421,6 @@ export async function generateCertPdf(
     select: {
       ...CERT_SELECT,
       user: { select: { name: true } },
-      enrollment: {
-        select: {
-          course: { select: { titleEn: true, titleTh: true } },
-        },
-      },
     },
   })
   if (!cert) throw notFound(t('error.cert.notFound', undefined, locale))
@@ -445,11 +440,7 @@ export async function generateCertPdf(
     })
   }
 
-  const courseTitle = localizeField(
-    cert.enrollment.course.titleEn,
-    cert.enrollment.course.titleTh,
-    locale,
-  )
+  const courseTitle = localizeField(cert.courseTitleEn, cert.courseTitleTh, locale)
 
   return generateCertificatePdf({
     holderName: cert.user.name,

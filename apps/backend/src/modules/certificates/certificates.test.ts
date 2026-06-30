@@ -2,6 +2,7 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 import { randomUUID } from 'node:crypto'
 import { buildTestApp, createUser, loginAs, prisma } from '../../test/helpers.js'
 import type { TestApp } from '../../test/helpers.js'
+import type { CertificatePublicResponse, CertificateAdminResponse } from '@btec-lms/shared'
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -34,6 +35,8 @@ async function seedCert(opts: {
       enrollmentId: enrollment.id,
       userId: user.id,
       courseId: course.id,
+      courseTitleEn: course.titleEn,
+      courseTitleTh: null,
       certNumber,
       score: 90,
       verifyHash,
@@ -210,5 +213,130 @@ describe('GET /verify/:hash — certificate public verification', () => {
     expect(body.verifyHash).toBeUndefined()
     expect(body.enrollmentId).toBeUndefined()
     expect(body.fileKey).toBeUndefined()
+  })
+})
+
+describe('GET /certificates — list + courseTitle (snapshot)', () => {
+  let app: TestApp
+  let adminCookies: string
+
+  beforeAll(async () => {
+    app = await buildTestApp()
+    const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+    const res = await loginAs(app, user.email, plainPassword)
+    adminCookies = res.cookies
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  it('cert issued via API → courseTitle is snapshot of course name at issue time', async () => {
+    // Create course + user + enroll + complete → cert issued automatically
+    const { user, plainPassword } = await createUser({ role: 'USER' })
+    const { cookies: userCookies } = await loginAs(app, user.email, plainPassword)
+
+    // Create + publish course
+    const courseRes = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      headers: { cookie: adminCookies },
+      payload: { titleEn: 'Original Course Name', categoryEn: 'Safety', passScore: 80 },
+    })
+    const courseId = courseRes.json<{ id: string }>().id
+    await app.inject({
+      method: 'PATCH',
+      url: `/courses/${courseId}/status`,
+      headers: { cookie: adminCookies },
+      payload: { status: 'PUBLISHED' },
+    })
+
+    // Assign + complete (no materials, no quiz → completes immediately)
+    const assignRes = await app.inject({
+      method: 'POST',
+      url: '/enrollments',
+      headers: { cookie: adminCookies },
+      payload: { userId: user.id, courseId },
+    })
+    const enrollmentId = assignRes.json<{ id: string }>().id
+
+    // Force enrollment to COMPLETED status directly in DB to trigger cert issuance
+    await prisma.enrollment.update({
+      where: { id: enrollmentId },
+      data: { status: 'COMPLETED', progress: 100, completedAt: new Date() },
+    })
+    // Trigger cert issuance via API: mark a non-existent material (service will complete anyway if status already COMPLETED)
+    // Better: use the complete-material route to trigger onEnrollmentCompleted
+    // Simpler: call the quiz pass route — but there's no quiz. Use seedCert-like direct cert creation via the API flow.
+    // Use issueCertificate through the service hook directly
+    const { onEnrollmentCompleted } = await import('./certificates.service.js')
+    await onEnrollmentCompleted(prisma, enrollmentId)
+
+    // Cert should be issued — find it
+    const cert = await prisma.certificate.findFirst({
+      where: { enrollmentId },
+      select: { id: true, courseTitleEn: true, courseTitleTh: true },
+    })
+    expect(cert).not.toBeNull()
+    expect(cert!.courseTitleEn).toBe('Original Course Name') // snapshot stored
+
+    // Now rename the course
+    await app.inject({
+      method: 'PATCH',
+      url: `/courses/${courseId}`,
+      headers: { cookie: adminCookies },
+      payload: { titleEn: 'Renamed Course Name' },
+    })
+
+    // Cert via API should still show ORIGINAL name (snapshot, not join-live)
+    const certRes = await app.inject({
+      method: 'GET',
+      url: `/certificates/${cert!.id}`,
+      headers: { cookie: userCookies },
+    })
+    expect(certRes.statusCode).toBe(200)
+    expect(certRes.json<CertificatePublicResponse>().courseTitle).toBe('Original Course Name')
+  })
+
+  it('rename course after issue → /verify/:hash still shows original name', async () => {
+    const { certId, verifyHash } = await seedCert({ expiresAt: null })
+    // seedCert stores courseTitleEn = 'Verify Test Course'
+
+    // Find the courseId from the cert
+    const certRow = await prisma.certificate.findUnique({
+      where: { id: certId },
+      select: { courseId: true, courseTitleEn: true },
+    })
+    expect(certRow!.courseTitleEn).toBe('Verify Test Course') // snapshot confirmed
+
+    // Rename the course directly in DB (simulating admin rename after cert issuance)
+    await prisma.course.update({
+      where: { id: certRow!.courseId },
+      data: { titleEn: 'Course Name Changed After Issue' },
+    })
+
+    // Public verify still shows the original snapshot name
+    const res = await app.inject({ method: 'GET', url: `/verify/${verifyHash}` })
+    expect(res.statusCode).toBe(200)
+    expect(res.json().courseName).toBe('Verify Test Course') // snapshot, not 'Course Name Changed After Issue'
+  })
+
+  it('GET /certificates list → courseTitle present, no raw En/Th in response', async () => {
+    const { certId } = await seedCert({ expiresAt: null })
+    const userId = (await prisma.certificate.findUnique({ where: { id: certId }, select: { userId: true } }))!.userId
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/certificates?page=1&limit=50&userId=${userId}`,
+      headers: { cookie: adminCookies },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: CertificateAdminResponse[] }>()
+    const found = body.data.find((c) => c.id === certId)
+    expect(found).toBeDefined()
+    expect(found!.courseTitle).toBe('Verify Test Course')
+    expect(found!.userId).toBeDefined() // admin sees userId
+    expect((found as Record<string, unknown>).courseTitleEn).toBeUndefined() // no raw snapshot fields in response
+    expect((found as Record<string, unknown>).courseTitleTh).toBeUndefined()
   })
 })

@@ -21,7 +21,7 @@ describe('certExpiryReminder + mailer', () => {
   async function seedExpiringCert(userId: string, daysUntilExpiry: number) {
     const course = await prisma.course.create({
       data: { titleEn: `Course ${randomUUID().slice(0, 6)}`, categoryEn: 'Safety', status: 'PUBLISHED' },
-      select: { id: true },
+      select: { id: true, titleEn: true },
     })
     const enrollment = await prisma.enrollment.create({
       data: { userId, courseId: course.id, status: 'COMPLETED' },
@@ -32,6 +32,8 @@ describe('certExpiryReminder + mailer', () => {
         enrollmentId: enrollment.id,
         userId,
         courseId: course.id,
+        courseTitleEn: course.titleEn,
+        courseTitleTh: null,
         certNumber: `BTEC-MAIL-${randomUUID().slice(0, 8).toUpperCase()}`,
         score: 90,
         verifyHash: randomUUID(),

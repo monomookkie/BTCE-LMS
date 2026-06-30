@@ -11,6 +11,7 @@ const certBaseFields = {
   id: z.string().cuid(),
   certNumber: z.string(),
   courseId: z.string(),
+  courseTitle: z.string(),
   score: z.number().int(),
   status: certStatusSchema,
   issuedAt: z.string().datetime(),

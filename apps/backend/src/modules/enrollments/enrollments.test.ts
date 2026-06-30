@@ -86,6 +86,7 @@ describe('Enrollments module', () => {
       const body = res.json<EnrollmentResponse>()
       expect(body.userId).toBe(user.id)
       expect(body.courseId).toBe(courseId)
+      expect(body.courseTitle).toBe('Test Course')
       expect(body.status).toBe('ASSIGNED')
       expect(body.progress).toBe(0)
     })
@@ -196,6 +197,7 @@ describe('Enrollments module', () => {
 
       const body = res.json<EnrollmentResponse>()
       expect(body.userId).toBe(selfUser.id)
+      expect(body.courseTitle).toBe('Test Course')
       expect(body.status).toBe('IN_PROGRESS')
     })
 
@@ -413,7 +415,7 @@ describe('Enrollments module', () => {
   // ─── GET /enrollments/me ───────────────────────────────────────────────────
 
   describe('GET /enrollments/me', () => {
-    it('returns only own enrollments', async () => {
+    it('returns only own enrollments + courseTitle populated', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { user: u1, cookies: u1Cookies } = await setupUser()
       const { user: u2 } = await setupUser()
@@ -434,6 +436,7 @@ describe('Enrollments module', () => {
       const body = res.json<{ data: EnrollmentResponse[] }>()
       expect(body.data.length).toBe(1)
       expect(body.data[0]!.userId).toBe(u1.id)
+      expect(body.data[0]!.courseTitle).toBe('Test Course')
     })
 
     it('cancelled enrollment not returned in /me', async () => {

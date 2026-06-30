@@ -74,7 +74,8 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: enrollmentListResponseSchema },
     },
   }, async (req, reply) => {
-    const result = await listEnrollments(app.prisma, req.query, req.user.id, req.ip)
+    const locale = await resolveLocale(req, app.prisma)
+    const result = await listEnrollments(app.prisma, req.query, req.user.id, locale, req.ip)
     return reply.send(result)
   })
 
@@ -86,7 +87,8 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       response: { 200: enrollmentListResponseSchema },
     },
   }, async (req, reply) => {
-    const result = await listMyEnrollments(app.prisma, req.user.id, req.query)
+    const locale = await resolveLocale(req, app.prisma)
+    const result = await listMyEnrollments(app.prisma, req.user.id, req.query, locale)
     return reply.send(result)
   })
 

@@ -6,7 +6,7 @@ import type {
 } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
-import { t, type Locale } from '../../lib/i18n.js'
+import { t, localizeField, type Locale } from '../../lib/i18n.js'
 import type { EnrollmentListQuery } from './enrollments.schema.js'
 import { onEnrollmentCompleted } from '../certificates/certificates.service.js'
 
@@ -21,9 +21,10 @@ const ENROLLMENT_SELECT = {
   dueAt: true,
   completedAt: true,
   createdAt: true,
+  course: { select: { titleEn: true, titleTh: true } },
 } as const
 
-function toEnrollmentResponse(e: {
+type EnrollmentRecord = {
   id: string
   userId: string
   courseId: string
@@ -34,11 +35,15 @@ function toEnrollmentResponse(e: {
   dueAt: Date | null
   completedAt: Date | null
   createdAt: Date
-}): EnrollmentResponse {
+  course: { titleEn: string; titleTh: string | null }
+}
+
+function toEnrollmentResponse(e: EnrollmentRecord, locale: Locale = 'en'): EnrollmentResponse {
   return {
     id: e.id,
     userId: e.userId,
     courseId: e.courseId,
+    courseTitle: localizeField(e.course.titleEn, e.course.titleTh, locale),
     status: e.status as EnrollmentResponse['status'],
     progress: e.progress,
     completedMaterials: (e.completedMaterials as string[]) ?? [],
@@ -144,7 +149,7 @@ export async function assignEnrollment(
     ...(ip != null && { ip }),
   })
 
-  return toEnrollmentResponse(enrollment)
+  return toEnrollmentResponse(enrollment, locale)
 }
 
 export async function selfEnroll(
@@ -178,13 +183,14 @@ export async function selfEnroll(
     ...(ip != null && { ip }),
   })
 
-  return toEnrollmentResponse(enrollment)
+  return toEnrollmentResponse(enrollment, locale)
 }
 
 export async function listEnrollments(
   prisma: PrismaClient,
   query: EnrollmentListQuery,
   actorId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<{ data: EnrollmentResponse[]; total: number; page: number; limit: number }> {
   const { page, limit, userId, courseId, status } = query
@@ -213,13 +219,14 @@ export async function listEnrollments(
     ...(ip != null && { ip }),
   })
 
-  return { data: enrollments.map(toEnrollmentResponse), total, page, limit }
+  return { data: enrollments.map((e) => toEnrollmentResponse(e, locale)), total, page, limit }
 }
 
 export async function listMyEnrollments(
   prisma: PrismaClient,
   userId: string,
   query: EnrollmentListQuery,
+  locale: Locale = 'en',
 ): Promise<{ data: EnrollmentResponse[]; total: number; page: number; limit: number }> {
   const { page, limit, status } = query
   const where = { userId, deletedAt: null, ...(status != null && { status }) }
@@ -235,7 +242,7 @@ export async function listMyEnrollments(
     prisma.enrollment.count({ where }),
   ])
 
-  return { data: enrollments.map(toEnrollmentResponse), total, page, limit }
+  return { data: enrollments.map((e) => toEnrollmentResponse(e, locale)), total, page, limit }
 }
 
 export async function getEnrollment(
@@ -269,7 +276,7 @@ export async function getEnrollment(
     })
   }
 
-  return toEnrollmentResponse(enrollment)
+  return toEnrollmentResponse(enrollment, locale)
 }
 
 export async function markMaterialComplete(
@@ -337,7 +344,7 @@ export async function markMaterialComplete(
     await onEnrollmentCompleted(prisma, enrollmentId, ip)
   }
 
-  return toEnrollmentResponse(updated)
+  return toEnrollmentResponse(updated, locale)
 }
 
 export async function cancelEnrollment(
