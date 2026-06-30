@@ -13,7 +13,9 @@ const BrowseCoursesPage = lazy(() => import('./pages/user/BrowseCoursesPage.js')
 const CourseDetailPage = lazy(() => import('./pages/user/CourseDetailPage.js'))
 const MyCertificatesPage = lazy(() => import('./pages/user/MyCertificatesPage.js'))
 const MyReportPage = lazy(() => import('./pages/user/MyReportPage.js'))
-const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage.js'))
+const AdminDashboardPage    = lazy(() => import('./pages/admin/AdminDashboardPage.js'))
+const CourseManagementPage  = lazy(() => import('./pages/admin/CourseManagementPage.js'))
+const CourseDetailAdminPage = lazy(() => import('./pages/admin/CourseDetailAdminPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -110,7 +112,22 @@ export default function App() {
                   </Suspense>
                 }
               />
-            <Route path="/admin/courses" element={<Placeholder label="Course Management — FE-4" />} />
+            <Route
+              path="/admin/courses"
+              element={
+                <Suspense fallback={null}>
+                  <CourseManagementPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/courses/:id"
+              element={
+                <Suspense fallback={null}>
+                  <CourseDetailAdminPage />
+                </Suspense>
+              }
+            />
             <Route path="/admin/certificates" element={<Placeholder label="Certificate Engine — FE-4" />} />
             <Route path="/admin/reports" element={<Placeholder label="Reports — FE-4" />} />
             <Route path="/admin/announcements" element={<Placeholder label="Announcements — FE-4" />} />
