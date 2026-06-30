@@ -62,14 +62,12 @@ function handleSessionExpiry(): void {
 // Singleton refresh promise — ป้องกัน concurrent refresh (สำคัญกับ rotation)
 let refreshPromise: Promise<void> | null = null
 
-export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
+// Shared core: fetch + 401/refresh/retry, returns raw Response (not yet parsed/read).
+async function executeWithRefresh(path: string, options: ApiOptions): Promise<Response> {
   const { skipRefresh, ...fetchOptions } = options
   let res = await doFetch(path, fetchOptions)
 
-  if (res.status !== 401) {
-    if (!res.ok) throw await extractError(res)
-    return parseResponse<T>(res)
-  }
+  if (res.status !== 401) return res
 
   // skipRefresh: 401 หมายความว่า credential ผิด ไม่ใช่ token expired
   if (skipRefresh) throw await extractError(res)
@@ -98,12 +96,23 @@ export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promi
     throw new ApiError(401, 'Session expired')
   }
 
-  // Retry ครั้งเดียว
-  res = await doFetch(path, options)
-  if (!res.ok) {
-    if (res.status === 401) handleSessionExpiry()
-    throw await extractError(res)
+  // Retry ครั้งเดียว (ใช้ fetchOptions ไม่มี skipRefresh)
+  res = await doFetch(path, fetchOptions)
+  if (res.status === 401) {
+    handleSessionExpiry()
+    throw new ApiError(401, 'Session expired')
   }
+  return res
+}
 
+export async function apiFetch<T>(path: string, options: ApiOptions = {}): Promise<T> {
+  const res = await executeWithRefresh(path, options)
+  if (!res.ok) throw await extractError(res)
   return parseResponse<T>(res)
+}
+
+export async function apiFetchBlob(path: string, options: ApiOptions = {}): Promise<Blob> {
+  const res = await executeWithRefresh(path, options)
+  if (!res.ok) throw await extractError(res)
+  return res.blob()
 }

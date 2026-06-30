@@ -192,6 +192,45 @@
     "passwordMismatch": "Passwords do not match",
     "passwordMinLength": "Password must be at least {{count}} characters"
   },
+  "dashboard": {
+    "inProgress": "In Progress",
+    "completed": "Completed",
+    "certificates": "Certificates",
+    "expiringSoon": "Expiring Soon",
+    "recentProgress": "My Course Progress",
+    "recentCerts": "Recent Certificates",
+    "emptyEnrollments": "You have no active courses",
+    "emptyCerts": "You have no certificates yet",
+    "viewAll": "View all"
+  },
+  "browse": {
+    "searchPlaceholder": "Search courses...",
+    "enrolling": "Enrolling...",
+    "alreadyEnrolled": "Enrolled",
+    "noCourses": "No published courses found",
+    "selfEnrollDisabled": "Contact your manager to enroll",
+    "enrollSuccess": "Successfully enrolled",
+    "enrollForbidden": "Self-enrollment is not available for this course",
+    "enrollDuplicate": "You are already enrolled in this course",
+    "minScore": "Pass score",
+    "durationMin": "{{count}} min"
+  },
+  "report": {
+    "title": "My Report",
+    "totalEnrolled": "Total Enrolled",
+    "completedCourses": "Completed",
+    "avgScore": "Average Score",
+    "activeCerts": "Active Certificates",
+    "enrollmentHistory": "Enrollment History",
+    "certHistory": "My Certificates",
+    "noData": "No data to display yet",
+    "completedOn": "Completed"
+  },
+  "externalCert": {
+    "title": "External Certificates",
+    "noData": "No external certificates uploaded",
+    "issuer": "Issued by"
+  },
   "demo": {
     "title": "BTEC LMS v2",
     "subtitle": "National Blood Centre, Thai Red Cross Society",

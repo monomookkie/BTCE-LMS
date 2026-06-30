@@ -59,24 +59,26 @@ async function main() {
   })
 
   // --- Sample course (optional, ไว้ทดสอบ flow) ---
-  const sampleCourse = await prisma.course.upsert({
-    where: { id: 'seed-course-001' },
-    update: {},
-    create: {
-      id: 'seed-course-001',
+  // ใช้ findFirst แทน upsert with hardcoded id เพื่อให้ Prisma auto-generate CUID ที่ถูกต้อง
+  const existing = await prisma.course.findFirst({
+    where: { titleEn: 'Workplace Safety (Sample)', deletedAt: null },
+  })
+  const sampleCourse = existing ?? await prisma.course.create({
+    data: {
       titleEn: 'Workplace Safety (Sample)',
       titleTh: 'ความปลอดภัยในการทำงาน (ตัวอย่าง)',
       categoryEn: 'Safety',
       categoryTh: 'ความปลอดภัย',
       descriptionEn: 'A sample course for system testing',
       descriptionTh: 'หลักสูตรตัวอย่างสำหรับทดสอบระบบ',
-      status: 'DRAFT',
+      status: 'PUBLISHED',
       passScore: 80,
       expiryMonths: 12,
+      allowSelfEnroll: true,
     },
   })
 
-  console.log(`  Sample course: ${sampleCourse.titleEn} (DRAFT)`)
+  console.log(`  Sample course: ${sampleCourse.titleEn} (${sampleCourse.status}) id=${sampleCourse.id}`)
 
   console.log('✅ Seed complete')
   console.log(`   Admin: ${adminEmail}`)

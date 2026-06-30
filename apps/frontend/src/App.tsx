@@ -8,6 +8,10 @@ import LoginPage from './pages/auth/LoginPage.js'
 
 const UiShowcasePage = lazy(() => import('./pages/UiShowcasePage.js'))
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage.js'))
+const UserDashboardPage = lazy(() => import('./pages/user/UserDashboardPage.js'))
+const BrowseCoursesPage = lazy(() => import('./pages/user/BrowseCoursesPage.js'))
+const MyCertificatesPage = lazy(() => import('./pages/user/MyCertificatesPage.js'))
+const MyReportPage = lazy(() => import('./pages/user/MyReportPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -45,11 +49,39 @@ export default function App() {
       {/* Authenticated (any role) — wrapped in AppLayout */}
       <Route element={<RequireAuth />}>
         <Route element={<AppLayout />}>
-          <Route path="/dashboard" element={<Placeholder label="User Dashboard — FE-3" />} />
-          <Route path="/courses" element={<Placeholder label="Browse Courses — FE-3" />} />
-          <Route path="/courses/:id" element={<Placeholder label="Course Detail — FE-3" />} />
-          <Route path="/certs" element={<Placeholder label="My Certificates — FE-3" />} />
-          <Route path="/report" element={<Placeholder label="My Report — FE-3" />} />
+          <Route
+            path="/dashboard"
+            element={
+              <Suspense fallback={null}>
+                <UserDashboardPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/courses"
+            element={
+              <Suspense fallback={null}>
+                <BrowseCoursesPage />
+              </Suspense>
+            }
+          />
+          <Route path="/courses/:id" element={<Placeholder label="Course Detail — FE-5" />} />
+          <Route
+            path="/certs"
+            element={
+              <Suspense fallback={null}>
+                <MyCertificatesPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/report"
+            element={
+              <Suspense fallback={null}>
+                <MyReportPage />
+              </Suspense>
+            }
+          />
           <Route
             path="/profile"
             element={

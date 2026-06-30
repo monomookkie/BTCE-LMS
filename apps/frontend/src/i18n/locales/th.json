@@ -192,6 +192,45 @@
     "passwordMismatch": "รหัสผ่านไม่ตรงกัน",
     "passwordMinLength": "รหัสผ่านต้องมีอย่างน้อย {{count}} ตัวอักษร"
   },
+  "dashboard": {
+    "inProgress": "กำลังเรียน",
+    "completed": "เสร็จสิ้น",
+    "certificates": "ใบรับรอง",
+    "expiringSoon": "ใกล้หมดอายุ",
+    "recentProgress": "ความคืบหน้าหลักสูตรของฉัน",
+    "recentCerts": "ใบรับรองล่าสุด",
+    "emptyEnrollments": "คุณยังไม่มีหลักสูตรที่กำลังเรียน",
+    "emptyCerts": "คุณยังไม่มีใบรับรอง",
+    "viewAll": "ดูทั้งหมด"
+  },
+  "browse": {
+    "searchPlaceholder": "ค้นหาหลักสูตร...",
+    "enrolling": "กำลังลงทะเบียน...",
+    "alreadyEnrolled": "ลงทะเบียนแล้ว",
+    "noCourses": "ไม่พบหลักสูตรที่เผยแพร่",
+    "selfEnrollDisabled": "ติดต่อผู้จัดการเพื่อลงทะเบียน",
+    "enrollSuccess": "ลงทะเบียนสำเร็จ",
+    "enrollForbidden": "หลักสูตรนี้ไม่เปิดรับการลงทะเบียนด้วยตนเอง",
+    "enrollDuplicate": "คุณลงทะเบียนหลักสูตรนี้แล้ว",
+    "minScore": "คะแนนผ่าน",
+    "durationMin": "{{count}} นาที"
+  },
+  "report": {
+    "title": "รายงานของฉัน",
+    "totalEnrolled": "ลงทะเบียนทั้งหมด",
+    "completedCourses": "เสร็จสิ้น",
+    "avgScore": "คะแนนเฉลี่ย",
+    "activeCerts": "ใบรับรองที่ใช้งานได้",
+    "enrollmentHistory": "ประวัติการลงทะเบียน",
+    "certHistory": "ใบรับรองของฉัน",
+    "noData": "ยังไม่มีข้อมูล",
+    "completedOn": "เสร็จสิ้นเมื่อ"
+  },
+  "externalCert": {
+    "title": "ใบรับรองภายนอก",
+    "noData": "ยังไม่มีใบรับรองภายนอก",
+    "issuer": "ออกโดย"
+  },
   "demo": {
     "title": "BTEC LMS v2",
     "subtitle": "ศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย",
