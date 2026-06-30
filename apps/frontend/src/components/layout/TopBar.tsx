@@ -53,7 +53,7 @@ export function TopBar({ onMenuClick, unreadNotifications = 0 }: TopBarProps) {
         </button>
         <div className="flex items-center gap-2">
           <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-          <h1 className="text-sm font-semibold text-slate-800">{title}</h1>
+          <span className="text-sm font-semibold text-slate-800">{title}</span>
         </div>
       </div>
 

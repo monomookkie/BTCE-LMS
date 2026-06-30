@@ -7,6 +7,7 @@ import AppLayout from './components/layout/AppLayout.js'
 import LoginPage from './pages/auth/LoginPage.js'
 
 const UiShowcasePage = lazy(() => import('./pages/UiShowcasePage.js'))
+const ProfilePage = lazy(() => import('./pages/profile/ProfilePage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -49,7 +50,14 @@ export default function App() {
           <Route path="/courses/:id" element={<Placeholder label="Course Detail — FE-3" />} />
           <Route path="/certs" element={<Placeholder label="My Certificates — FE-3" />} />
           <Route path="/report" element={<Placeholder label="My Report — FE-3" />} />
-          <Route path="/profile" element={<Placeholder label="Profile — FE-3" />} />
+          <Route
+            path="/profile"
+            element={
+              <Suspense fallback={null}>
+                <ProfilePage />
+              </Suspense>
+            }
+          />
 
           {/* ADMIN + MANAGER */}
           <Route element={<RequireRole roles={['ADMIN', 'MANAGER']} />}>

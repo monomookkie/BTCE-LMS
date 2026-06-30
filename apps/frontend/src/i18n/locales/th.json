@@ -179,6 +179,19 @@
       "dismiss": "ปิด"
     }
   },
+  "profile": {
+    "title": "โปรไฟล์ของฉัน",
+    "info": "ข้อมูลส่วนตัว",
+    "saved": "บันทึกโปรไฟล์แล้ว",
+    "position": "ตำแหน่ง",
+    "emailReadOnly": "อีเมล (ไม่สามารถเปลี่ยนได้)",
+    "departmentReadOnly": "แผนก (จัดการโดยผู้ดูแลระบบ)",
+    "languagePref": "ภาษาที่ใช้งาน",
+    "passwordSection": "เปลี่ยนรหัสผ่าน",
+    "passwordChanged": "เปลี่ยนรหัสผ่านแล้ว — กรุณาเข้าสู่ระบบใหม่",
+    "passwordMismatch": "รหัสผ่านไม่ตรงกัน",
+    "passwordMinLength": "รหัสผ่านต้องมีอย่างน้อย {{count}} ตัวอักษร"
+  },
   "demo": {
     "title": "BTEC LMS v2",
     "subtitle": "ศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย",

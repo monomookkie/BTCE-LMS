@@ -179,6 +179,19 @@
       "dismiss": "Dismiss"
     }
   },
+  "profile": {
+    "title": "My Profile",
+    "info": "Personal Information",
+    "saved": "Profile updated",
+    "position": "Position",
+    "emailReadOnly": "Email (cannot be changed)",
+    "departmentReadOnly": "Department (managed by admin)",
+    "languagePref": "Language Preference",
+    "passwordSection": "Change Password",
+    "passwordChanged": "Password changed — please sign in again",
+    "passwordMismatch": "Passwords do not match",
+    "passwordMinLength": "Password must be at least {{count}} characters"
+  },
   "demo": {
     "title": "BTEC LMS v2",
     "subtitle": "National Blood Centre, Thai Red Cross Society",

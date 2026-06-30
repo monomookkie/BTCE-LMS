@@ -1,13 +1,12 @@
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { Navigate } from 'react-router-dom'
+import { loginInputSchema, type LoginInput } from '@btec-lms/shared'
 import { useAuth, useLoginMutation, ApiError } from '../../hooks/useAuth.js'
 import { LanguageSwitcher } from '../../components/LanguageSwitcher.js'
-
-interface FormValues {
-  email: string
-  password: string
-}
+import { Input } from '../../components/ui/Input.js'
+import { Button } from '../../components/ui/Button.js'
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -19,15 +18,16 @@ export default function LoginPage() {
     handleSubmit,
     setError,
     formState: { errors, isSubmitting },
-  } = useForm<FormValues>()
+  } = useForm<LoginInput>({
+    resolver: zodResolver(loginInputSchema),
+  })
 
-  // ถ้า login อยู่แล้ว ให้ redirect ออกจากหน้า login
   if (!isLoading && user) {
     const dest = user.role === 'ADMIN' || user.role === 'MANAGER' ? '/admin/dashboard' : '/dashboard'
     return <Navigate to={dest} replace />
   }
 
-  const onSubmit = async (data: FormValues) => {
+  const onSubmit = async (data: LoginInput) => {
     try {
       await loginMutation.mutateAsync(data)
     } catch (err) {
@@ -55,35 +55,21 @@ export default function LoginPage() {
         </div>
 
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4 px-8 py-6">
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              {t('auth.email')}
-            </label>
-            <input
-              type="email"
-              autoComplete="email"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              {...register('email', { required: t('common.required') })}
-            />
-            {errors.email && (
-              <p className="mt-1 text-xs text-danger">{errors.email.message}</p>
-            )}
-          </div>
+          <Input
+            type="email"
+            autoComplete="email"
+            label={t('auth.email')}
+            error={errors.email?.message}
+            {...register('email')}
+          />
 
-          <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">
-              {t('auth.password')}
-            </label>
-            <input
-              type="password"
-              autoComplete="current-password"
-              className="w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500"
-              {...register('password', { required: t('common.required') })}
-            />
-            {errors.password && (
-              <p className="mt-1 text-xs text-danger">{errors.password.message}</p>
-            )}
-          </div>
+          <Input
+            type="password"
+            autoComplete="current-password"
+            label={t('auth.password')}
+            error={errors.password?.message}
+            {...register('password')}
+          />
 
           {errors.root && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">
@@ -91,13 +77,9 @@ export default function LoginPage() {
             </p>
           )}
 
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="w-full rounded-xl bg-brand-500 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-600 disabled:opacity-60"
-          >
+          <Button type="submit" className="w-full" isLoading={isSubmitting}>
             {isSubmitting ? t('auth.loggingIn') : t('auth.login')}
-          </button>
+          </Button>
         </form>
       </div>
     </div>
