@@ -7,6 +7,7 @@ import {
   updateUserInputSchema,
   updateProfileInputSchema,
   consentInputSchema,
+  departmentListSchema,
 } from '@btec-lms/shared'
 import { userListQuerySchema, importResultSchema } from './users.schema.js'
 import {
@@ -63,6 +64,25 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       const locale = await resolveLocale(req, app.prisma)
       const user = await createUser(app.prisma, req.body, req.user.id, locale, req.ip)
       return reply.status(201).send(user)
+    },
+  )
+
+  // GET /users/departments — ADMIN + MANAGER (ใช้สำหรับ dropdown filter)
+  server.get(
+    '/departments',
+    {
+      preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+      schema: { response: { 200: departmentListSchema } },
+    },
+    async (req, reply) => {
+      const locale = await resolveLocale(req, app.prisma)
+      const depts = await app.prisma.department.findMany({ orderBy: { nameEn: 'asc' } })
+      return reply.send(
+        depts.map((d) => ({
+          id: d.id,
+          name: locale === 'th' && d.nameTh ? d.nameTh : d.nameEn,
+        })),
+      )
     },
   )
 

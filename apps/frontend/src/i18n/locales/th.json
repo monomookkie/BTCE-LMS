@@ -264,6 +264,26 @@
     "noData": "ยังไม่มีใบรับรองภายนอก",
     "issuer": "ออกโดย"
   },
+  "adminDash": {
+    "title": "แดชบอร์ดผู้ดูแลระบบ",
+    "staffCount": "เจ้าหน้าที่ทั้งหมด",
+    "publishedCourses": "หลักสูตรที่เผยแพร่",
+    "certsIssued": "ใบรับรองที่ออก",
+    "expiringSoon": "ใกล้หมดอายุ",
+    "deptFilter": "แผนก",
+    "deptAll": "ทุกแผนก",
+    "viewingDept": "กำลังดูแผนก:",
+    "recertTitle": "ต้องต่ออายุเร็ว ๆ นี้",
+    "recertSubtext": "ใบรับรองหมดอายุภายใน 30 วัน",
+    "progressTitle": "ความคืบหน้าการเรียนรู้",
+    "completionRate": "อัตราการเรียนจบ",
+    "completed": "เสร็จสิ้น",
+    "pending": "กำลังเรียน",
+    "totalEnrollments": "การลงทะเบียนทั้งหมด",
+    "compliancePreview": "ภาพรวม Compliance",
+    "viewFullReport": "ดูรายงานเต็ม",
+    "noCompliance": "ไม่พบข้อมูลการลงทะเบียน"
+  },
   "demo": {
     "title": "BTEC LMS v2",
     "subtitle": "ศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย",

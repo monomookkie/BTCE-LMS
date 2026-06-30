@@ -13,6 +13,7 @@ const BrowseCoursesPage = lazy(() => import('./pages/user/BrowseCoursesPage.js')
 const CourseDetailPage = lazy(() => import('./pages/user/CourseDetailPage.js'))
 const MyCertificatesPage = lazy(() => import('./pages/user/MyCertificatesPage.js'))
 const MyReportPage = lazy(() => import('./pages/user/MyReportPage.js'))
+const AdminDashboardPage = lazy(() => import('./pages/admin/AdminDashboardPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -101,7 +102,14 @@ export default function App() {
 
           {/* ADMIN + MANAGER */}
           <Route element={<RequireRole roles={['ADMIN', 'MANAGER']} />}>
-            <Route path="/admin/dashboard" element={<Placeholder label="Admin Dashboard — FE-4" />} />
+            <Route
+                path="/admin/dashboard"
+                element={
+                  <Suspense fallback={null}>
+                    <AdminDashboardPage />
+                  </Suspense>
+                }
+              />
             <Route path="/admin/courses" element={<Placeholder label="Course Management — FE-4" />} />
             <Route path="/admin/certificates" element={<Placeholder label="Certificate Engine — FE-4" />} />
             <Route path="/admin/reports" element={<Placeholder label="Reports — FE-4" />} />

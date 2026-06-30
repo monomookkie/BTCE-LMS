@@ -43,9 +43,17 @@ export const createUserInputSchema = z.object({
   position: z.string().max(100).optional(),
 })
 
+export const departmentItemSchema = z.object({
+  id: z.string().cuid(),
+  name: z.string(),
+})
+
+export const departmentListSchema = z.array(departmentItemSchema)
+
 export type Role = z.infer<typeof roleSchema>
 export type Language = z.infer<typeof languageSchema>
 export type UserResponse = z.infer<typeof userResponseSchema>
 export type UpdateProfileInput = z.infer<typeof updateProfileInputSchema>
 export type UpdateUserInput = z.infer<typeof updateUserInputSchema>
 export type CreateUserInput = z.infer<typeof createUserInputSchema>
+export type DepartmentItem = z.infer<typeof departmentItemSchema>

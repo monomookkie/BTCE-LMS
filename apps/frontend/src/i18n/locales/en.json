@@ -264,6 +264,26 @@
     "noData": "No external certificates uploaded",
     "issuer": "Issued by"
   },
+  "adminDash": {
+    "title": "Admin Dashboard",
+    "staffCount": "Total Staff",
+    "publishedCourses": "Published Courses",
+    "certsIssued": "Certs Issued",
+    "expiringSoon": "Expiring Soon",
+    "deptFilter": "Department",
+    "deptAll": "All departments",
+    "viewingDept": "Viewing:",
+    "recertTitle": "Recertification Due",
+    "recertSubtext": "certificates expire within 30 days",
+    "progressTitle": "Learning Progress",
+    "completionRate": "Completion rate",
+    "completed": "Completed",
+    "pending": "In progress",
+    "totalEnrollments": "Total enrollments",
+    "compliancePreview": "Compliance Overview",
+    "viewFullReport": "View full report",
+    "noCompliance": "No enrollment records found"
+  },
   "demo": {
     "title": "BTEC LMS v2",
     "subtitle": "National Blood Centre, Thai Red Cross Society",
