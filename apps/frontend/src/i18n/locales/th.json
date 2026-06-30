@@ -79,15 +79,20 @@
     "quizzes": "แบบทดสอบ",
     "startQuiz": "เริ่มทำแบบทดสอบ",
     "submitQuiz": "ส่งคำตอบ",
+    "submitting": "กำลังส่ง...",
     "question": "คำถาม",
     "questions": "คำถามทั้งหมด",
+    "questionN": "ข้อที่ {{n}} จาก {{total}}",
     "option": "ตัวเลือก",
     "attempts": "จำนวนครั้งที่สอบ",
     "maxAttempts": "จำนวนครั้งสูงสุด",
     "score": "คะแนน",
     "passed": "ผ่าน",
     "failed": "ไม่ผ่าน",
-    "result": "ผลการสอบ"
+    "result": "ผลการสอบ",
+    "attemptResult": "คำตอบของคุณ",
+    "passThreshold": "เกณฑ์ผ่าน",
+    "answerAll": "กรุณาตอบทุกข้อก่อนส่ง"
   },
   "enrollment": {
     "label": "การลงทะเบียน",
@@ -142,7 +147,35 @@
     "courseManagement": "จัดการหลักสูตร",
     "certEngine": "ใบรับรอง"
   },
+  "courseDetail": {
+    "back": "กลับไปหลักสูตร",
+    "materials": "สื่อการเรียน",
+    "noMaterials": "ยังไม่มีสื่อการเรียนในหลักสูตรนี้",
+    "notEnrolled": "ลงทะเบียนเรียนเพื่อเข้าถึงสื่อและแบบทดสอบ",
+    "open": "เปิด",
+    "download": "ดาวน์โหลด",
+    "markComplete": "ทำเสร็จแล้ว",
+    "completed": "เสร็จสิ้น",
+    "quizSection": "แบบประเมิน",
+    "noQuiz": "หลักสูตรนี้ไม่มีแบบประเมิน",
+    "attemptsUsed": "ใช้ไปแล้ว {{used}} จาก {{max}} ครั้ง",
+    "noAttemptsLeft": "คุณใช้ครบ {{max}} ครั้งแล้ว — ไม่มีสิทธิ์สอบเพิ่ม",
+    "unlimitedAttempts": "ไม่จำกัดจำนวนครั้ง",
+    "startQuiz": "เริ่มแบบประเมิน",
+    "retakeQuiz": "สอบใหม่อีกครั้ง",
+    "certCondition": "เรียนครบทุกสื่อและผ่านแบบประเมินเพื่อรับใบรับรอง",
+    "certEarned": "ได้รับใบรับรองแล้ว! ใบรับรองของคุณพร้อมแล้ว",
+    "viewCerts": "ดูใบรับรองของฉัน",
+    "attemptHistory": "ประวัติการสอบ",
+    "noAttempts": "ยังไม่เคยสอบ",
+    "yourAnswer": "คำตอบของคุณ",
+    "notAnswered": "ไม่ได้ตอบ"
+  },
   "status": {
+    "quiz": {
+      "passed": "ผ่าน",
+      "failed": "ไม่ผ่าน"
+    },
     "cert": {
       "valid": "ใช้งานได้",
       "expiringSoon": "ใกล้หมดอายุ",

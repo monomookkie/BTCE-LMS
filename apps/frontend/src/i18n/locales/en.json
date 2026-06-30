@@ -79,15 +79,20 @@
     "quizzes": "Quizzes",
     "startQuiz": "Start quiz",
     "submitQuiz": "Submit answers",
+    "submitting": "Submitting...",
     "question": "Question",
     "questions": "Questions",
+    "questionN": "Question {{n}} of {{total}}",
     "option": "Option",
     "attempts": "Attempts",
     "maxAttempts": "Maximum attempts",
     "score": "Score",
     "passed": "Passed",
     "failed": "Failed",
-    "result": "Result"
+    "result": "Result",
+    "attemptResult": "Your answers",
+    "passThreshold": "Pass threshold",
+    "answerAll": "Please answer all questions before submitting"
   },
   "enrollment": {
     "label": "Enrollment",
@@ -142,7 +147,35 @@
     "courseManagement": "Course Management",
     "certEngine": "Certificates"
   },
+  "courseDetail": {
+    "back": "Back to courses",
+    "materials": "Learning Materials",
+    "noMaterials": "No materials available for this course",
+    "notEnrolled": "Enroll in this course to access materials and assessment",
+    "open": "Open",
+    "download": "Download",
+    "markComplete": "Mark complete",
+    "completed": "Completed",
+    "quizSection": "Assessment",
+    "noQuiz": "No assessment for this course",
+    "attemptsUsed": "{{used}} of {{max}} attempts used",
+    "noAttemptsLeft": "You have used all {{max}} attempt(s) — no attempts remaining",
+    "unlimitedAttempts": "Unlimited attempts",
+    "startQuiz": "Start Assessment",
+    "retakeQuiz": "Retake Assessment",
+    "certCondition": "Complete all materials and pass the assessment to earn your certificate",
+    "certEarned": "Certificate earned! Your certificate is ready.",
+    "viewCerts": "View my certificates",
+    "attemptHistory": "Attempt history",
+    "noAttempts": "No attempts yet",
+    "yourAnswer": "Your answer",
+    "notAnswered": "Not answered"
+  },
   "status": {
+    "quiz": {
+      "passed": "Passed",
+      "failed": "Failed"
+    },
     "cert": {
       "valid": "Valid",
       "expiringSoon": "Expiring Soon",

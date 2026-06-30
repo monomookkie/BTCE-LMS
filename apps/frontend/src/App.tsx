@@ -10,6 +10,7 @@ const UiShowcasePage = lazy(() => import('./pages/UiShowcasePage.js'))
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage.js'))
 const UserDashboardPage = lazy(() => import('./pages/user/UserDashboardPage.js'))
 const BrowseCoursesPage = lazy(() => import('./pages/user/BrowseCoursesPage.js'))
+const CourseDetailPage = lazy(() => import('./pages/user/CourseDetailPage.js'))
 const MyCertificatesPage = lazy(() => import('./pages/user/MyCertificatesPage.js'))
 const MyReportPage = lazy(() => import('./pages/user/MyReportPage.js'))
 
@@ -65,7 +66,14 @@ export default function App() {
               </Suspense>
             }
           />
-          <Route path="/courses/:id" element={<Placeholder label="Course Detail — FE-5" />} />
+          <Route
+            path="/courses/:id"
+            element={
+              <Suspense fallback={null}>
+                <CourseDetailPage />
+              </Suspense>
+            }
+          />
           <Route
             path="/certs"
             element={

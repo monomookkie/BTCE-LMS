@@ -32,13 +32,19 @@ const courseMap: Record<string, StatusConfig> = {
   'ARCHIVED':  { variant: 'amber', i18nKey: 'course.status.ARCHIVED' },
 }
 
-export type StatusType = 'cert' | 'enrollment' | 'announcement' | 'course'
+const quizMap: Record<string, StatusConfig> = {
+  'passed': { variant: 'green', i18nKey: 'status.quiz.passed' },
+  'failed': { variant: 'red',   i18nKey: 'status.quiz.failed' },
+}
+
+export type StatusType = 'cert' | 'enrollment' | 'announcement' | 'course' | 'quiz'
 
 const maps: Record<StatusType, Record<string, StatusConfig>> = {
   cert:         certMap,
   enrollment:   enrollmentMap,
   announcement: announcementMap,
   course:       courseMap,
+  quiz:         quizMap,
 }
 
 export function getStatusConfig(type: StatusType, status: string): StatusConfig {

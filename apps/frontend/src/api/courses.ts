@@ -12,3 +12,7 @@ export function listPublishedCourses(params?: { page?: number }): Promise<Course
   const qs = new URLSearchParams({ page: String(params?.page ?? 1), limit: '100' })
   return apiFetch<CoursesPage>(`/courses?${qs.toString()}`)
 }
+
+export function getCourse(id: string): Promise<CoursePublicResponse> {
+  return apiFetch<CoursePublicResponse>(`/courses/${id}`)
+}
