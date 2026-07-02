@@ -21,6 +21,7 @@ const ReportsPage           = lazy(() => import('./pages/admin/ReportsPage.js'))
 const CertificateEnginePage = lazy(() => import('./pages/admin/CertificateEnginePage.js'))
 const AnnouncementsPage     = lazy(() => import('./pages/admin/AnnouncementsPage.js'))
 const CertVerifyPage        = lazy(() => import('./pages/public/CertVerifyPage.js'))
+const NotFoundPage          = lazy(() => import('./pages/NotFoundPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -172,8 +173,15 @@ export default function App() {
         </Route>
       </Route>
 
-      {/* Fallback */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Fallback — catch-all, must stay last so it never shadows a real route above */}
+      <Route
+        path="*"
+        element={
+          <Suspense fallback={null}>
+            <NotFoundPage />
+          </Suspense>
+        }
+      />
     </Routes>
   )
 }

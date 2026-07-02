@@ -124,7 +124,7 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
       size="lg"
     >
       <form onSubmit={handleSubmit((v) => onSubmit(v, editAnnouncement?.status ?? 'DRAFT'))} className="space-y-5">
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label={`${t('adminAnnouncement.titleEn')} *`}
             error={errors.titleEn?.message}
@@ -133,7 +133,7 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
           <Input label={t('adminAnnouncement.titleTh')} {...register('titleTh')} />
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-700">{t('adminAnnouncement.contentEn')} *</label>
             <textarea
@@ -153,7 +153,7 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
           </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-700">{t('adminAnnouncement.type')}</label>
             <select
@@ -296,7 +296,7 @@ export default function AnnouncementsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-slate-800">{t('adminAnnouncement.title')}</h1>
         <Button leftIcon={<Plus size={16} />} onClick={() => setFormModal({ open: true })}>
           {t('adminAnnouncement.newAnnouncement')}

@@ -22,7 +22,6 @@ import { Input } from '../../components/ui/Input.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
-import { Skeleton } from '../../components/ui/Skeleton.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
 
@@ -127,7 +126,7 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* Bilingual title */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label={`${t('adminCourse.titleEn')} *`}
             error={errors.titleEn?.message}
@@ -142,7 +141,7 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
         </div>
 
         {/* Bilingual category */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label={`${t('adminCourse.categoryEn')} *`}
             error={errors.categoryEn?.message}
@@ -157,7 +156,7 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
         </div>
 
         {/* Bilingual description */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-700">{t('adminCourse.descEn')}</label>
             <textarea
@@ -179,7 +178,7 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
         </div>
 
         {/* Numeric fields */}
-        <div className="grid grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           <Input
             label={`${t('adminCourse.passScore')} (%)`}
             type="number"
@@ -391,7 +390,7 @@ export default function CourseManagementPage() {
   return (
     <div className="space-y-5">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-slate-800">{t('adminCourse.title')}</h1>
         <Button leftIcon={<Plus size={16} />} onClick={() => setFormModal({ open: true })}>
           {t('adminCourse.newCourse')}
@@ -412,7 +411,7 @@ export default function CourseManagementPage() {
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-          className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
+          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:w-auto"
         >
           <option value="">{t('adminCourse.allStatus')}</option>
           <option value="DRAFT">{t('course.status.DRAFT')}</option>

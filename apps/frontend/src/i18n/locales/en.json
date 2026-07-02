@@ -485,5 +485,10 @@
     "empty": "No notifications",
     "markAllRead": "Mark all as read",
     "markRead": "Mark as read"
+  },
+  "notFound": {
+    "title": "Page not found",
+    "message": "BTEC LMS — National Blood Centre, Thai Red Cross Society",
+    "backButton": "Back to home"
   }
 }
