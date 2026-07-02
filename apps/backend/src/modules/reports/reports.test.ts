@@ -288,6 +288,23 @@ describe('Reports module', () => {
       expect(body.data.every((r) => r.courseId === courseId)).toBe(true)
     })
 
+    it('ADMIN filter by status → only that enrollment status, across pagination-worthy dataset', async () => {
+      const admin = await makeAdmin()
+      const u = await makeRegularUser()
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED' })
+      await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS' })
+      await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS' })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/reports/compliance?status=IN_PROGRESS',
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<ComplianceList>()
+      expect(body.data.length).toBeGreaterThan(0)
+      expect(body.data.every((r) => r.enrollmentStatus === 'IN_PROGRESS')).toBe(true)
+    })
+
     it('row certStatus = expiring-soon สำหรับ cert ที่หมดใน 20 วัน', async () => {
       const admin = await makeAdmin()
       const u = await makeRegularUser()

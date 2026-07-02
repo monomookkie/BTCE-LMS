@@ -143,6 +143,7 @@ export async function getDashboardSummary(
 function buildComplianceWhere(
   deptId: string | undefined,  // undefined = ADMIN (all), string = scoped
   courseId: string | undefined,
+  status: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED' | undefined,
   additionalDeptFilter?: string, // query-level departmentId filter
 ) {
   // กรอง dept ตาม role scope ก่อน แล้วค่อย intersect กับ query filter
@@ -153,6 +154,7 @@ function buildComplianceWhere(
     deletedAt: null,
     ...(effectiveDeptId !== undefined && { user: { departmentId: effectiveDeptId } }),
     ...(courseId !== undefined && { courseId }),
+    ...(status !== undefined && { status }),
   }
 }
 
@@ -218,7 +220,7 @@ export async function getComplianceList(
   query: ComplianceQuery,
   locale: Locale,
 ): Promise<ComplianceList> {
-  const { page, limit, courseId } = query
+  const { page, limit, courseId, status } = query
 
   // Resolve dept scope
   let scopeDeptId: string | undefined = undefined // ADMIN: undefined
@@ -242,7 +244,7 @@ export async function getComplianceList(
   // ADMIN ใช้ query.departmentId filter ได้โดยตรง, MANAGER ถูก override ด้วย scope ตัวเอง
   const effectiveDeptId = role === 'MANAGER' ? scopeDeptId : query.departmentId
 
-  const where = buildComplianceWhere(effectiveDeptId, courseId)
+  const where = buildComplianceWhere(effectiveDeptId, courseId, status)
 
   const [total, rows] = await Promise.all([
     prisma.enrollment.count({ where }),
@@ -295,7 +297,7 @@ export async function getComplianceCsv(
   }
 
   const effectiveDeptId = role === 'MANAGER' ? scopeDeptId : query.departmentId
-  const where = buildComplianceWhere(effectiveDeptId, query.courseId)
+  const where = buildComplianceWhere(effectiveDeptId, query.courseId, query.status)
 
   const rows = await prisma.enrollment.findMany({
     where,

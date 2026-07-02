@@ -1,8 +1,11 @@
 import { z } from 'zod'
 
+const enrollmentStatusSchema = z.enum(['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED'])
+
 export const complianceQuerySchema = z.object({
   departmentId: z.string().cuid().optional(),
   courseId: z.string().cuid().optional(),
+  status: enrollmentStatusSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
   limit: z.coerce.number().int().min(1).max(100).default(20),
 })
@@ -11,6 +14,7 @@ export const complianceQuerySchema = z.object({
 export const complianceExportQuerySchema = z.object({
   departmentId: z.string().cuid().optional(),
   courseId: z.string().cuid().optional(),
+  status: enrollmentStatusSchema.optional(),
 })
 
 export type ComplianceQuery = z.infer<typeof complianceQuerySchema>
