@@ -234,4 +234,60 @@ describe('Users module', () => {
       expect(log).not.toBeNull()
     })
   })
+
+  // ─── CSV bulk import — per-row errors, no silent skip ─────────────────────
+
+  describe('POST /users/import', () => {
+    it('good row created, duplicate-email row and malformed row both reported per-row (not silent)', async () => {
+      const { user: admin, plainPassword } = await createUser({
+        email: 'admin-csv@test.com',
+        role: 'ADMIN',
+      })
+      const { user: dup } = await createUser({ email: 'already-exists@test.com', role: 'USER' })
+      const { cookies } = await loginAs(app, admin.email, plainPassword)
+
+      const csv = [
+        'email,name,role',
+        'new-import-user@test.com,New Import User,USER',
+        `${dup.email},Duplicate Row,USER`,
+        ',Missing Email Row,USER',
+      ].join('\n')
+
+      const body = Buffer.concat([
+        Buffer.from(
+          '--b\r\n' +
+            'Content-Disposition: form-data; name="file"; filename="users.csv"\r\n' +
+            'Content-Type: text/csv\r\n\r\n',
+        ),
+        Buffer.from(csv),
+        Buffer.from('\r\n--b--\r\n'),
+      ])
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/users/import',
+        headers: { cookie: cookies, 'content-type': 'multipart/form-data; boundary=b' },
+        body,
+      })
+      expect(res.statusCode).toBe(200)
+      const result = res.json<{
+        created: number
+        skipped: number
+        errors: { row: number; email: string; reason: string }[]
+      }>()
+
+      expect(result.created).toBe(1)
+      // duplicate-email row must show up in errors[], not just as a silent skipped count
+      const dupError = result.errors.find((e) => e.email === dup.email)
+      expect(dupError).toBeDefined()
+      expect(dupError!.reason.length).toBeGreaterThan(0)
+
+      // malformed row (missing email) also reported per-row
+      const malformedError = result.errors.find((e) => e.row === 4)
+      expect(malformedError).toBeDefined()
+
+      const created = await prisma.user.findUnique({ where: { email: 'new-import-user@test.com' } })
+      expect(created).not.toBeNull()
+    })
+  })
 })

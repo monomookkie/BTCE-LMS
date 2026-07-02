@@ -13,6 +13,8 @@
   "error.user.emailConflict": "A user with this email already exists",
   "error.user.employeeIdConflict": "A user with this employee ID already exists",
   "error.user.cannotDeleteSelf": "You cannot delete your own account",
+  "error.user.importRowMissingFields": "email and name are required",
+  "error.user.importRowFailed": "Failed to save this row",
 
   "error.course.notFound": "Course not found",
   "error.course.notPublished": "This course is not available",

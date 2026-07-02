@@ -272,12 +272,13 @@ export async function importFromCsv(
     const name = row['name']?.trim()
 
     if (!email || !name) {
-      errors.push({ row: rowNum, email: email ?? '', reason: 'email และ name จำเป็นต้องมี' })
+      errors.push({ row: rowNum, email: email ?? '', reason: t('error.user.importRowMissingFields', undefined, locale) })
       continue
     }
 
     const exists = await prisma.user.findFirst({ where: { email } })
     if (exists) {
+      errors.push({ row: rowNum, email, reason: t('error.user.emailConflict', undefined, locale) })
       skipped++
       continue
     }
@@ -310,7 +311,7 @@ export async function importFromCsv(
       created++
       tempPasswords.push({ email, tempPassword })
     } catch {
-      errors.push({ row: rowNum, email, reason: 'บันทึกข้อมูลล้มเหลว' })
+      errors.push({ row: rowNum, email, reason: t('error.user.importRowFailed', undefined, locale) })
     }
   }
 
