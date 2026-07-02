@@ -27,6 +27,7 @@ import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { Card } from '../../components/ui/Card.js'
 import { Skeleton } from '../../components/ui/Skeleton.js'
+import QuizEditorTab from './QuizEditorTab.js'
 
 // ─── Icons per material type ──────────────────────────────────────────────────
 
@@ -589,13 +590,8 @@ export default function CourseDetailAdminPage() {
         </div>
       )}
 
-      {/* Quiz tab — placeholder for FE-4b-2 */}
-      {tab === 'quiz' && (
-        <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-16 text-center">
-          <p className="text-sm font-medium text-slate-500">{t('adminCourse.quizPlaceholder')}</p>
-          <p className="mt-1 text-xs text-slate-400">{t('adminCourse.quizComingSoon')}</p>
-        </div>
-      )}
+      {/* Quiz tab */}
+      {tab === 'quiz' && <QuizEditorTab courseId={id} isArchived={isArchived} />}
 
       {/* Modals */}
       <AddLinkModal isOpen={addLinkOpen} onClose={() => setAddLinkOpen(false)} courseId={id} />
