@@ -309,6 +309,13 @@
     "noData": "No data to display yet",
     "completedOn": "Completed"
   },
+  "reports": {
+    "title": "Compliance Reports",
+    "exportCsv": "Export CSV",
+    "allCourses": "All courses",
+    "allStatus": "All statuses",
+    "noRows": "No compliance records found"
+  },
   "externalCert": {
     "title": "External Certificates",
     "noData": "No external certificates uploaded",

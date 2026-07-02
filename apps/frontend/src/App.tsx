@@ -17,6 +17,7 @@ const AdminDashboardPage    = lazy(() => import('./pages/admin/AdminDashboardPag
 const CourseManagementPage  = lazy(() => import('./pages/admin/CourseManagementPage.js'))
 const CourseDetailAdminPage = lazy(() => import('./pages/admin/CourseDetailAdminPage.js'))
 const UserDirectoryPage     = lazy(() => import('./pages/admin/UserDirectoryPage.js'))
+const ReportsPage           = lazy(() => import('./pages/admin/ReportsPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -130,7 +131,14 @@ export default function App() {
               }
             />
             <Route path="/admin/certificates" element={<Placeholder label="Certificate Engine — FE-4" />} />
-            <Route path="/admin/reports" element={<Placeholder label="Reports — FE-4" />} />
+            <Route
+              path="/admin/reports"
+              element={
+                <Suspense fallback={null}>
+                  <ReportsPage />
+                </Suspense>
+              }
+            />
             <Route path="/admin/announcements" element={<Placeholder label="Announcements — FE-4" />} />
 
             {/* ADMIN only */}

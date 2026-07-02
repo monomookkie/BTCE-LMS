@@ -1,23 +1,49 @@
 import type { DashboardSummary, ComplianceList } from '@btec-lms/shared'
-import { apiFetch } from '../lib/api.js'
+import { apiFetch, apiFetchBlob } from '../lib/api.js'
 
 export function getDashboardSummary(): Promise<DashboardSummary> {
   return apiFetch<DashboardSummary>('/reports/dashboard')
 }
 
+export type EnrollmentStatus = 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED'
+
 export interface ComplianceParams {
   departmentId?: string
   courseId?: string
+  status?: EnrollmentStatus
   page?: number
   limit?: number
 }
 
-export function getComplianceList(params: ComplianceParams = {}): Promise<ComplianceList> {
+function buildComplianceQs(params: ComplianceParams): string {
   const qs = new URLSearchParams()
   if (params.departmentId) qs.set('departmentId', params.departmentId)
   if (params.courseId) qs.set('courseId', params.courseId)
+  if (params.status) qs.set('status', params.status)
   if (params.page != null) qs.set('page', String(params.page))
   if (params.limit != null) qs.set('limit', String(params.limit))
-  const query = qs.toString()
+  return qs.toString()
+}
+
+export function getComplianceList(params: ComplianceParams = {}): Promise<ComplianceList> {
+  const query = buildComplianceQs(params)
   return apiFetch<ComplianceList>(`/reports/compliance${query ? `?${query}` : ''}`)
+}
+
+// Content-Disposition filename from the server uses YYYY-MM-DD; we override the
+// download filename client-side to YYYYMMDD to match the required convention.
+export async function downloadComplianceCsv(
+  params: Pick<ComplianceParams, 'departmentId' | 'courseId' | 'status'> = {},
+): Promise<void> {
+  const query = buildComplianceQs(params)
+  const blob = await apiFetchBlob(`/reports/compliance/export${query ? `?${query}` : ''}`)
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  const datePart = new Date().toISOString().slice(0, 10).replace(/-/g, '')
+  a.href = url
+  a.download = `compliance-report-${datePart}.csv`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => { URL.revokeObjectURL(url) }, 200)
 }
