@@ -27,6 +27,8 @@ export const certificateAdminResponseSchema = z.object({
   ...certBaseFields,
   enrollmentId: z.string(),
   userId: z.string(),
+  userName: z.string(),
+  userEmail: z.string(),
   verifyHash: z.string(),
   fileKey: z.string().nullable(),
   revokedAt: z.string().datetime().nullable(),

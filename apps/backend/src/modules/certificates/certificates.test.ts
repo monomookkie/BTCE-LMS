@@ -132,6 +132,8 @@ describe('GET /verify/:hash — certificate public verification', () => {
     expect(body.status).toBe('revoked')
     expect(body.status).not.toBe('valid')
     expect(body.status).not.toBe('expired')
+    // revoke reason ต้องไม่โผล่ public verify response (เก็บแค่ audit log)
+    expect(body.reason).toBeUndefined()
   })
 
   it('revoked cert ที่มี expiresAt ในอนาคต → status ยังคง revoked (ไม่ใช่ valid หรือ expiring-soon)', async () => {
@@ -178,6 +180,8 @@ describe('GET /verify/:hash — certificate public verification', () => {
     expect(body.email).toBeUndefined()
     expect(body.employeeId).toBeUndefined()
     expect(body.userId).toBeUndefined()
+    expect(body.userName).toBeUndefined()
+    expect(body.userEmail).toBeUndefined()
     expect(body.enrollmentId).toBeUndefined()
     expect(body.score).toBeUndefined()
     expect(body.verifyHash).toBeUndefined()
@@ -208,11 +212,62 @@ describe('GET /verify/:hash — certificate public verification', () => {
     // ห้ามรั่ว revokedAt หรือ PII ใด ๆ
     expect(body.revokedAt).toBeUndefined()
     expect(body.userId).toBeUndefined()
+    expect(body.userName).toBeUndefined()
+    expect(body.userEmail).toBeUndefined()
     expect(body.email).toBeUndefined()
     expect(body.score).toBeUndefined()
     expect(body.verifyHash).toBeUndefined()
     expect(body.enrollmentId).toBeUndefined()
     expect(body.fileKey).toBeUndefined()
+  })
+
+  // ─── userName/userEmail: admin-only field — ต้องไม่รั่วไปที่ USER (Convention #12) ──
+
+  it('USER GET /certificates (own list) → public shape, ไม่มี userEmail/userName/userId', async () => {
+    const { user, plainPassword } = await createUser({ role: 'USER', name: 'Somchai Jaidee' })
+    const { cookies } = await loginAs(app, user.email, plainPassword)
+
+    const course = await prisma.course.create({
+      data: { titleEn: 'Own List Course', categoryEn: 'Safety', status: 'PUBLISHED' },
+      select: { id: true, titleEn: true },
+    })
+    const enrollment = await prisma.enrollment.create({
+      data: { userId: user.id, courseId: course.id, status: 'COMPLETED' },
+      select: { id: true },
+    })
+    await prisma.certificate.create({
+      data: {
+        enrollmentId: enrollment.id,
+        userId: user.id,
+        courseId: course.id,
+        courseTitleEn: course.titleEn,
+        courseTitleTh: null,
+        certNumber: `BTEC-PUB-${randomUUID().slice(0, 8).toUpperCase()}`,
+        score: 90,
+        verifyHash: randomUUID(),
+        issuedAt: new Date(),
+      },
+    })
+
+    const res = await app.inject({ method: 'GET', url: '/certificates', headers: { cookie: cookies } })
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: Record<string, unknown>[] }>()
+    expect(body.data).toHaveLength(1)
+    const cert = body.data[0]!
+
+    // public shape ต้องมีเฉพาะ localized/base fields
+    expect(cert['certNumber']).toBeDefined()
+    expect(cert['courseTitle']).toBeDefined()
+    expect(cert['status']).toBeDefined()
+
+    // admin-only fields ห้ามรั่วไปที่ USER — serializeByRole ต้อง strip จริง ไม่ใช่แค่ไม่ใส่ใน shape
+    expect(cert['userId']).toBeUndefined()
+    expect(cert['userName']).toBeUndefined()
+    expect(cert['userEmail']).toBeUndefined()
+    expect(cert['verifyHash']).toBeUndefined()
+    expect(cert['fileKey']).toBeUndefined()
+    expect(cert['revokedAt']).toBeUndefined()
+    expect(cert['enrollmentId']).toBeUndefined()
   })
 })
 
@@ -338,5 +393,209 @@ describe('GET /certificates — list + courseTitle (snapshot)', () => {
     expect(found!.userId).toBeDefined() // admin sees userId
     expect((found as Record<string, unknown>).courseTitleEn).toBeUndefined() // no raw snapshot fields in response
     expect((found as Record<string, unknown>).courseTitleTh).toBeUndefined()
+  })
+})
+
+describe('GET /certificates — MANAGER department scope', () => {
+  let app: TestApp
+
+  beforeAll(async () => {
+    app = await buildTestApp()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  async function createDept(nameEn: string) {
+    return prisma.department.create({ data: { nameEn }, select: { id: true } })
+  }
+
+  /** สร้าง cert สำหรับ user คนหนึ่ง พร้อมกำหนด department */
+  async function seedCertForUser(name: string, departmentId: string) {
+    const { user } = await createUser({ name })
+    await prisma.user.update({ where: { id: user.id }, data: { departmentId } })
+
+    const course = await prisma.course.create({
+      data: { titleEn: `Dept Scope Course ${randomUUID().slice(0, 6)}`, categoryEn: 'Safety', status: 'PUBLISHED' },
+      select: { id: true, titleEn: true },
+    })
+    const enrollment = await prisma.enrollment.create({
+      data: { userId: user.id, courseId: course.id, status: 'COMPLETED' },
+      select: { id: true },
+    })
+    await prisma.certificate.create({
+      data: {
+        enrollmentId: enrollment.id,
+        userId: user.id,
+        courseId: course.id,
+        courseTitleEn: course.titleEn,
+        courseTitleTh: null,
+        certNumber: `BTEC-DEPT-${randomUUID().slice(0, 8).toUpperCase()}`,
+        score: 90,
+        verifyHash: randomUUID(),
+        issuedAt: new Date(),
+      },
+    })
+    return { userId: user.id }
+  }
+
+  it('MANAGER dept A search ชื่อคน dept B → ไม่เจอ (search AND dept scope, ไม่ leak ข้ามแผนก)', async () => {
+    const deptA = await createDept(`Dept-A-${randomUUID().slice(0, 6)}`)
+    const deptB = await createDept(`Dept-B-${randomUUID().slice(0, 6)}`)
+
+    const uniqueNameB = `Unique-Holder-B-${randomUUID().slice(0, 8)}`
+    await seedCertForUser(uniqueNameB, deptB.id)
+
+    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
+    await prisma.user.update({ where: { id: managerUser.id }, data: { departmentId: deptA.id } })
+    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/certificates?search=${encodeURIComponent(uniqueNameB)}`,
+      headers: { cookie: managerCookies },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: unknown[]; total: number }>()
+    expect(body.total).toBe(0)
+    expect(body.data).toHaveLength(0)
+  })
+
+  it('MANAGER dept A search ชื่อคน dept A → เจอปกติ', async () => {
+    const deptA = await createDept(`Dept-A-${randomUUID().slice(0, 6)}`)
+
+    const uniqueNameA = `Unique-Holder-A-${randomUUID().slice(0, 8)}`
+    await seedCertForUser(uniqueNameA, deptA.id)
+
+    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
+    await prisma.user.update({ where: { id: managerUser.id }, data: { departmentId: deptA.id } })
+    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/certificates?search=${encodeURIComponent(uniqueNameA)}`,
+      headers: { cookie: managerCookies },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: unknown[]; total: number }>()
+    expect(body.total).toBe(1)
+  })
+
+  it('MANAGER ignore query.userId — ยังคง scope เป็น dept ตัวเองเสมอ', async () => {
+    const deptA = await createDept(`Dept-A-${randomUUID().slice(0, 6)}`)
+    const deptB = await createDept(`Dept-B-${randomUUID().slice(0, 6)}`)
+
+    const { userId: userBId } = await seedCertForUser(`Holder-B-${randomUUID().slice(0, 6)}`, deptB.id)
+
+    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
+    await prisma.user.update({ where: { id: managerUser.id }, data: { departmentId: deptA.id } })
+    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+
+    // MANAGER พยายามระบุ userId ของ dept B ตรง ๆ — ต้องถูก ignore ไม่ leak
+    const res = await app.inject({
+      method: 'GET',
+      url: `/certificates?userId=${userBId}`,
+      headers: { cookie: managerCookies },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json<{ total: number }>().total).toBe(0)
+  })
+
+  it('MANAGER ไม่มี department → เห็น list ว่าง ไม่ error', async () => {
+    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
+    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: '/certificates',
+      headers: { cookie: managerCookies },
+    })
+    expect(res.statusCode).toBe(200)
+    const body = res.json<{ data: unknown[]; total: number }>()
+    expect(body.total).toBe(0)
+    expect(body.data).toHaveLength(0)
+  })
+})
+
+describe('GET /external-certs — admin/manager scoped access', () => {
+  let app: TestApp
+
+  beforeAll(async () => {
+    app = await buildTestApp()
+  })
+
+  afterAll(async () => {
+    await app.close()
+  })
+
+  async function createDept(nameEn: string) {
+    return prisma.department.create({ data: { nameEn }, select: { id: true } })
+  }
+
+  async function seedExternalCert(userId: string) {
+    return prisma.externalCertificate.create({
+      data: {
+        userId,
+        title: 'External Cert',
+        issuer: 'Some Org',
+        issuedAt: new Date(),
+      },
+      select: { id: true },
+    })
+  }
+
+  it('ADMIN can view any user external certs via ?userId=', async () => {
+    const { user: targetUser } = await createUser({ role: 'USER' })
+    await seedExternalCert(targetUser.id)
+
+    const { user: adminUser, plainPassword } = await createUser({ role: 'ADMIN' })
+    const { cookies: adminCookies } = await loginAs(app, adminUser.email, plainPassword)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/external-certs?userId=${targetUser.id}`,
+      headers: { cookie: adminCookies },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json<unknown[]>()).toHaveLength(1)
+  })
+
+  it('MANAGER can view external certs of a user in own dept', async () => {
+    const dept = await createDept(`Dept-${randomUUID().slice(0, 6)}`)
+    const { user: targetUser } = await createUser({ role: 'USER' })
+    await prisma.user.update({ where: { id: targetUser.id }, data: { departmentId: dept.id } })
+    await seedExternalCert(targetUser.id)
+
+    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
+    await prisma.user.update({ where: { id: managerUser.id }, data: { departmentId: dept.id } })
+    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/external-certs?userId=${targetUser.id}`,
+      headers: { cookie: managerCookies },
+    })
+    expect(res.statusCode).toBe(200)
+    expect(res.json<unknown[]>()).toHaveLength(1)
+  })
+
+  it('MANAGER cannot view external certs of a user outside own dept → 404 (no leak)', async () => {
+    const deptA = await createDept(`Dept-A-${randomUUID().slice(0, 6)}`)
+    const deptB = await createDept(`Dept-B-${randomUUID().slice(0, 6)}`)
+    const { user: targetUser } = await createUser({ role: 'USER' })
+    await prisma.user.update({ where: { id: targetUser.id }, data: { departmentId: deptB.id } })
+    await seedExternalCert(targetUser.id)
+
+    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
+    await prisma.user.update({ where: { id: managerUser.id }, data: { departmentId: deptA.id } })
+    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/external-certs?userId=${targetUser.id}`,
+      headers: { cookie: managerCookies },
+    })
+    expect(res.statusCode).toBe(404)
   })
 })

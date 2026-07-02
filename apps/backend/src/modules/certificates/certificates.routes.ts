@@ -13,6 +13,7 @@ import {
   certListQuerySchema,
   certVerifyParamsSchema,
   extCertParamsSchema,
+  extCertListQuerySchema,
 } from './certificates.schema.js'
 import {
   listCertificates,
@@ -20,7 +21,7 @@ import {
   revokeCertificate,
   generateCertPdf,
   verifyByHash,
-  listExternalCerts,
+  listExternalCertsScoped,
   getExternalCert,
   createExternalCert,
   deleteExternalCert,
@@ -60,6 +61,9 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
         page: req.query.page,
         limit: req.query.limit,
         ...(req.query.userId != null && { userId: req.query.userId }),
+        ...(req.query.courseId != null && { courseId: req.query.courseId }),
+        ...(req.query.status != null && { status: req.query.status }),
+        ...(req.query.search != null && { search: req.query.search }),
       },
       locale,
     )
@@ -150,14 +154,25 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // ─── GET /external-certs ───────────────────────────────────────────────────
-  // USER: own external certs เท่านั้น (enforced in service)
+  // USER: own external certs เท่านั้น (query.userId ignored)
+  // ADMIN: userId ใดก็ได้ / MANAGER: เฉพาะ userId ใน dept ตัวเอง (service scoped + audited)
   server.get('/external-certs', {
     preHandler: [app.verifyJwt],
     schema: {
+      querystring: extCertListQuerySchema,
       response: { 200: z.array(externalCertResponseSchema) },
     },
   }, async (req) => {
-    return listExternalCerts(app.prisma, req.user.id, getStorage())
+    const locale = await resolveLocale(req, app.prisma)
+    return listExternalCertsScoped(
+      app.prisma,
+      req.user.id,
+      req.user.role,
+      req.query.userId,
+      getStorage(),
+      locale,
+      req.ip,
+    )
   })
 
   // ─── POST /external-certs — multipart (file optional) ─────────────────────

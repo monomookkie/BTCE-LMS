@@ -219,6 +219,7 @@ type CertRecord = {
   issuedAt: Date
   expiresAt: Date | null
   revokedAt: Date | null
+  user: { name: string; email: string }
 }
 
 function toCertAdminShape(c: CertRecord, locale: Locale = 'en'): CertificateAdminResponse {
@@ -233,6 +234,8 @@ function toCertAdminShape(c: CertRecord, locale: Locale = 'en'): CertificateAdmi
     expiresAt: c.expiresAt?.toISOString() ?? null,
     enrollmentId: c.enrollmentId,
     userId: c.userId,
+    userName: c.user.name,
+    userEmail: c.user.email,
     verifyHash: c.verifyHash,
     fileKey: c.fileKey,
     revokedAt: c.revokedAt?.toISOString() ?? null,
@@ -266,22 +269,64 @@ const CERT_SELECT = {
   issuedAt: true,
   expiresAt: true,
   revokedAt: true,
+  user: { select: { name: true, email: true } },
 } as const
 
 // ─── CRUD: list + get ─────────────────────────────────────────────────────────
+
+// สร้างเงื่อนไข status filter — status เป็น computed field (ไม่ได้เก็บใน DB)
+function buildCertStatusWhere(status: CertStatus, now: Date): Prisma.CertificateWhereInput {
+  const soonThreshold = new Date(now.getTime() + EXPIRING_SOON_DAYS * 24 * 60 * 60 * 1000)
+  if (status === 'revoked') return { revokedAt: { not: null } }
+  if (status === 'expired') return { revokedAt: null, expiresAt: { lte: now } }
+  if (status === 'expiring-soon') {
+    return { revokedAt: null, expiresAt: { gt: now, lte: soonThreshold } }
+  }
+  // valid: ไม่ถูก revoke และ (ไม่มีวันหมดอายุ หรือหมดอายุไกลกว่า threshold)
+  return { revokedAt: null, OR: [{ expiresAt: null }, { expiresAt: { gt: soonThreshold } }] }
+}
 
 export async function listCertificates(
   prisma: PrismaClient,
   requesterId: string,
   role: string,
-  query: { userId?: string; page: number; limit: number },
+  query: { userId?: string; courseId?: string; status?: CertStatus; search?: string; page: number; limit: number },
   locale: Locale = 'en',
 ): Promise<{ data: (CertificateAdminResponse | CertificatePublicResponse)[]; total: number; page: number; limit: number }> {
-  // USER ดูเฉพาะของตัวเอง — ไม่สนใจ query.userId
-  const targetUserId = role === 'USER' ? requesterId : query.userId
-
-  const where = { ...(targetUserId != null && { userId: targetUserId }) }
   const { page, limit } = query
+
+  // MANAGER: บังคับ scope เป็น department ตัวเอง — ignore query.userId (เหมือน reports.service)
+  let managerDeptId: string | null | undefined = undefined // undefined = ไม่ scope (ADMIN/USER)
+  if (role === 'MANAGER') {
+    const self = await prisma.user.findUnique({ where: { id: requesterId }, select: { departmentId: true } })
+    managerDeptId = self?.departmentId ?? null
+    if (managerDeptId === null) {
+      // MANAGER ไม่มี dept → ไม่เห็นใครเลย (ไม่ error, สอดคล้อง reports.service)
+      return { data: [], total: 0, page, limit }
+    }
+  }
+
+  // USER ดูเฉพาะของตัวเอง — ไม่สนใจ query.userId; MANAGER ก็ ignore query.userId (ใช้ dept scope แทน)
+  const targetUserId = role === 'USER' ? requesterId : role === 'ADMIN' ? query.userId : undefined
+
+  // รวมทุกเงื่อนไขด้วย AND — กัน search/status OR เผลอทะลุ dept scope
+  const andClauses: Prisma.CertificateWhereInput[] = []
+  if (targetUserId != null) andClauses.push({ userId: targetUserId })
+  if (managerDeptId != null) andClauses.push({ user: { departmentId: managerDeptId } })
+  if (query.courseId != null) andClauses.push({ courseId: query.courseId })
+  if (query.status != null) andClauses.push(buildCertStatusWhere(query.status, new Date()))
+  if (query.search != null) {
+    andClauses.push({
+      OR: [
+        { certNumber: { contains: query.search } },
+        { courseTitleEn: { contains: query.search } },
+        { courseTitleTh: { contains: query.search } },
+        { user: { name: { contains: query.search } } },
+        { user: { email: { contains: query.search } } },
+      ],
+    })
+  }
+  const where: Prisma.CertificateWhereInput = andClauses.length > 0 ? { AND: andClauses } : {}
 
   const [certs, total] = await prisma.$transaction([
     prisma.certificate.findMany({
@@ -533,6 +578,47 @@ export async function listExternalCerts(
     orderBy: { issuedAt: 'desc' },
   })
   return certs.map((c) => toExternalCertResponse(c, storage))
+}
+
+// ─── Scoped list for ADMIN/MANAGER viewing another user's external certs ────
+// ADMIN: userId ใดก็ได้ / MANAGER: เฉพาะ userId ใน dept ตัวเอง (404 ถ้าไม่ใช่ — กัน enumeration)
+// USER: เห็นเฉพาะของตัวเอง — query.userId ถูก ignore
+export async function listExternalCertsScoped(
+  prisma: PrismaClient,
+  requesterId: string,
+  role: string,
+  queryUserId: string | undefined,
+  storage: StorageProvider,
+  locale: Locale = 'en',
+  ip?: string,
+): Promise<ExternalCertResponse[]> {
+  if (queryUserId == null || queryUserId === requesterId || role === 'USER') {
+    return listExternalCerts(prisma, requesterId, storage)
+  }
+
+  if (role === 'MANAGER') {
+    const [self, target] = await Promise.all([
+      prisma.user.findUnique({ where: { id: requesterId }, select: { departmentId: true } }),
+      prisma.user.findUnique({ where: { id: queryUserId }, select: { departmentId: true } }),
+    ])
+    if (!self?.departmentId || !target || target.departmentId !== self.departmentId) {
+      throw notFound(t('error.user.notFound', undefined, locale))
+    }
+  } else if (role !== 'ADMIN') {
+    throw notFound(t('error.user.notFound', undefined, locale))
+  }
+
+  // PDPA: audit เมื่อ ADMIN/MANAGER ดู external cert ของ user อื่น
+  await logAudit(prisma, {
+    actorId: requesterId,
+    action: 'EXT_CERT_VIEW',
+    targetType: 'ExternalCertificate',
+    targetId: queryUserId,
+    metadata: { targetUserId: queryUserId },
+    ...(ip != null && { ip }),
+  })
+
+  return listExternalCerts(prisma, queryUserId, storage)
 }
 
 export async function getExternalCert(
