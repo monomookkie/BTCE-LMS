@@ -215,6 +215,31 @@ describe('Quizzes module', () => {
       expect(q.options.every((o: ApiOption) => 'isCorrect' in o)).toBe(true) // admin sees answer key
     })
 
+    it('rejects question with zero correct options → 400', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+        payload: { titleEn: 'Q', shuffle: false },
+      })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/quiz/questions`,
+        headers: { cookie: admin.cookies },
+        payload: {
+          textEn: 'No correct answer',
+          options: [
+            { textEn: 'Wrong 1', isCorrect: false },
+            { textEn: 'Wrong 2', isCorrect: false },
+          ],
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
     it('updates quiz settings → 200', async () => {
       const admin = await setup('ADMIN')
       const course = await createCourse(admin.cookies)

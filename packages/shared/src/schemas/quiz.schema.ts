@@ -81,7 +81,10 @@ export const createQuestionInputSchema = z.object({
   options: z
     .array(z.object({ textEn: z.string().min(1).max(500), textTh: z.string().max(500).optional(), isCorrect: z.boolean() }))
     .min(2)
-    .max(10),
+    .max(10)
+    .refine((options) => options.some((o) => o.isCorrect), {
+      message: 'At least one option must be marked correct',
+    }),
 })
 
 export const updateQuestionInputSchema = z.object({
