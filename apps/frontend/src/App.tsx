@@ -16,6 +16,7 @@ const MyReportPage = lazy(() => import('./pages/user/MyReportPage.js'))
 const AdminDashboardPage    = lazy(() => import('./pages/admin/AdminDashboardPage.js'))
 const CourseManagementPage  = lazy(() => import('./pages/admin/CourseManagementPage.js'))
 const CourseDetailAdminPage = lazy(() => import('./pages/admin/CourseDetailAdminPage.js'))
+const UserDirectoryPage     = lazy(() => import('./pages/admin/UserDirectoryPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -134,7 +135,14 @@ export default function App() {
 
             {/* ADMIN only */}
             <Route element={<RequireRole roles={['ADMIN']} />}>
-              <Route path="/admin/users" element={<Placeholder label="Users — FE-4" />} />
+              <Route
+                path="/admin/users"
+                element={
+                  <Suspense fallback={null}>
+                    <UserDirectoryPage />
+                  </Suspense>
+                }
+              />
             </Route>
           </Route>
         </Route>

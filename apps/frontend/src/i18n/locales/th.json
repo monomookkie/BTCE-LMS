@@ -136,6 +136,47 @@
     "active": "ใช้งานอยู่",
     "inactive": "ไม่ได้ใช้งาน (ลบแล้ว)"
   },
+  "userDirectory": {
+    "title": "รายชื่อผู้ใช้",
+    "newUser": "สร้างผู้ใช้",
+    "search": "ค้นหาชื่อ, อีเมล, รหัสพนักงาน...",
+    "allRoles": "ทุกบทบาท",
+    "allDepartments": "ทุกแผนก",
+    "allStatus": "ทุกสถานะ",
+    "noUsers": "ไม่พบผู้ใช้",
+    "email": "อีเมล",
+    "password": "รหัสผ่านเริ่มต้น",
+    "passwordHelp": "ผู้ใช้ต้องเปลี่ยนรหัสผ่านนี้ในการเข้าสู่ระบบครั้งแรก",
+    "generatePassword": "สุ่มรหัสผ่าน",
+    "employeeId": "รหัสพนักงาน",
+    "position": "ตำแหน่ง",
+    "lastLogin": "เข้าสู่ระบบล่าสุด",
+    "never": "ไม่เคย",
+    "createUser": "สร้างผู้ใช้",
+    "editUser": "แก้ไขผู้ใช้",
+    "userCreated": "สร้างผู้ใช้แล้ว",
+    "userUpdated": "แก้ไขผู้ใช้แล้ว",
+    "userDeleted": "ลบผู้ใช้แล้ว",
+    "deleteConfirm": "ลบผู้ใช้นี้? ไม่สามารถย้อนกลับได้จากหน้านี้",
+    "suspend": "ระงับการใช้งาน",
+    "activate": "เปิดใช้งาน",
+    "suspendConfirm": "ระงับการใช้งานผู้ใช้นี้? ผู้ใช้จะไม่สามารถเข้าสู่ระบบได้",
+    "activateConfirm": "เปิดใช้งานผู้ใช้นี้อีกครั้ง?",
+    "userSuspended": "ระงับการใช้งานแล้ว",
+    "userActivated": "เปิดใช้งานแล้ว",
+    "cannotDeleteSelf": "ไม่สามารถลบบัญชีของตัวเองได้",
+    "importUsers": "นำเข้าผู้ใช้ (CSV)",
+    "importFile": "ไฟล์ CSV",
+    "importHelp": "คอลัมน์: email, name, role, departmentName, employeeId, position — ต้องมีแค่ email และ name",
+    "importSubmit": "อัปโหลด",
+    "importResultCreated": "สร้างสำเร็จ",
+    "importResultSkipped": "ข้าม",
+    "importRowErrors": "ข้อผิดพลาดรายแถว",
+    "importRow": "แถว",
+    "importReason": "สาเหตุ",
+    "importNoErrors": "นำเข้าสำเร็จทุกแถว",
+    "importSuccess": "นำเข้าเสร็จสิ้น"
+  },
   "nav": {
     "home": "หน้าหลัก",
     "dashboard": "แดชบอร์ด",
@@ -196,6 +237,10 @@
     "announcement": {
       "DRAFT": "ฉบับร่าง",
       "PUBLISHED": "เผยแพร่แล้ว"
+    },
+    "user": {
+      "active": "ใช้งานอยู่",
+      "suspended": "ถูกระงับ"
     },
     "unknown": "ไม่ทราบสถานะ"
   },

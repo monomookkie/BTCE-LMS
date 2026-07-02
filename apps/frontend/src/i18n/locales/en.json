@@ -136,6 +136,47 @@
     "active": "Active",
     "inactive": "Inactive (deleted)"
   },
+  "userDirectory": {
+    "title": "User Directory",
+    "newUser": "New User",
+    "search": "Search name, email, employee ID...",
+    "allRoles": "All roles",
+    "allDepartments": "All departments",
+    "allStatus": "All statuses",
+    "noUsers": "No users found",
+    "email": "Email",
+    "password": "Initial password",
+    "passwordHelp": "User must change this on first login",
+    "generatePassword": "Generate",
+    "employeeId": "Employee ID",
+    "position": "Position",
+    "lastLogin": "Last login",
+    "never": "Never",
+    "createUser": "Create User",
+    "editUser": "Edit User",
+    "userCreated": "User created",
+    "userUpdated": "User updated",
+    "userDeleted": "User deleted",
+    "deleteConfirm": "Delete this user? This cannot be undone from this screen.",
+    "suspend": "Suspend",
+    "activate": "Activate",
+    "suspendConfirm": "Suspend this user? They will not be able to log in.",
+    "activateConfirm": "Reactivate this user?",
+    "userSuspended": "User suspended",
+    "userActivated": "User activated",
+    "cannotDeleteSelf": "You cannot delete your own account",
+    "importUsers": "Import Users (CSV)",
+    "importFile": "CSV file",
+    "importHelp": "Columns: email, name, role, departmentName, employeeId, position. Only email and name are required.",
+    "importSubmit": "Upload",
+    "importResultCreated": "Created",
+    "importResultSkipped": "Skipped",
+    "importRowErrors": "Row errors",
+    "importRow": "Row",
+    "importReason": "Reason",
+    "importNoErrors": "All rows imported successfully",
+    "importSuccess": "Import complete"
+  },
   "nav": {
     "home": "Home",
     "dashboard": "Dashboard",
@@ -196,6 +237,10 @@
     "announcement": {
       "DRAFT": "Draft",
       "PUBLISHED": "Published"
+    },
+    "user": {
+      "active": "Active",
+      "suspended": "Suspended"
     },
     "unknown": "Unknown"
   },
