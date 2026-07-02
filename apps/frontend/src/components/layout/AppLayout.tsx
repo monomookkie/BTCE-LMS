@@ -27,8 +27,10 @@ export default function AppLayout() {
         </>
       )}
 
-      {/* Main content */}
-      <div className="flex flex-1 flex-col md:ml-[200px]">
+      {/* Main content — min-w-0 required: this is a flex item of the row above, and without it
+          the default min-width:auto lets deeply-nested content (long select options, etc.) force
+          the whole column wider than the viewport instead of wrapping/scrolling internally. */}
+      <div className="flex min-w-0 flex-1 flex-col md:ml-[200px]">
         <TopBar onMenuClick={() => setSidebarOpen(true)} />
         <main className="flex-1 p-4 md:p-6">
           <Outlet />

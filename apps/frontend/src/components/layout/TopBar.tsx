@@ -41,30 +41,30 @@ export function TopBar({ onMenuClick }: TopBarProps) {
   const roleBadge = user?.role ? ROLE_BADGE[user.role] : undefined
 
   return (
-    <header className="sticky top-0 z-10 flex h-[52px] items-center justify-between border-b border-slate-200 bg-white px-4">
+    <header className="sticky top-0 z-10 flex h-[52px] items-center justify-between gap-2 border-b border-slate-200 bg-white px-4">
       {/* Left: hamburger (mobile) + status dot + page title */}
-      <div className="flex items-center gap-3">
+      <div className="flex min-w-0 items-center gap-3">
         <button
-          className="rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 md:hidden"
+          className="shrink-0 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100 md:hidden"
           onClick={onMenuClick}
           aria-label="Open sidebar"
         >
           <Menu size={20} />
         </button>
-        <div className="flex items-center gap-2">
-          <span className="h-2 w-2 rounded-full bg-emerald-500" aria-hidden="true" />
-          <span className="text-sm font-semibold text-slate-800">{title}</span>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="h-2 w-2 shrink-0 rounded-full bg-emerald-500" aria-hidden="true" />
+          <span className="truncate text-sm font-semibold text-slate-800">{title}</span>
         </div>
       </div>
 
-      {/* Right: lang switcher + bell + role badge */}
-      <div className="flex items-center gap-3">
+      {/* Right: lang switcher + bell + role badge — role badge hidden below sm: to fit 375px */}
+      <div className="flex shrink-0 items-center gap-3">
         <LanguageSwitcher isAuthenticated={!!user} />
 
         <NotificationBell />
 
         {roleBadge && (
-          <Badge variant={roleBadge.variant}>{roleBadge.label}</Badge>
+          <Badge variant={roleBadge.variant} className="hidden sm:inline-flex">{roleBadge.label}</Badge>
         )}
       </div>
     </header>
