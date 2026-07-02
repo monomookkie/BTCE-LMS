@@ -433,5 +433,42 @@
     "phase": "Phase 0 — Foundation ready",
     "i18nReady": "i18n infrastructure ready",
     "switchHint": "Switch language — text updates instantly. Login syncs preference to your account."
+  },
+  "adminCertificate": {
+    "title": "Certificate Engine",
+    "search": "Search by cert number, name, or email...",
+    "detail": "Certificate Detail",
+    "score": "Score",
+    "noCertificates": "No certificates found",
+    "revoke": "Revoke",
+    "revokeConfirm": "Revoke this certificate?",
+    "revokeReason": "Reason (optional)",
+    "revokeReasonPlaceholder": "e.g. terminated employment, issued in error...",
+    "revoked": "Certificate revoked"
+  },
+  "adminAnnouncement": {
+    "title": "Announcements",
+    "newAnnouncement": "New Announcement",
+    "editAnnouncement": "Edit Announcement",
+    "titleEn": "Title (English)",
+    "titleTh": "Title (Thai)",
+    "contentEn": "Content (English)",
+    "contentTh": "Content (Thai)",
+    "type": "Type",
+    "link": "Link (optional)",
+    "file": "Attachment (PDF or image)",
+    "noAnnouncements": "No announcements found",
+    "publish": "Publish",
+    "unpublish": "Unpublish",
+    "publishConfirm": "Publish this announcement? It will become visible to all staff.",
+    "unpublishConfirm": "Unpublish this announcement? It will no longer be visible to staff.",
+    "deleteConfirm": "Delete this announcement?",
+    "announcementCreated": "Announcement created",
+    "announcementUpdated": "Announcement updated",
+    "announcementPublished": "Announcement published",
+    "announcementUnpublished": "Announcement unpublished",
+    "announcementDeleted": "Announcement deleted",
+    "fileEditNote": "Attachment can only be set when creating an announcement.",
+    "fileTypeError": "File must be PDF, JPEG, PNG, or WEBP"
   }
 }

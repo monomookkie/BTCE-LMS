@@ -433,5 +433,42 @@
     "phase": "เฟส 0 — รากฐานพร้อมแล้ว",
     "i18nReady": "ระบบ i18n พร้อมใช้งาน",
     "switchHint": "สลับภาษา — ข้อความเปลี่ยนทันที เมื่อเข้าสู่ระบบแล้วจะบันทึกการตั้งค่าไปยังบัญชีของคุณ"
+  },
+  "adminCertificate": {
+    "title": "ระบบใบรับรอง",
+    "search": "ค้นหาด้วยเลขที่ใบรับรอง ชื่อ หรืออีเมล...",
+    "detail": "รายละเอียดใบรับรอง",
+    "score": "คะแนน",
+    "noCertificates": "ไม่พบใบรับรอง",
+    "revoke": "เพิกถอน",
+    "revokeConfirm": "เพิกถอนใบรับรองนี้?",
+    "revokeReason": "เหตุผล (ไม่บังคับ)",
+    "revokeReasonPlaceholder": "เช่น พ้นสภาพพนักงาน, ออกโดยผิดพลาด...",
+    "revoked": "เพิกถอนใบรับรองแล้ว"
+  },
+  "adminAnnouncement": {
+    "title": "ประกาศ",
+    "newAnnouncement": "สร้างประกาศใหม่",
+    "editAnnouncement": "แก้ไขประกาศ",
+    "titleEn": "หัวข้อ (อังกฤษ)",
+    "titleTh": "หัวข้อ (ไทย)",
+    "contentEn": "เนื้อหา (อังกฤษ)",
+    "contentTh": "เนื้อหา (ไทย)",
+    "type": "ประเภท",
+    "link": "ลิงก์ (ไม่บังคับ)",
+    "file": "ไฟล์แนบ (PDF หรือรูปภาพ)",
+    "noAnnouncements": "ไม่พบประกาศ",
+    "publish": "เผยแพร่",
+    "unpublish": "ยกเลิกเผยแพร่",
+    "publishConfirm": "เผยแพร่ประกาศนี้? เจ้าหน้าที่ทุกคนจะมองเห็น",
+    "unpublishConfirm": "ยกเลิกเผยแพร่ประกาศนี้? เจ้าหน้าที่จะไม่เห็นอีกต่อไป",
+    "deleteConfirm": "ลบประกาศนี้?",
+    "announcementCreated": "สร้างประกาศแล้ว",
+    "announcementUpdated": "แก้ไขประกาศแล้ว",
+    "announcementPublished": "เผยแพร่ประกาศแล้ว",
+    "announcementUnpublished": "ยกเลิกเผยแพร่ประกาศแล้ว",
+    "announcementDeleted": "ลบประกาศแล้ว",
+    "fileEditNote": "ไฟล์แนบกำหนดได้เฉพาะตอนสร้างประกาศเท่านั้น",
+    "fileTypeError": "ไฟล์ต้องเป็น PDF, JPEG, PNG หรือ WEBP"
   }
 }

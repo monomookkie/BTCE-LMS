@@ -18,6 +18,8 @@ const CourseManagementPage  = lazy(() => import('./pages/admin/CourseManagementP
 const CourseDetailAdminPage = lazy(() => import('./pages/admin/CourseDetailAdminPage.js'))
 const UserDirectoryPage     = lazy(() => import('./pages/admin/UserDirectoryPage.js'))
 const ReportsPage           = lazy(() => import('./pages/admin/ReportsPage.js'))
+const CertificateEnginePage = lazy(() => import('./pages/admin/CertificateEnginePage.js'))
+const AnnouncementsPage     = lazy(() => import('./pages/admin/AnnouncementsPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -130,7 +132,14 @@ export default function App() {
                 </Suspense>
               }
             />
-            <Route path="/admin/certificates" element={<Placeholder label="Certificate Engine — FE-4" />} />
+            <Route
+              path="/admin/certificates"
+              element={
+                <Suspense fallback={null}>
+                  <CertificateEnginePage />
+                </Suspense>
+              }
+            />
             <Route
               path="/admin/reports"
               element={
@@ -139,7 +148,14 @@ export default function App() {
                 </Suspense>
               }
             />
-            <Route path="/admin/announcements" element={<Placeholder label="Announcements — FE-4" />} />
+            <Route
+              path="/admin/announcements"
+              element={
+                <Suspense fallback={null}>
+                  <AnnouncementsPage />
+                </Suspense>
+              }
+            />
 
             {/* ADMIN only */}
             <Route element={<RequireRole roles={['ADMIN']} />}>
