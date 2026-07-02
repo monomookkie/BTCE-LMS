@@ -20,6 +20,7 @@ const UserDirectoryPage     = lazy(() => import('./pages/admin/UserDirectoryPage
 const ReportsPage           = lazy(() => import('./pages/admin/ReportsPage.js'))
 const CertificateEnginePage = lazy(() => import('./pages/admin/CertificateEnginePage.js'))
 const AnnouncementsPage     = lazy(() => import('./pages/admin/AnnouncementsPage.js'))
+const CertVerifyPage        = lazy(() => import('./pages/public/CertVerifyPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
@@ -28,21 +29,20 @@ function RootRedirect() {
   return <Navigate to={user.role === 'USER' ? '/dashboard' : '/admin/dashboard'} replace />
 }
 
-function Placeholder({ label }: { label: string }) {
-  return (
-    <div className="flex min-h-[60vh] items-center justify-center">
-      <p className="text-slate-400">{label}</p>
-    </div>
-  )
-}
-
 export default function App() {
   return (
     <Routes>
       {/* Public */}
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/verify/:hash" element={<Placeholder label="Verify Page — FE-5" />} />
+      <Route
+        path="/verify/:hash"
+        element={
+          <Suspense fallback={null}>
+            <CertVerifyPage />
+          </Suspense>
+        }
+      />
 
       {/* Dev-only showcase */}
       <Route

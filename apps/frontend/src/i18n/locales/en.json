@@ -470,5 +470,20 @@
     "announcementDeleted": "Announcement deleted",
     "fileEditNote": "Attachment can only be set when creating an announcement.",
     "fileTypeError": "File must be PDF, JPEG, PNG, or WEBP"
+  },
+  "verify": {
+    "title": "Certificate Verification",
+    "subtitle": "BTEC LMS — National Blood Centre, Thai Red Cross Society",
+    "notFoundTitle": "Certificate not found",
+    "notFoundBody": "This verification link doesn't match any certificate in our records.",
+    "revokedBanner": "This certificate has been revoked.",
+    "validBanner": "This certificate is valid.",
+    "holderName": "Holder name"
+  },
+  "notification": {
+    "title": "Notifications",
+    "empty": "No notifications",
+    "markAllRead": "Mark all as read",
+    "markRead": "Mark as read"
   }
 }

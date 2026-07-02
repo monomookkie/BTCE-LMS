@@ -11,7 +11,7 @@ const certMap: Record<string, StatusConfig> = {
   'valid':          { variant: 'green',  i18nKey: 'status.cert.valid' },
   'expiring-soon':  { variant: 'amber',  i18nKey: 'status.cert.expiringSoon' },
   'expired':        { variant: 'red',    i18nKey: 'status.cert.expired' },
-  'revoked':        { variant: 'gray',   i18nKey: 'status.cert.revoked' },
+  'revoked':        { variant: 'red',    i18nKey: 'status.cert.revoked' },
 }
 
 const enrollmentMap: Record<string, StatusConfig> = {

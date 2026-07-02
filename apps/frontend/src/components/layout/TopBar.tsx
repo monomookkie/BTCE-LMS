@@ -1,14 +1,14 @@
 import { useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { Menu, Bell } from 'lucide-react'
+import { Menu } from 'lucide-react'
 import { LanguageSwitcher } from '../LanguageSwitcher.js'
 import { Badge } from '../ui/Badge.js'
 import { useAuth } from '../../hooks/useAuth.js'
+import { NotificationBell } from './NotificationBell.js'
 import type { BadgeVariant } from '../ui/Badge.js'
 
 interface TopBarProps {
   onMenuClick: () => void
-  unreadNotifications?: number
 }
 
 const ROUTE_TITLES: Record<string, string> = {
@@ -31,7 +31,7 @@ const ROLE_BADGE: Record<string, { label: string; variant: BadgeVariant }> = {
   USER:    { label: 'Staff',         variant: 'gray' },
 }
 
-export function TopBar({ onMenuClick, unreadNotifications = 0 }: TopBarProps) {
+export function TopBar({ onMenuClick }: TopBarProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const location = useLocation()
@@ -61,15 +61,7 @@ export function TopBar({ onMenuClick, unreadNotifications = 0 }: TopBarProps) {
       <div className="flex items-center gap-3">
         <LanguageSwitcher isAuthenticated={!!user} />
 
-        <button
-          className="relative rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-          aria-label={t('nav.notifications')}
-        >
-          <Bell size={18} />
-          {unreadNotifications > 0 && (
-            <span className="absolute right-1 top-1 flex h-2 w-2 rounded-full bg-red-500" />
-          )}
-        </button>
+        <NotificationBell />
 
         {roleBadge && (
           <Badge variant={roleBadge.variant}>{roleBadge.label}</Badge>
