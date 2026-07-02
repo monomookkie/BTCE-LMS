@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -63,42 +63,28 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
   const {
     register,
     handleSubmit,
-    reset,
     formState: { errors, isSubmitting },
   } = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
-    defaultValues: {
+    // defaultValues are set at mount time — parent uses key= to remount on course change
+    defaultValues: editCourse ? {
+      titleEn:         editCourse.titleEn,
+      titleTh:         editCourse.titleTh ?? '',
+      categoryEn:      editCourse.categoryEn,
+      categoryTh:      editCourse.categoryTh ?? '',
+      descriptionEn:   editCourse.descriptionEn ?? '',
+      descriptionTh:   editCourse.descriptionTh ?? '',
+      passScore:       editCourse.passScore,
+      expiryMonthsRaw: editCourse.expiryMonths != null ? String(editCourse.expiryMonths) : '',
+      durationMinRaw:  editCourse.durationMin != null ? String(editCourse.durationMin) : '',
+      allowSelfEnroll: editCourse.allowSelfEnroll,
+    } : {
       titleEn: '', titleTh: '', categoryEn: '', categoryTh: '',
       descriptionEn: '', descriptionTh: '',
       passScore: 80, expiryMonthsRaw: '', durationMinRaw: '',
       allowSelfEnroll: false,
     },
   })
-
-  // Pre-fill when editing
-  useEffect(() => {
-    if (editCourse) {
-      reset({
-        titleEn:         editCourse.titleEn,
-        titleTh:         editCourse.titleTh ?? '',
-        categoryEn:      editCourse.categoryEn,
-        categoryTh:      editCourse.categoryTh ?? '',
-        descriptionEn:   editCourse.descriptionEn ?? '',
-        descriptionTh:   editCourse.descriptionTh ?? '',
-        passScore:       editCourse.passScore,
-        expiryMonthsRaw: editCourse.expiryMonths != null ? String(editCourse.expiryMonths) : '',
-        durationMinRaw:  editCourse.durationMin != null ? String(editCourse.durationMin) : '',
-        allowSelfEnroll: editCourse.allowSelfEnroll,
-      })
-    } else {
-      reset({
-        titleEn: '', titleTh: '', categoryEn: '', categoryTh: '',
-        descriptionEn: '', descriptionTh: '',
-        passScore: 80, expiryMonthsRaw: '', durationMinRaw: '',
-        allowSelfEnroll: false,
-      })
-    }
-  }, [editCourse, isOpen, reset])
 
   const buildApiBody = (values: CourseFormValues) => ({
     titleEn: values.titleEn,
@@ -454,8 +440,9 @@ export default function CourseManagementPage() {
         emptyMessage={t('adminCourse.noCourses')}
       />
 
-      {/* Course form modal */}
+      {/* Course form modal — key forces remount so defaultValues are fresh on each open */}
       <CourseFormModal
+        key={formModal.course?.id ?? 'new'}
         isOpen={formModal.open}
         onClose={() => setFormModal({ open: false })}
         {...(formModal.course !== undefined ? { editCourse: formModal.course } : {})}

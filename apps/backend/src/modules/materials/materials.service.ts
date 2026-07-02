@@ -53,7 +53,7 @@ function toMaterialAdminShape(m: MaterialRecord, storage: StorageProvider, local
     titleTh: m.titleTh ?? null,
     fileKey: m.fileKey,
     url: m.url,
-    signedUrl: m.fileKey != null ? storage.getSignedUrl(m.fileKey) : null,
+    signedUrl: m.fileKey != null ? storage.getSignedUrl(m.fileKey, 3600, m.mimeType) : null,
     mimeType: m.mimeType,
     sizeBytes: m.sizeBytes,
     order: m.order,

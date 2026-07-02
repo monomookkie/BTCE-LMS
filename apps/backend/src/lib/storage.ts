@@ -13,7 +13,7 @@ export type StorageFolder = 'avatars' | 'materials' | 'certificates' | 'training
 export interface StorageProvider {
   upload(buffer: Buffer, folder: StorageFolder, filename: string, mimeType: string): Promise<UploadResult>
   delete(fileKey: string): Promise<void>
-  getSignedUrl(fileKey: string, expiresInSeconds?: number): string
+  getSignedUrl(fileKey: string, expiresInSeconds?: number, mimeType?: string | null): string
 }
 
 // ─── Fake provider สำหรับ NODE_ENV=test ───────────────────────────────────────
@@ -30,7 +30,7 @@ class FakeStorageProvider implements StorageProvider {
     // no-op — test ไม่มีไฟล์จริงให้ลบ
   }
 
-  getSignedUrl(fileKey: string, _expiresInSeconds = 3600): string {
+  getSignedUrl(fileKey: string, _expiresInSeconds = 3600, _mimeType?: string | null): string {
     return `https://fake.storage.test/${fileKey}?token=test`
   }
 }
@@ -73,11 +73,19 @@ class CloudinaryProvider implements StorageProvider {
     await cloudinary.uploader.destroy(fileKey)
   }
 
-  getSignedUrl(fileKey: string, expiresInSeconds = 3600): string {
+  getSignedUrl(fileKey: string, expiresInSeconds = 3600, mimeType?: string | null): string {
+    // Cloudinary resource_type must match how the file was uploaded (resource_type: 'auto')
+    // 'auto' resolves to: image/* → image, video/* → video, everything else → raw
+    let resourceType: 'image' | 'video' | 'raw' = 'raw'
+    if (mimeType) {
+      if (mimeType.startsWith('image/')) resourceType = 'image'
+      else if (mimeType.startsWith('video/')) resourceType = 'video'
+    }
     return cloudinary.url(fileKey, {
       secure: true,
       sign_url: true,
       expires_at: Math.floor(Date.now() / 1000) + expiresInSeconds,
+      resource_type: resourceType,
     })
   }
 }
@@ -106,6 +114,6 @@ export async function deleteFile(fileKey: string): Promise<void> {
   return getStorage().delete(fileKey)
 }
 
-export function getSignedUrl(fileKey: string, expiresInSeconds?: number): string {
-  return getStorage().getSignedUrl(fileKey, expiresInSeconds)
+export function getSignedUrl(fileKey: string, expiresInSeconds?: number, mimeType?: string | null): string {
+  return getStorage().getSignedUrl(fileKey, expiresInSeconds, mimeType)
 }
