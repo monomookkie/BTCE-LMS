@@ -45,3 +45,25 @@ list — only pre-deploy blockers and cross-phase follow-ups land here.
   - Or change the cron to link to `/certs` instead.
 - **Decision:** add the USER `/certificates/:id` route. Scope for a later
   phase, tracked here so it isn't lost.
+
+---
+
+## Tech debt — before next TypeScript major upgrade
+
+### 3. `esModuleInterop: false` in `apps/backend/tsconfig.json` blocks TS 7.0 upgrade
+
+- **Found:** 2026-07-04, while silencing the TS 6.0 deprecation warning on
+  `esModuleInterop: false`.
+- **Symptom:** TS 7.0 will remove support for `esModuleInterop: false`
+  entirely (currently silenced via `"ignoreDeprecations": "5.0"`).
+- **Cause:** flipping the flag to `true` today produces 85 type errors,
+  all cascading from `apps/backend/src/lib/logger.ts`'s
+  `import pino from 'pino'` resolving to a different pino type shape that
+  no longer structurally matches `FastifyBaseLogger` — breaks every
+  `FastifyInstance<...>` generic that threads the logger through (visible
+  first in `users.test.ts`'s `app.inject()` calls, but affects the whole
+  Fastify route/test surface).
+- **Before upgrading to TS 7.0:** fix the pino/Fastify logger typing so the
+  app compiles clean with `esModuleInterop: true`, then remove both
+  `esModuleInterop: false` and `"ignoreDeprecations": "5.0"` from
+  `apps/backend/tsconfig.json`.
