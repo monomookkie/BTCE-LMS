@@ -34,7 +34,6 @@ function buildMultipart(
 describe('Announcements module', () => {
   let app: TestApp
   let adminCookies: string
-  let managerCookies: string
   let userCookies: string
 
   beforeAll(async () => {
@@ -42,9 +41,6 @@ describe('Announcements module', () => {
 
     const admin = await createUser({ role: 'ADMIN' })
     ;({ cookies: adminCookies } = await loginAs(app, admin.user.email, admin.plainPassword))
-
-    const manager = await createUser({ role: 'MANAGER' })
-    ;({ cookies: managerCookies } = await loginAs(app, manager.user.email, manager.plainPassword))
 
     const user = await createUser({ role: 'USER' })
     ;({ cookies: userCookies } = await loginAs(app, user.user.email, user.plainPassword))
@@ -85,14 +81,6 @@ describe('Announcements module', () => {
     const res = await createAnnouncement(
       { titleEn: 'Test', contentEn: 'Body' },
       userCookies,
-    )
-    expect(res.statusCode).toBe(403)
-  })
-
-  it('returns 403 when MANAGER attempts POST', async () => {
-    const res = await createAnnouncement(
-      { titleEn: 'Test', contentEn: 'Body' },
-      managerCookies,
     )
     expect(res.statusCode).toBe(403)
   })
@@ -221,20 +209,6 @@ describe('Announcements module', () => {
     const titles = body.data.map((r) => r.title)
     expect(titles).toContain('Draft X')
     expect(titles).toContain('Pub Y')
-  })
-
-  it('MANAGER sees DRAFT + PUBLISHED + admin shape', async () => {
-    await createAnnouncement({ titleEn: 'Draft M', contentEn: 'D', status: 'DRAFT' })
-
-    const res = await app.inject({
-      method: 'GET',
-      url: '/announcements',
-      headers: { cookie: managerCookies },
-    })
-    expect(res.statusCode).toBe(200)
-    const body = res.json<{ data: { status: string; titleEn: string }[] }>()
-    expect(body.data.some((r) => r.status === 'DRAFT')).toBe(true)
-    expect(body.data.every((r) => 'titleEn' in r)).toBe(true)
   })
 
   // ─── GET :id ──────────────────────────────────────────────────────────────

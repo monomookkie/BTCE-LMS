@@ -43,7 +43,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /:courseId/quiz — สร้าง quiz (1 course มี 1 quiz)
   server.post('/:courseId/quiz', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: quizCourseParamsSchema,
       body: createQuizInputSchema,
@@ -57,7 +57,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // GET /:courseId/quiz — admin เห็น answer key (รวม isCorrect)
   server.get('/:courseId/quiz', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: quizCourseParamsSchema,
       response: { 200: quizAdminResponseSchema },
@@ -70,7 +70,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // PATCH /:courseId/quiz — แก้ settings
   server.patch('/:courseId/quiz', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: quizCourseParamsSchema,
       body: updateQuizInputSchema,
@@ -84,7 +84,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /:courseId/quiz — soft delete quiz + cascade questions
   server.delete('/:courseId/quiz', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: quizCourseParamsSchema,
       response: { 200: z.object({ message: z.string() }) },
@@ -99,7 +99,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /:courseId/quiz/questions — เพิ่ม question พร้อม options
   server.post('/:courseId/quiz/questions', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: quizCourseParamsSchema,
       body: createQuestionInputSchema,
@@ -113,7 +113,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // PATCH /:courseId/quiz/questions/:questionId
   server.patch('/:courseId/quiz/questions/:questionId', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: questionParamsSchema,
       body: updateQuestionInputSchema,
@@ -135,7 +135,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /:courseId/quiz/questions/:questionId — soft delete
   server.delete('/:courseId/quiz/questions/:questionId', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: questionParamsSchema,
       response: { 200: z.object({ message: z.string() }) },
@@ -157,7 +157,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // POST /:courseId/quiz/questions/:questionId/options
   server.post('/:courseId/quiz/questions/:questionId/options', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: questionParamsSchema,
       body: addOptionInputSchema,
@@ -179,7 +179,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // PATCH /:courseId/quiz/questions/:questionId/options/:optionId
   server.patch('/:courseId/quiz/questions/:questionId/options/:optionId', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: optionParamsSchema,
       body: updateOptionInputSchema,
@@ -202,7 +202,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
 
   // DELETE /:courseId/quiz/questions/:questionId/options/:optionId — hard delete
   server.delete('/:courseId/quiz/questions/:questionId/options/:optionId', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: optionParamsSchema,
       response: { 200: z.object({ message: z.string() }) },

@@ -25,7 +25,7 @@ const announcementBaseFields = {
 export const announcementPublicResponseSchema = z.object(announcementBaseFields)
 export type AnnouncementPublicResponse = z.infer<typeof announcementPublicResponseSchema>
 
-// ADMIN/MANAGER — superset: localized + raw bilingual + admin metadata
+// ADMIN — superset: localized + raw bilingual + admin metadata
 export const announcementAdminResponseSchema = z.object({
   ...announcementBaseFields,
   titleEn: z.string(),

@@ -28,7 +28,7 @@ interface CreateUserOpts {
   email?: string
   password?: string
   name?: string
-  role?: 'ADMIN' | 'MANAGER' | 'USER'
+  role?: 'ADMIN' | 'USER'
   isActive?: boolean
   mustChangePassword?: boolean
 }

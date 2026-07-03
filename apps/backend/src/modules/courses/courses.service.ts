@@ -200,7 +200,7 @@ export async function createCourse(
     ...(ip != null && { ip }),
   })
 
-  // createCourse เรียกได้จาก ADMIN/MANAGER route เท่านั้น → คืน admin shape เสมอ
+  // createCourse เรียกได้จาก ADMIN route เท่านั้น → คืน admin shape เสมอ
   return courseAdminResponseSchema.parse(toCourseAdminShape(course, locale))
 }
 

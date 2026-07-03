@@ -31,7 +31,7 @@ const announcementsRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
 
   // ─── GET /announcements ───────────────────────────────────────────────────────
-  // Any authenticated user; USER sees PUBLISHED only, ADMIN/MANAGER sees all
+  // Any authenticated user; USER sees PUBLISHED only, ADMIN sees all
   // No route-level response schema — service handles role-based serialization (Convention #12)
   server.get('/announcements', {
     preHandler: [app.verifyJwt],

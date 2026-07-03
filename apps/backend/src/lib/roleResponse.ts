@@ -1,7 +1,7 @@
 import type { z } from 'zod'
 
-// ADMIN และ MANAGER เห็น raw bilingual fields; USER เห็นเฉพาะ localized
-const ADMIN_ROLES = ['ADMIN', 'MANAGER'] as const
+// ADMIN เห็น raw bilingual fields; USER เห็นเฉพาะ localized
+const ADMIN_ROLES = ['ADMIN'] as const
 type AdminRole = (typeof ADMIN_ROLES)[number]
 
 export function isAdminRole(role: string): role is AdminRole {

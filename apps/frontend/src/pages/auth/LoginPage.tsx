@@ -23,7 +23,7 @@ export default function LoginPage() {
   })
 
   if (!isLoading && user) {
-    const dest = user.role === 'ADMIN' || user.role === 'MANAGER' ? '/admin/dashboard' : '/dashboard'
+    const dest = user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'
     return <Navigate to={dest} replace />
   }
 

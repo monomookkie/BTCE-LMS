@@ -1,6 +1,6 @@
 import { z } from 'zod'
 
-export const roleSchema = z.enum(['ADMIN', 'MANAGER', 'USER'])
+export const roleSchema = z.enum(['ADMIN', 'USER'])
 
 export const languageSchema = z.enum(['en', 'th'])
 

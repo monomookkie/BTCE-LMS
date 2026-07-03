@@ -396,9 +396,7 @@ describe('GET /certificates — list + courseTitle (snapshot)', () => {
   })
 })
 
-// REFACTOR-1: department removed — MANAGER is temporarily unrestricted (same
-// visibility as ADMIN) until the MANAGER role itself is removed in REFACTOR-2.
-describe('GET /certificates — MANAGER unrestricted after department removal', () => {
+describe('GET /certificates — ADMIN list/search/filter', () => {
   let app: TestApp
 
   beforeAll(async () => {
@@ -437,48 +435,48 @@ describe('GET /certificates — MANAGER unrestricted after department removal', 
     return { userId: user.id }
   }
 
-  it('MANAGER can search any holder by name (no scoping left)', async () => {
+  it('ADMIN can search any holder by name', async () => {
     const uniqueName = `Unique-Holder-${randomUUID().slice(0, 8)}`
     await seedCertForUser(uniqueName)
 
-    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
-    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+    const { user: adminUser, plainPassword } = await createUser({ role: 'ADMIN' })
+    const { cookies: adminCookies } = await loginAs(app, adminUser.email, plainPassword)
 
     const res = await app.inject({
       method: 'GET',
       url: `/certificates?search=${encodeURIComponent(uniqueName)}`,
-      headers: { cookie: managerCookies },
+      headers: { cookie: adminCookies },
     })
     expect(res.statusCode).toBe(200)
     const body = res.json<{ data: unknown[]; total: number }>()
     expect(body.total).toBe(1)
   })
 
-  it('MANAGER can filter by explicit userId (previously ignored under dept scope)', async () => {
+  it('ADMIN can filter by explicit userId', async () => {
     const { userId } = await seedCertForUser(`Holder-${randomUUID().slice(0, 6)}`)
 
-    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
-    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+    const { user: adminUser, plainPassword } = await createUser({ role: 'ADMIN' })
+    const { cookies: adminCookies } = await loginAs(app, adminUser.email, plainPassword)
 
     const res = await app.inject({
       method: 'GET',
       url: `/certificates?userId=${userId}`,
-      headers: { cookie: managerCookies },
+      headers: { cookie: adminCookies },
     })
     expect(res.statusCode).toBe(200)
     expect(res.json<{ total: number }>().total).toBe(1)
   })
 
-  it('MANAGER sees the full list (no zero-result gate that used to apply when dept was missing)', async () => {
+  it('ADMIN sees the full list', async () => {
     await seedCertForUser(`Holder-${randomUUID().slice(0, 6)}`)
 
-    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
-    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
+    const { user: adminUser, plainPassword } = await createUser({ role: 'ADMIN' })
+    const { cookies: adminCookies } = await loginAs(app, adminUser.email, plainPassword)
 
     const res = await app.inject({
       method: 'GET',
       url: '/certificates',
-      headers: { cookie: managerCookies },
+      headers: { cookie: adminCookies },
     })
     expect(res.statusCode).toBe(200)
     const body = res.json<{ data: unknown[]; total: number }>()
@@ -486,7 +484,7 @@ describe('GET /certificates — MANAGER unrestricted after department removal', 
   })
 })
 
-describe('GET /external-certs — admin/manager scoped access', () => {
+describe('GET /external-certs — admin scoped access', () => {
   let app: TestApp
 
   beforeAll(async () => {
@@ -520,24 +518,6 @@ describe('GET /external-certs — admin/manager scoped access', () => {
       method: 'GET',
       url: `/external-certs?userId=${targetUser.id}`,
       headers: { cookie: adminCookies },
-    })
-    expect(res.statusCode).toBe(200)
-    expect(res.json<unknown[]>()).toHaveLength(1)
-  })
-
-  // REFACTOR-1: department removed — MANAGER is temporarily unrestricted (same
-  // visibility as ADMIN) until the MANAGER role itself is removed in REFACTOR-2.
-  it('MANAGER can view external certs of any user (no dept scoping left)', async () => {
-    const { user: targetUser } = await createUser({ role: 'USER' })
-    await seedExternalCert(targetUser.id)
-
-    const { user: managerUser, plainPassword } = await createUser({ role: 'MANAGER' })
-    const { cookies: managerCookies } = await loginAs(app, managerUser.email, plainPassword)
-
-    const res = await app.inject({
-      method: 'GET',
-      url: `/external-certs?userId=${targetUser.id}`,
-      headers: { cookie: managerCookies },
     })
     expect(res.statusCode).toBe(200)
     expect(res.json<unknown[]>()).toHaveLength(1)

@@ -264,7 +264,7 @@ export async function getEnrollment(
     throw notFound(t('error.enrollment.notFound', undefined, locale))
   }
 
-  // PDPA: log เมื่อ ADMIN/MANAGER ดู enrollment ของ user อื่น
+  // PDPA: log เมื่อ ADMIN ดู enrollment ของ user อื่น
   if (requesterRole !== 'USER' && enrollment.userId !== requesterId) {
     await logAudit(prisma, {
       actorId: requesterId,

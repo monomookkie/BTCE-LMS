@@ -295,7 +295,7 @@ export async function listCertificates(
 ): Promise<{ data: (CertificateAdminResponse | CertificatePublicResponse)[]; total: number; page: number; limit: number }> {
   const { page, limit } = query
 
-  // USER ดูเฉพาะของตัวเอง — ไม่สนใจ query.userId; ADMIN/MANAGER ดูได้ตาม query.userId (ไม่ scope แล้ว)
+  // USER ดูเฉพาะของตัวเอง — ไม่สนใจ query.userId; ADMIN ดูได้ตาม query.userId (ไม่ scope แล้ว)
   const targetUserId = role === 'USER' ? requesterId : query.userId
 
   // รวมทุกเงื่อนไขด้วย AND — กัน search/status OR เผลอทะลุเงื่อนไขอื่น
@@ -351,7 +351,7 @@ export async function getCertificate(
     throw notFound(t('error.cert.notFound', undefined, locale))
   }
 
-  // PDPA: log เมื่อ ADMIN/MANAGER ดู cert ของ user อื่น
+  // PDPA: log เมื่อ ADMIN ดู cert ของ user อื่น
   if (role !== 'USER' && cert.userId !== requesterId) {
     await logAudit(prisma, {
       actorId: requesterId,
@@ -462,7 +462,7 @@ export async function generateCertPdf(
   }
   if (cert.revokedAt) throw badRequest(t('error.cert.revoked', undefined, locale))
 
-  // PDPA: log เมื่อ ADMIN/MANAGER ดาวน์โหลด cert PDF ของ user อื่น — personal data export
+  // PDPA: log เมื่อ ADMIN ดาวน์โหลด cert PDF ของ user อื่น — personal data export
   if (role !== 'USER' && cert.userId !== requesterId) {
     await logAudit(prisma, {
       actorId: requesterId,
@@ -568,8 +568,8 @@ export async function listExternalCerts(
   return certs.map((c) => toExternalCertResponse(c, storage))
 }
 
-// ─── Scoped list for ADMIN/MANAGER viewing another user's external certs ────
-// ADMIN/MANAGER: userId ใดก็ได้ (MANAGER ไม่ถูก scope แล้ว — รอลบ role ใน REFACTOR-2)
+// ─── Scoped list for ADMIN viewing another user's external certs ────────────
+// ADMIN: userId ใดก็ได้
 // USER: เห็นเฉพาะของตัวเอง — query.userId ถูก ignore
 export async function listExternalCertsScoped(
   prisma: PrismaClient,
@@ -584,11 +584,11 @@ export async function listExternalCertsScoped(
     return listExternalCerts(prisma, requesterId, storage)
   }
 
-  if (role !== 'ADMIN' && role !== 'MANAGER') {
+  if (role !== 'ADMIN') {
     throw notFound(t('error.user.notFound', undefined, locale))
   }
 
-  // PDPA: audit เมื่อ ADMIN/MANAGER ดู external cert ของ user อื่น
+  // PDPA: audit เมื่อ ADMIN ดู external cert ของ user อื่น
   await logAudit(prisma, {
     actorId: requesterId,
     action: 'EXT_CERT_VIEW',

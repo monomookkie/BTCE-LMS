@@ -6,7 +6,7 @@ const BASE = (import.meta.env['VITE_API_URL'] as string | undefined) ?? '/api'
 
 export interface UserListParams {
   search?: string
-  role?: 'ADMIN' | 'MANAGER' | 'USER'
+  role?: 'ADMIN' | 'USER'
   isActive?: boolean
   page?: number
   limit?: number

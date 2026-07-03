@@ -41,15 +41,6 @@ describe('Courses module', () => {
       expect(res.statusCode).toBe(403)
     })
 
-    it('MANAGER role POST /courses → 201', async () => {
-      const { user, plainPassword } = await createUser({ role: 'MANAGER' })
-      const { cookies } = await loginAs(app, user.email, plainPassword)
-
-      const res = await createCourseAs(cookies)
-      expect(res.statusCode).toBe(201)
-      expect(res.json<CourseAdminResponse>().status).toBe('DRAFT')
-    })
-
     it('ADMIN role POST /courses → 201', async () => {
       const { user, plainPassword } = await createUser({ role: 'ADMIN' })
       const { cookies } = await loginAs(app, user.email, plainPassword)
@@ -76,23 +67,6 @@ describe('Courses module', () => {
       expect(res.statusCode).toBe(403)
     })
 
-    it('MANAGER role PATCH /courses/:id/status → 403 (ADMIN only)', async () => {
-      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
-      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
-      const courseRes = await createCourseAs(adminCookies)
-      const courseId = courseRes.json<CourseAdminResponse>().id
-
-      const { user, plainPassword } = await createUser({ role: 'MANAGER' })
-      const { cookies } = await loginAs(app, user.email, plainPassword)
-
-      const res = await app.inject({
-        method: 'PATCH',
-        url: `/courses/${courseId}/status`,
-        headers: { cookie: cookies },
-        payload: { status: 'PUBLISHED' },
-      })
-      expect(res.statusCode).toBe(403)
-    })
   })
 
   // ─── Course CRUD ───────────────────────────────────────────────────────────

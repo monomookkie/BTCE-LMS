@@ -5,7 +5,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, Search, Edit2, Trash2, Upload, Ban, CheckCircle } from 'lucide-react'
-import type { UserResponse, Role } from '@btec-lms/shared'
+import { roleSchema, type UserResponse, type Role } from '@btec-lms/shared'
 import {
   listAdminUsers,
   createAdminUser,
@@ -26,7 +26,7 @@ import { Badge } from '../../components/ui/Badge.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
 
-const ROLES: Role[] = ['ADMIN', 'MANAGER', 'USER']
+const ROLES: Role[] = ['ADMIN', 'USER']
 const PAGE_SIZE = 20
 
 function randomPassword(): string {
@@ -39,7 +39,7 @@ const userFormSchema = z.object({
   name: z.string().min(1).max(100),
   email: z.string().email(),
   password: z.string().min(8).max(72).optional(),
-  role: z.enum(['ADMIN', 'MANAGER', 'USER']),
+  role: roleSchema,
   position: z.string().max(100).optional(),
 })
 type UserFormValues = z.infer<typeof userFormSchema>
@@ -323,7 +323,7 @@ export default function UserDirectoryPage() {
         key: 'role',
         header: t('user.role'),
         width: '12%',
-        render: (u) => <Badge variant={u.role === 'ADMIN' ? 'purple' : u.role === 'MANAGER' ? 'blue' : 'gray'}>{t(`user.roles.${u.role}`)}</Badge>,
+        render: (u) => <Badge variant={u.role === 'ADMIN' ? 'purple' : 'gray'}>{t(`user.roles.${u.role}`)}</Badge>,
       },
       {
         key: 'status',

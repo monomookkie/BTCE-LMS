@@ -12,9 +12,9 @@ import { resolveLocale } from '../../lib/i18n.js'
 const reportsRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
 
-  // ─── GET /reports/dashboard — ADMIN / MANAGER ────────────────────────────────
+  // ─── GET /reports/dashboard — ADMIN ────────────────────────────────
   server.get('/reports/dashboard', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       response: { 200: dashboardSummarySchema },
     },
@@ -23,24 +23,24 @@ const reportsRoutes: FastifyPluginAsync = async (app) => {
     return getDashboardSummary(app.prisma, req.user.id, req.user.role, locale)
   })
 
-  // ─── GET /reports/compliance — ADMIN / MANAGER (paginated) ──────────────────
-  // ADMIN/MANAGER: สามารถ filter ด้วย courseId
+  // ─── GET /reports/compliance — ADMIN (paginated) ──────────────────
+  // ADMIN: สามารถ filter ด้วย courseId
   server.get('/reports/compliance', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       querystring: complianceQuerySchema,
       response: { 200: complianceListSchema },
     },
   }, async (req) => {
     const locale = await resolveLocale(req, app.prisma)
-    return getComplianceList(app.prisma, req.user.id, req.user.role, req.query, locale)
+    return getComplianceList(app.prisma, req.user.id, req.user.role, req.query, locale, req.ip)
   })
 
   // ─── GET /reports/compliance/export — CSV download ───────────────────────────
   // Rate limit เข้มกว่า global: 5 req/min (ดึง PII ก้อนใหญ่)
   // Audit log: REPORT_EXPORT บันทึก scope + row count ทุกครั้ง
   server.get('/reports/compliance/export', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     config: {
       rateLimit: { max: 5, timeWindow: '1 minute' },
     },

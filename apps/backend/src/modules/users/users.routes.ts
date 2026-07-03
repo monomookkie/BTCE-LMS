@@ -33,11 +33,11 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
     limit: z.number(),
   })
 
-  // GET /users — ADMIN/MANAGER
+  // GET /users — ADMIN
   server.get(
     '/',
     {
-      preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+      preHandler: [app.requireRole(['ADMIN'])],
       schema: {
         querystring: userListQuerySchema,
         response: { 200: userListResponseSchema },
@@ -137,11 +137,11 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
     },
   )
 
-  // GET /users/:id — ADMIN/MANAGER
+  // GET /users/:id — ADMIN
   server.get(
     '/:id',
     {
-      preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+      preHandler: [app.requireRole(['ADMIN'])],
       schema: {
         params: z.object({ id: z.string().cuid() }),
         response: { 200: userResponseSchema },

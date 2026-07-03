@@ -135,10 +135,11 @@ const ENROLLMENT_SELECT = {
 
 export async function getComplianceList(
   prisma: PrismaClient,
-  _requesterId: string,
+  requesterId: string,
   _role: string,
   query: ComplianceQuery,
   locale: Locale,
+  ip?: string,
 ): Promise<ComplianceList> {
   const { page, limit, courseId, status } = query
 
@@ -154,6 +155,17 @@ export async function getComplianceList(
       take: limit,
     }),
   ])
+
+  // PDPA: ADMIN อ่าน PII ก้อนใหญ่ (row-level user name ทุกคน) ต้อง audit เหมือน export
+  await logAudit(prisma, {
+    actorId: requesterId,
+    action: 'REPORT_COMPLIANCE_VIEW',
+    metadata: {
+      rows: rows.length,
+      courseId: query.courseId ?? null,
+    },
+    ...(ip != null && { ip }),
+  })
 
   return {
     data: rows.map((r) => toRow(r as EnrollmentRaw, locale)),

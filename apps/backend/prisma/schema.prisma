@@ -40,7 +40,6 @@ model User {
 
 enum Role {
   ADMIN
-  MANAGER
   USER
 }
 

@@ -35,7 +35,7 @@ const ALLOWED_MIME: Record<string, string[]> = {
 const materialsRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
 
-  // GET /courses/:courseId/materials — ADMIN/MANAGER หรือ enrolled USER
+  // GET /courses/:courseId/materials — ADMIN หรือ enrolled USER
   // response schema ไม่ declare ที่ route เพราะ schema ขึ้นกับ role (service จัดการ)
   server.get('/:courseId/materials', {
     preHandler: [app.verifyJwt],
@@ -47,10 +47,10 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
     return listMaterials(app.prisma, req.params.courseId, getStorage(), req.user.id, locale, req.ip, req.user.role)
   })
 
-  // POST /courses/:courseId/materials/link — ADMIN/MANAGER (VIDEO / LINK via JSON)
+  // POST /courses/:courseId/materials/link — ADMIN (VIDEO / LINK via JSON)
   // ต้องอยู่ก่อน /:courseId/materials/:materialId เพื่อให้ "link" ไม่ถูก match เป็น materialId
   server.post('/:courseId/materials/link', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: materialCourseParamsSchema,
       body: createLinkMaterialInputSchema,
@@ -70,10 +70,10 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send(material)
   })
 
-  // PATCH /courses/:courseId/materials/reorder — ADMIN/MANAGER
+  // PATCH /courses/:courseId/materials/reorder — ADMIN
   // ต้องอยู่ก่อน /:courseId/materials/:materialId
   server.patch('/:courseId/materials/reorder', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: materialCourseParamsSchema,
       body: reorderMaterialsInputSchema,
@@ -85,9 +85,9 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
     return reply.send({ message: 'Materials reordered' })
   })
 
-  // POST /courses/:courseId/materials — ADMIN/MANAGER (PDF / IMAGE / DOC via multipart)
+  // POST /courses/:courseId/materials — ADMIN (PDF / IMAGE / DOC via multipart)
   server.post('/:courseId/materials', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: materialCourseParamsSchema,
       response: { 201: materialAdminResponseSchema },
@@ -141,9 +141,9 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send(material)
   })
 
-  // PATCH /courses/:courseId/materials/:materialId — ADMIN/MANAGER
+  // PATCH /courses/:courseId/materials/:materialId — ADMIN
   server.patch('/:courseId/materials/:materialId', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: materialParamsSchema,
       body: updateMaterialInputSchema,
@@ -163,9 +163,9 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
     )
   })
 
-  // DELETE /courses/:courseId/materials/:materialId — ADMIN/MANAGER
+  // DELETE /courses/:courseId/materials/:materialId — ADMIN
   server.delete('/:courseId/materials/:materialId', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: materialParamsSchema,
       response: { 200: z.object({ message: z.string() }) },

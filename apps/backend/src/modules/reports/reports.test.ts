@@ -29,12 +29,6 @@ describe('Reports module', () => {
     return { cookies, userId: user.id }
   }
 
-  async function makeManager(): Promise<LoginResult> {
-    const { user, plainPassword } = await createUser({ role: 'MANAGER' })
-    const { cookies } = await loginAs(app, user.email, plainPassword)
-    return { cookies, userId: user.id }
-  }
-
   async function makeRegularUser(): Promise<LoginResult> {
     const { user, plainPassword } = await createUser({ role: 'USER' })
     const { cookies } = await loginAs(app, user.email, plainPassword)
@@ -132,34 +126,6 @@ describe('Reports module', () => {
     })
   })
 
-  // ─── 3. Dashboard — MANAGER (unrestricted after department removal) ──────
-  // REFACTOR-1: department removed — MANAGER is temporarily unrestricted (same
-  // visibility as ADMIN) until the MANAGER role itself is removed in REFACTOR-2.
-
-  describe('GET /reports/dashboard — MANAGER sees the same totals as ADMIN', () => {
-    it('MANAGER count matches ADMIN count (no scoping left)', async () => {
-      const manager = await makeManager()
-      const admin = await makeAdmin()
-      const user = await makeRegularUser()
-      await seedEnrollmentDirect(user.userId, { status: 'COMPLETED', withCert: true })
-
-      const [managerRes, adminRes] = await Promise.all([
-        app.inject({ method: 'GET', url: '/reports/dashboard', headers: { cookie: manager.cookies } }),
-        app.inject({ method: 'GET', url: '/reports/dashboard', headers: { cookie: admin.cookies } }),
-      ])
-      expect(managerRes.statusCode).toBe(200)
-      expect(adminRes.statusCode).toBe(200)
-
-      const managerBody = managerRes.json<DashboardSummary>()
-      const adminBody = adminRes.json<DashboardSummary>()
-
-      expect(managerBody.totalUsers).toBe(adminBody.totalUsers)
-      expect(managerBody.totalEnrollments).toBe(adminBody.totalEnrollments)
-      expect(managerBody.certsIssued).toBe(adminBody.certsIssued)
-      expect(managerBody.totalUsers).toBeGreaterThanOrEqual(1)
-    })
-  })
-
   // ─── 4. GET /reports/compliance — list ────────────────────────────────────
 
   describe('GET /reports/compliance', () => {
@@ -195,10 +161,8 @@ describe('Reports module', () => {
       }
     })
 
-    // REFACTOR-1: department removed — MANAGER is temporarily unrestricted
-    // (same visibility as ADMIN) until the MANAGER role itself is removed in REFACTOR-2.
-    it('MANAGER sees enrollments across all users (no scoping left)', async () => {
-      const manager = await makeManager()
+    it('ADMIN sees enrollments across all users', async () => {
+      const admin = await makeAdmin()
       const userA = await makeRegularUser()
       const userB = await makeRegularUser()
 
@@ -208,7 +172,7 @@ describe('Reports module', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/reports/compliance',
-        headers: { cookie: manager.cookies },
+        headers: { cookie: admin.cookies },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json<ComplianceList>()
@@ -273,6 +237,30 @@ describe('Reports module', () => {
         (await app.inject({ method: 'GET', url: '/reports/compliance', headers: { cookie: user.cookies } })).statusCode,
       ).toBe(403)
     })
+
+    it('list view สร้าง REPORT_COMPLIANCE_VIEW audit log (ADMIN อ่าน PII ก้อนใหญ่ต้องมี audit trail)', async () => {
+      const admin = await makeAdmin()
+      const countBefore = await prisma.auditLog.count({
+        where: { action: 'REPORT_COMPLIANCE_VIEW', actorId: admin.userId },
+      })
+
+      await app.inject({
+        method: 'GET',
+        url: '/reports/compliance',
+        headers: { cookie: admin.cookies },
+      })
+
+      const countAfter = await prisma.auditLog.count({
+        where: { action: 'REPORT_COMPLIANCE_VIEW', actorId: admin.userId },
+      })
+      expect(countAfter).toBe(countBefore + 1)
+
+      const log = await prisma.auditLog.findFirst({
+        where: { action: 'REPORT_COMPLIANCE_VIEW', actorId: admin.userId },
+        orderBy: { createdAt: 'desc' },
+      })
+      expect(log?.metadata).toMatchObject({ rows: expect.any(Number) })
+    })
   })
 
   // ─── 5. GET /reports/compliance/export — CSV ──────────────────────────────
@@ -309,10 +297,8 @@ describe('Reports module', () => {
       expect(body).not.toContain('@test.com')
     })
 
-    // REFACTOR-1: department removed — MANAGER is temporarily unrestricted
-    // (same visibility as ADMIN) until the MANAGER role itself is removed in REFACTOR-2.
-    it('MANAGER export: CSV includes all users (no scoping left)', async () => {
-      const manager = await makeManager()
+    it('ADMIN export: CSV includes enrollments from users other than the exporter', async () => {
+      const admin = await makeAdmin()
 
       const uniqueName = `UNIQUE-${randomUUID().slice(0, 8)}`
       const { user: rawUser, plainPassword: pw } = await createUser({ role: 'USER', name: uniqueName })
@@ -322,7 +308,7 @@ describe('Reports module', () => {
       const res = await app.inject({
         method: 'GET',
         url: '/reports/compliance/export',
-        headers: { cookie: manager.cookies },
+        headers: { cookie: admin.cookies },
       })
       expect(res.statusCode).toBe(200)
       expect(res.payload).toContain(uniqueName)

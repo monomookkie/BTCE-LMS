@@ -90,7 +90,7 @@ function serializeAnnouncement(
 }
 
 // ─── listAnnouncements ────────────────────────────────────────────────────────
-// USER → only PUBLISHED; ADMIN/MANAGER → all (DRAFT + PUBLISHED)
+// USER → only PUBLISHED; ADMIN → all (DRAFT + PUBLISHED)
 
 export async function listAnnouncements(
   prisma: PrismaClient,
@@ -124,7 +124,7 @@ export async function listAnnouncements(
 }
 
 // ─── getAnnouncement ──────────────────────────────────────────────────────────
-// USER → only PUBLISHED; ADMIN/MANAGER → any status
+// USER → only PUBLISHED; ADMIN → any status
 
 export async function getAnnouncement(
   prisma: PrismaClient,

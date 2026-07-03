@@ -24,7 +24,7 @@ const courseBaseFields = {
 // USER-facing — localized fields เท่านั้น ไม่มี raw En/Th
 export const coursePublicResponseSchema = z.object(courseBaseFields)
 
-// ADMIN/MANAGER-facing — ครบทั้ง localized + raw En/Th (สำหรับ edit form)
+// ADMIN-facing — ครบทั้ง localized + raw En/Th (สำหรับ edit form)
 export const courseAdminResponseSchema = z.object({
   ...courseBaseFields,
   titleEn: z.string(),

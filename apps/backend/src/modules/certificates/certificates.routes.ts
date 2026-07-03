@@ -43,7 +43,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
 
   // ─── GET /certificates ─────────────────────────────────────────────────────
-  // ADMIN/MANAGER: list all (filter by userId optional)
+  // ADMIN: list all (filter by userId optional)
   // USER: own certs only (service ignores query.userId for USER role)
   // No response schema at route level — role-based serialization in service (Convention #12)
   server.get('/certificates', {
@@ -94,7 +94,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── GET /certificates/:id ─────────────────────────────────────────────────
   // USER: IDOR-guarded (service returns 404 for other users' certs)
-  // ADMIN/MANAGER: any cert; audited if viewing another user's cert
+  // ADMIN: any cert; audited if viewing another user's cert
   // No response schema — role-based serialization in service (Convention #12)
   server.get('/certificates/:id', {
     preHandler: [app.verifyJwt],
@@ -155,7 +155,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── GET /external-certs ───────────────────────────────────────────────────
   // USER: own external certs เท่านั้น (query.userId ignored)
-  // ADMIN/MANAGER: userId ใดก็ได้ (audited)
+  // ADMIN: userId ใดก็ได้ (audited)
   server.get('/external-certs', {
     preHandler: [app.verifyJwt],
     schema: {

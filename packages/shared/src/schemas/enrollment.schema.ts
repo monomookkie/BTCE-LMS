@@ -16,7 +16,7 @@ export const enrollmentResponseSchema = z.object({
   createdAt: z.string().datetime(),
 })
 
-// ADMIN/MANAGER assign user เข้า course
+// ADMIN assign user เข้า course
 export const assignEnrollmentInputSchema = z.object({
   userId: z.string().cuid(),
   courseId: z.string().cuid(),

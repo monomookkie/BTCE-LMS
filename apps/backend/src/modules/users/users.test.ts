@@ -13,10 +13,10 @@ describe('Users module', () => {
     await app.close()
   })
 
-  // ─── RBAC — endpoint ที่ต้องการ ADMIN/MANAGER ─────────────────────────────
+  // ─── RBAC — endpoint ที่ต้องการ ADMIN ─────────────────────────────
 
   describe('RBAC', () => {
-    it('USER role GET /users → 403 (ADMIN/MANAGER only)', async () => {
+    it('USER role GET /users → 403 (ADMIN only)', async () => {
       const { user, plainPassword } = await createUser({ role: 'USER' })
       const { cookies } = await loginAs(app, user.email, plainPassword)
 
@@ -28,7 +28,7 @@ describe('Users module', () => {
       expect(res.statusCode).toBe(403)
     })
 
-    it('USER role GET /users/:id → 403 (ADMIN/MANAGER only)', async () => {
+    it('USER role GET /users/:id → 403 (ADMIN only)', async () => {
       const { user: target } = await createUser({ email: 'target-view@test.com', role: 'USER' })
       const { user: attacker, plainPassword } = await createUser({
         email: 'attacker-view@test.com',
@@ -44,8 +44,8 @@ describe('Users module', () => {
       expect(res.statusCode).toBe(403)
     })
 
-    it('MANAGER role GET /users → 200 (has access)', async () => {
-      const { user, plainPassword } = await createUser({ role: 'MANAGER' })
+    it('ADMIN role GET /users → 200 (has access)', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
       const { cookies } = await loginAs(app, user.email, plainPassword)
 
       const res = await app.inject({

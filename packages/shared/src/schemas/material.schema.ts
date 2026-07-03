@@ -22,7 +22,7 @@ const materialBaseFields = {
 // USER-facing (enrolled user) — localized fields เท่านั้น
 export const materialPublicResponseSchema = z.object(materialBaseFields)
 
-// ADMIN/MANAGER-facing — ครบทั้ง localized + raw En/Th (สำหรับ edit form)
+// ADMIN-facing — ครบทั้ง localized + raw En/Th (สำหรับ edit form)
 export const materialAdminResponseSchema = z.object({
   ...materialBaseFields,
   titleEn: z.string(),

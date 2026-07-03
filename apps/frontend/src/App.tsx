@@ -107,8 +107,8 @@ export default function App() {
             }
           />
 
-          {/* ADMIN + MANAGER */}
-          <Route element={<RequireRole roles={['ADMIN', 'MANAGER']} />}>
+          {/* ADMIN */}
+          <Route element={<RequireRole roles={['ADMIN']} />}>
             <Route
                 path="/admin/dashboard"
                 element={
@@ -158,17 +158,14 @@ export default function App() {
               }
             />
 
-            {/* ADMIN only */}
-            <Route element={<RequireRole roles={['ADMIN']} />}>
-              <Route
-                path="/admin/users"
-                element={
-                  <Suspense fallback={null}>
-                    <UserDirectoryPage />
-                  </Suspense>
-                }
-              />
-            </Route>
+            <Route
+              path="/admin/users"
+              element={
+                <Suspense fallback={null}>
+                  <UserDirectoryPage />
+                </Suspense>
+              }
+            />
           </Route>
         </Route>
       </Route>

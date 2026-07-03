@@ -28,9 +28,9 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
     limit: z.number().int(),
   })
 
-  // POST /enrollments — ADMIN/MANAGER assign user to course
+  // POST /enrollments — ADMIN assign user to course
   server.post('/', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       body: assignEnrollmentInputSchema,
       response: { 201: enrollmentResponseSchema },
@@ -66,9 +66,9 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send(enrollment)
   })
 
-  // GET /enrollments — ADMIN/MANAGER list all
+  // GET /enrollments — ADMIN list all
   server.get('/', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       querystring: enrollmentListQuerySchema,
       response: { 200: enrollmentListResponseSchema },
@@ -92,7 +92,7 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(result)
   })
 
-  // GET /enrollments/:id — owner or ADMIN/MANAGER
+  // GET /enrollments/:id — owner or ADMIN
   server.get('/:id', {
     preHandler: [app.verifyJwt],
     schema: {
@@ -132,9 +132,9 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(enrollment)
   })
 
-  // DELETE /enrollments/:id — ADMIN/MANAGER cancel enrollment
+  // DELETE /enrollments/:id — ADMIN cancel enrollment
   server.delete('/:id', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: enrollmentParamsSchema,
       response: { 200: z.object({ message: z.string() }) },

@@ -19,7 +19,6 @@ interface NavItem {
   path: string
   labelKey: string
   Icon: LucideIcon
-  adminOnly?: boolean
 }
 
 const userNav: NavItem[] = [
@@ -36,7 +35,7 @@ const adminNav: NavItem[] = [
   { path: '/admin/certificates',  labelKey: 'nav.certEngine',       Icon: Award },
   { path: '/admin/reports',       labelKey: 'nav.reports',          Icon: BarChart3 },
   { path: '/admin/announcements', labelKey: 'nav.announcements',    Icon: Megaphone },
-  { path: '/admin/users',         labelKey: 'nav.users',            Icon: Users, adminOnly: true },
+  { path: '/admin/users',         labelKey: 'nav.users',            Icon: Users },
 ]
 
 interface SidebarProps {
@@ -49,8 +48,7 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const logout = useLogoutMutation()
 
   const isAdmin = user?.role === 'ADMIN'
-  const isAdminOrManager = user?.role === 'ADMIN' || user?.role === 'MANAGER'
-  const nav = isAdminOrManager ? adminNav : userNav
+  const nav = isAdmin ? adminNav : userNav
 
   return (
     <aside className="flex h-full w-[200px] flex-col bg-gradient-to-b from-navy-900 to-navy-800">
@@ -66,7 +64,6 @@ export function Sidebar({ onNavigate }: SidebarProps) {
       <nav className="flex-1 overflow-y-auto px-2 py-3">
         <ul className="space-y-0.5">
           {nav.map((item) => {
-            if (item.adminOnly && !isAdmin) return null
             return (
               <li key={item.path}>
                 <NavLink

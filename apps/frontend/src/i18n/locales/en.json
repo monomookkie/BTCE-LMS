@@ -126,7 +126,6 @@
     "role": "Role",
     "roles": {
       "ADMIN": "Administrator",
-      "MANAGER": "Manager",
       "USER": "Staff"
     },
     "profile": "Profile",

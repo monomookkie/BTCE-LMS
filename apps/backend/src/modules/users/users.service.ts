@@ -273,8 +273,7 @@ export async function importFromCsv(
     const password = await hashPassword(tempPassword)
 
     const roleRaw = row['role']?.trim().toUpperCase()
-    const role =
-      roleRaw === 'ADMIN' || roleRaw === 'MANAGER' || roleRaw === 'USER' ? roleRaw : ('USER' as const)
+    const role = roleRaw === 'ADMIN' || roleRaw === 'USER' ? roleRaw : ('USER' as const)
 
     try {
       await prisma.user.create({

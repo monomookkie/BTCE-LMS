@@ -7,7 +7,6 @@ import { coursePublicResponseSchema, courseAdminResponseSchema } from '@btec-lms
 
 describe('isAdminRole()', () => {
   it('ADMIN → true', () => expect(isAdminRole('ADMIN')).toBe(true))
-  it('MANAGER → true', () => expect(isAdminRole('MANAGER')).toBe(true))
   it('USER → false', () => expect(isAdminRole('USER')).toBe(false))
   it('empty string → false', () => expect(isAdminRole('')).toBe(false))
 })
@@ -55,12 +54,6 @@ describe('serializeByRole() — Zod .parse() strips extra fields', () => {
     // extra fields ที่ไม่อยู่ใน adminSchema ยังต้องหาย
     expect('password' in result).toBe(false)
     expect('internalFlag' in result).toBe(false)
-  })
-
-  it('MANAGER role → ได้ admin fields (MANAGER เป็น admin role)', () => {
-    const result = serializeByRole('MANAGER', makePoisoned(), adminSchema, publicSchema)
-    expect((result as z.infer<typeof adminSchema>).titleEn).toBe('English Title')
-    expect('password' in result).toBe(false)
   })
 })
 

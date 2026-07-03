@@ -157,7 +157,7 @@ export async function createLinkMaterial(
     ...(ip != null && { ip }),
   })
 
-  // createLinkMaterial เรียกจาก ADMIN/MANAGER route เท่านั้น → คืน admin shape เสมอ
+  // createLinkMaterial เรียกจาก ADMIN route เท่านั้น → คืน admin shape เสมอ
   return materialAdminResponseSchema.parse(toMaterialAdminShape(material, storage, locale))
 }
 

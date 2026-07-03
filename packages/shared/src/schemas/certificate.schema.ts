@@ -22,7 +22,7 @@ const certBaseFields = {
 export const certificatePublicResponseSchema = z.object(certBaseFields)
 export type CertificatePublicResponse = z.infer<typeof certificatePublicResponseSchema>
 
-// ADMIN/MANAGER — superset: + identifiers + revoke info
+// ADMIN — superset: + identifiers + revoke info
 export const certificateAdminResponseSchema = z.object({
   ...certBaseFields,
   enrollmentId: z.string(),

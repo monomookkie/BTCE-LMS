@@ -21,7 +21,7 @@ import { resolveLocale } from '../../lib/i18n.js'
 const coursesRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
 
-  // GET /courses — USER เห็นเฉพาะ PUBLISHED, ADMIN/MANAGER เห็นทุก status
+  // GET /courses — USER เห็นเฉพาะ PUBLISHED, ADMIN เห็นทุก status
   // response schema ไม่ declare ที่ route เพราะ schema ขึ้นกับ role (service จัดการ)
   server.get('/', {
     preHandler: [app.verifyJwt],
@@ -33,9 +33,9 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
     return listCourses(app.prisma, req.query, req.user.role, locale, req.ip, req.user.id)
   })
 
-  // POST /courses — ADMIN/MANAGER เท่านั้น → คืน admin schema เสมอ
+  // POST /courses — ADMIN เท่านั้น → คืน admin schema เสมอ
   server.post('/', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       body: createCourseInputSchema,
       response: { 201: courseAdminResponseSchema },
@@ -57,9 +57,9 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
     return getCourse(app.prisma, req.params.id, req.user.role, locale)
   })
 
-  // PATCH /courses/:id — ADMIN/MANAGER (metadata) → คืน admin schema
+  // PATCH /courses/:id — ADMIN (metadata) → คืน admin schema
   server.patch('/:id', {
-    preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
+    preHandler: [app.requireRole(['ADMIN'])],
     schema: {
       params: courseParamsSchema,
       body: updateCourseInputSchema,
