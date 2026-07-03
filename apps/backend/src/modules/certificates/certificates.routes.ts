@@ -155,7 +155,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
 
   // ─── GET /external-certs ───────────────────────────────────────────────────
   // USER: own external certs เท่านั้น (query.userId ignored)
-  // ADMIN: userId ใดก็ได้ / MANAGER: เฉพาะ userId ใน dept ตัวเอง (service scoped + audited)
+  // ADMIN/MANAGER: userId ใดก็ได้ (audited)
   server.get('/external-certs', {
     preHandler: [app.verifyJwt],
     schema: {

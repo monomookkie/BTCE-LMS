@@ -21,7 +21,6 @@ function toUserResponse(user: {
   email: string
   role: string
   language: string
-  departmentId: string | null
   position: string | null
   avatarKey: string | null
   isActive: boolean
@@ -35,7 +34,6 @@ function toUserResponse(user: {
     email: user.email,
     role: user.role as UserResponse['role'],
     language: (user.language === 'th' ? 'th' : 'en') as UserResponse['language'],
-    departmentId: user.departmentId,
     position: user.position,
     avatarKey: user.avatarKey,
     isActive: user.isActive,
@@ -51,7 +49,6 @@ const USER_SELECT = {
   email: true,
   role: true,
   language: true,
-  departmentId: true,
   position: true,
   avatarKey: true,
   isActive: true,
@@ -65,7 +62,7 @@ export async function listUsers(
   requesterId: string,
   ip?: string,
 ): Promise<{ data: UserResponse[]; total: number; page: number; limit: number }> {
-  const { page, limit, search, role, departmentId, isActive } = query
+  const { page, limit, search, role, isActive } = query
   const skip = (page - 1) * limit
 
   const where = {
@@ -78,7 +75,6 @@ export async function listUsers(
       ],
     }),
     ...(role != null && { role }),
-    ...(departmentId != null && { departmentId }),
     ...(isActive !== undefined && { isActive }),
   }
 
@@ -126,7 +122,6 @@ export async function createUser(
       mustChangePassword: true,
       // conditional spread เพื่อหลีกเลี่ยง exactOptionalPropertyTypes + Prisma conflict
       ...(input.employeeId != null && { employeeId: input.employeeId }),
-      ...(input.departmentId != null && { departmentId: input.departmentId }),
       ...(input.position != null && { position: input.position }),
     },
     select: USER_SELECT,
@@ -184,7 +179,6 @@ export async function updateUser(
     data: {
       ...(input.name != null && { name: input.name }),
       ...(input.role != null && { role: input.role }),
-      ...(input.departmentId !== undefined && { departmentId: input.departmentId }),
       ...(input.position != null && { position: input.position }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
     },
@@ -256,14 +250,6 @@ export async function importFromCsv(
   let created = 0
   let skipped = 0
 
-  const departments = await prisma.department.findMany()
-  // ตรวจทั้ง nameEn และ nameTh เพื่อให้ CSV ใส่ชื่อภาษาไหนก็ได้
-  const deptMap = new Map<string, string>()
-  for (const d of departments) {
-    deptMap.set(d.nameEn.trim(), d.id)
-    if (d.nameTh) deptMap.set(d.nameTh.trim(), d.id)
-  }
-
   for (let i = 0; i < records.length; i++) {
     const row = records[i]!
     const rowNum = i + 2
@@ -286,10 +272,6 @@ export async function importFromCsv(
     const tempPassword = randomBytes(6).toString('hex')
     const password = await hashPassword(tempPassword)
 
-    const departmentName = row['departmentName']?.trim()
-    const departmentId =
-      departmentName != null ? (deptMap.get(departmentName) ?? undefined) : undefined
-
     const roleRaw = row['role']?.trim().toUpperCase()
     const role =
       roleRaw === 'ADMIN' || roleRaw === 'MANAGER' || roleRaw === 'USER' ? roleRaw : ('USER' as const)
@@ -304,7 +286,6 @@ export async function importFromCsv(
           mustChangePassword: true,
           ...(row['employeeId']?.trim() && { employeeId: row['employeeId']!.trim() }),
           ...(row['position']?.trim() && { position: row['position']!.trim() }),
-          ...(departmentId != null && { departmentId }),
         },
       })
 

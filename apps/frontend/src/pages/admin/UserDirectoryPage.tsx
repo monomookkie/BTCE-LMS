@@ -14,7 +14,6 @@ import {
   importUsersCsv,
   type ImportResult,
 } from '../../api/admin-users.js'
-import { listDepartments } from '../../api/departments.js'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
@@ -41,7 +40,6 @@ const userFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(72).optional(),
   role: z.enum(['ADMIN', 'MANAGER', 'USER']),
-  departmentId: z.string(),
   position: z.string().max(100).optional(),
 })
 type UserFormValues = z.infer<typeof userFormSchema>
@@ -57,8 +55,6 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
   const toast = useToast()
   const qc = useQueryClient()
 
-  const { data: departments } = useQuery({ queryKey: ['departments'], queryFn: listDepartments })
-
   const {
     register,
     handleSubmit,
@@ -73,10 +69,9 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
           name: editUser.name,
           email: editUser.email,
           role: editUser.role,
-          departmentId: editUser.departmentId ?? '',
           position: editUser.position ?? '',
         }
-      : { name: '', email: '', password: '', role: 'USER', departmentId: '', position: '' },
+      : { name: '', email: '', password: '', role: 'USER', position: '' },
   })
 
   const onSubmit = async (values: UserFormValues) => {
@@ -85,7 +80,6 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
         await updateAdminUser(editUser.id, {
           name: values.name,
           role: values.role,
-          departmentId: values.departmentId || null,
           ...(values.position?.trim() ? { position: values.position.trim() } : {}),
         })
         toast.success(t('userDirectory.userUpdated'))
@@ -95,7 +89,6 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
           password: values.password!,
           name: values.name,
           role: values.role,
-          ...(values.departmentId ? { departmentId: values.departmentId } : {}),
           ...(values.position?.trim() ? { position: values.position.trim() } : {}),
         })
         toast.success(t('userDirectory.userCreated'))
@@ -143,30 +136,16 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
             </Button>
           </div>
         )}
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('user.role')}</label>
-            <select
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              {...register('role')}
-            >
-              {ROLES.map((r) => (
-                <option key={r} value={r}>{t(`user.roles.${r}`)}</option>
-              ))}
-            </select>
-          </div>
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('user.department')}</label>
-            <select
-              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-              {...register('departmentId')}
-            >
-              <option value="">—</option>
-              {departments?.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-slate-700">{t('user.role')}</label>
+          <select
+            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
+            {...register('role')}
+          >
+            {ROLES.map((r) => (
+              <option key={r} value={r}>{t(`user.roles.${r}`)}</option>
+            ))}
+          </select>
         </div>
         <Input label={t('userDirectory.position')} {...register('position')} />
 
@@ -288,7 +267,6 @@ export default function UserDirectoryPage() {
 
   const [search, setSearch] = useState('')
   const [roleFilter, setRoleFilter] = useState<'' | Role>('')
-  const [deptFilter, setDeptFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<'' | 'active' | 'suspended'>('')
   const [page, setPage] = useState(1)
   const [formModal, setFormModal] = useState<{ open: boolean; user?: UserResponse }>({ open: false })
@@ -296,19 +274,12 @@ export default function UserDirectoryPage() {
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null)
   const [suspendTarget, setSuspendTarget] = useState<{ user: UserResponse; next: boolean } | null>(null)
 
-  const { data: departments } = useQuery({ queryKey: ['departments'], queryFn: listDepartments })
-  const deptNameById = useMemo(
-    () => new Map((departments ?? []).map((d) => [d.id, d.name])),
-    [departments],
-  )
-
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin', 'users', search, roleFilter, deptFilter, statusFilter, page],
+    queryKey: ['admin', 'users', search, roleFilter, statusFilter, page],
     queryFn: () =>
       listAdminUsers({
         ...(search ? { search } : {}),
         ...(roleFilter ? { role: roleFilter } : {}),
-        ...(deptFilter ? { departmentId: deptFilter } : {}),
         ...(statusFilter ? { isActive: statusFilter === 'active' } : {}),
         page,
         limit: PAGE_SIZE,
@@ -353,12 +324,6 @@ export default function UserDirectoryPage() {
         header: t('user.role'),
         width: '12%',
         render: (u) => <Badge variant={u.role === 'ADMIN' ? 'purple' : u.role === 'MANAGER' ? 'blue' : 'gray'}>{t(`user.roles.${u.role}`)}</Badge>,
-      },
-      {
-        key: 'department',
-        header: t('user.department'),
-        width: '16%',
-        render: (u) => (u.departmentId ? deptNameById.get(u.departmentId) ?? '—' : '—'),
       },
       {
         key: 'status',
@@ -420,7 +385,7 @@ export default function UserDirectoryPage() {
         },
       },
     ],
-    [t, deptNameById, currentUser?.id],
+    [t, currentUser?.id],
   )
 
   return (
@@ -456,16 +421,6 @@ export default function UserDirectoryPage() {
           <option value="">{t('userDirectory.allRoles')}</option>
           {ROLES.map((r) => (
             <option key={r} value={r}>{t(`user.roles.${r}`)}</option>
-          ))}
-        </select>
-        <select
-          value={deptFilter}
-          onChange={(e) => { setDeptFilter(e.target.value); setPage(1) }}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:w-auto"
-        >
-          <option value="">{t('userDirectory.allDepartments')}</option>
-          {departments?.map((d) => (
-            <option key={d.id} value={d.id}>{d.name}</option>
           ))}
         </select>
         <select

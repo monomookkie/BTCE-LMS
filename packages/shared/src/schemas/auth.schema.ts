@@ -10,7 +10,6 @@ export const registerInputSchema = z.object({
   password: z.string().min(8).max(72),
   name: z.string().min(1).max(100),
   employeeId: z.string().max(50).optional(),
-  departmentId: z.string().cuid().optional(),
   position: z.string().max(100).optional(),
 })
 

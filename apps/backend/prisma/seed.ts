@@ -3,36 +3,8 @@ import { hashPassword } from '../src/lib/password.js'
 
 const prisma = new PrismaClient()
 
-// departments จริงของศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย
-const DEPARTMENTS: { nameEn: string; nameTh: string }[] = [
-  { nameEn: 'Administration Division', nameTh: 'ฝ่ายบริหาร' },
-  { nameEn: 'Medical Division', nameTh: 'ฝ่ายการแพทย์' },
-  { nameEn: 'Blood Bank Division', nameTh: 'ฝ่ายธนาคารเลือด' },
-  { nameEn: 'Information Technology Division', nameTh: 'ฝ่ายเทคโนโลยีสารสนเทศ' },
-  { nameEn: 'Public Relations Division', nameTh: 'ฝ่ายประชาสัมพันธ์' },
-  { nameEn: 'Research and Development Division', nameTh: 'ฝ่ายวิจัยและพัฒนา' },
-  { nameEn: 'Quality Management Division', nameTh: 'ฝ่ายจัดการคุณภาพ' },
-  { nameEn: 'Blood Donation Division', nameTh: 'ฝ่ายรับบริจาคโลหิต' },
-  { nameEn: 'Accounting and Finance Division', nameTh: 'ฝ่ายบัญชีและการเงิน' },
-  { nameEn: 'Human Resources Division', nameTh: 'ฝ่ายทรัพยากรบุคคล' },
-  { nameEn: 'Facilities Division', nameTh: 'ฝ่ายอาคารสถานที่' },
-  { nameEn: 'Hematology Division', nameTh: 'ฝ่ายโลหิตวิทยา' },
-]
-
 async function main() {
   console.log('🌱 Starting seed...')
-
-  // --- Departments ---
-  console.log('  Creating departments...')
-  await Promise.all(
-    DEPARTMENTS.map((dept) =>
-      prisma.department.upsert({
-        where: { nameEn: dept.nameEn },
-        update: { nameTh: dept.nameTh },
-        create: { nameEn: dept.nameEn, nameTh: dept.nameTh },
-      }),
-    ),
-  )
 
   // --- Admin account ---
   const adminEmail = process.env['SEED_ADMIN_EMAIL'] ?? 'admin@btec.rcthai.or.th'

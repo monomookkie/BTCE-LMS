@@ -16,7 +16,6 @@ model User {
   email             String    @unique
   password          String
   role              Role      @default(USER)
-  departmentId      String?
   position          String?
   avatarKey         String?   // key ใน Cloudinary (ไม่เก็บ base64)
   isActive          Boolean   @default(true)
@@ -28,7 +27,6 @@ model User {
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime? // soft delete
 
-  department           Department?           @relation(fields: [departmentId], references: [id])
   enrollments          Enrollment[]
   certificates         Certificate[]
   externalCertificates ExternalCertificate[]
@@ -44,13 +42,6 @@ enum Role {
   ADMIN
   MANAGER
   USER
-}
-
-model Department {
-  id     String  @id @default(cuid())
-  nameEn String  @unique
-  nameTh String?
-  users  User[]
 }
 
 model RefreshToken {

@@ -67,3 +67,25 @@ list — only pre-deploy blockers and cross-phase follow-ups land here.
   app compiles clean with `esModuleInterop: true`, then remove both
   `esModuleInterop: false` and `"ignoreDeprecations": "5.0"` from
   `apps/backend/tsconfig.json`.
+
+---
+
+## Optional polish — after REFACTOR-2
+
+### 4. No audit log on `GET /reports/compliance` (compliance list view)
+
+- **Found:** endpoint-security-review during REFACTOR-1 (department removal),
+  2026-07-04.
+- **Symptom:** `getComplianceList` (`apps/backend/src/modules/reports/reports.service.ts`)
+  returns row-level PII (user name, course, enrollment/cert status) for every
+  matching enrollment with no `AuditLog` entry — only the CSV export path
+  (`REPORT_EXPORT`) is audited. This predates REFACTOR-1; not a regression.
+- **Why it's parked:** during REFACTOR-1, MANAGER temporarily lost
+  department scoping (sees all users, same as ADMIN) until REFACTOR-2 removes
+  the MANAGER role entirely. Once R2 lands, only ADMIN — who already has
+  legitimate system-wide visibility — reaches this endpoint, so the gap
+  shrinks on its own.
+- **Optional after R2:** add an audit log entry (e.g. `REPORT_COMPLIANCE_VIEW`)
+  to `getComplianceList` for consistency with the export path, since ADMIN
+  reading a large PII batch is worth logging even when authorized. Not a
+  blocker — nice-to-have.

@@ -29,26 +29,16 @@ describe('Reports module', () => {
     return { cookies, userId: user.id }
   }
 
-  async function makeManager(deptId?: string): Promise<LoginResult> {
+  async function makeManager(): Promise<LoginResult> {
     const { user, plainPassword } = await createUser({ role: 'MANAGER' })
-    if (deptId) {
-      await prisma.user.update({ where: { id: user.id }, data: { departmentId: deptId } })
-    }
     const { cookies } = await loginAs(app, user.email, plainPassword)
     return { cookies, userId: user.id }
   }
 
-  async function makeRegularUser(deptId?: string): Promise<LoginResult> {
+  async function makeRegularUser(): Promise<LoginResult> {
     const { user, plainPassword } = await createUser({ role: 'USER' })
-    if (deptId) {
-      await prisma.user.update({ where: { id: user.id }, data: { departmentId: deptId } })
-    }
     const { cookies } = await loginAs(app, user.email, plainPassword)
     return { cookies, userId: user.id }
-  }
-
-  async function createDept(nameEn: string) {
-    return prisma.department.create({ data: { nameEn }, select: { id: true } })
   }
 
   /** สร้าง enrollment + cert โดยตรงใน DB ไม่ผ่าน API */
@@ -116,8 +106,7 @@ describe('Reports module', () => {
   describe('GET /reports/dashboard — ADMIN sees all', () => {
     it('returns summary with correct shape and non-negative counts', async () => {
       const admin = await makeAdmin()
-      const deptA = await createDept(`DeptA-${randomUUID().slice(0, 4)}`)
-      const u1 = await makeRegularUser(deptA.id)
+      const u1 = await makeRegularUser()
       await seedEnrollmentDirect(u1.userId, { status: 'COMPLETED', withCert: true })
 
       const res = await app.inject({
@@ -143,66 +132,31 @@ describe('Reports module', () => {
     })
   })
 
-  // ─── 3. Dashboard — MANAGER scope ─────────────────────────────────────────
+  // ─── 3. Dashboard — MANAGER (unrestricted after department removal) ──────
+  // REFACTOR-1: department removed — MANAGER is temporarily unrestricted (same
+  // visibility as ADMIN) until the MANAGER role itself is removed in REFACTOR-2.
 
-  describe('GET /reports/dashboard — MANAGER scoped to own dept', () => {
-    it('MANAGER dept A ไม่เห็น count ของ dept B — explicit cross-dept block', async () => {
-      const deptA = await createDept(`DeptA-${randomUUID().slice(0, 4)}`)
-      const deptB = await createDept(`DeptB-${randomUUID().slice(0, 4)}`)
+  describe('GET /reports/dashboard — MANAGER sees the same totals as ADMIN', () => {
+    it('MANAGER count matches ADMIN count (no scoping left)', async () => {
+      const manager = await makeManager()
+      const admin = await makeAdmin()
+      const user = await makeRegularUser()
+      await seedEnrollmentDirect(user.userId, { status: 'COMPLETED', withCert: true })
 
-      const managerA = await makeManager(deptA.id)
-      const userA = await makeRegularUser(deptA.id)
-      const userB = await makeRegularUser(deptB.id)
+      const [managerRes, adminRes] = await Promise.all([
+        app.inject({ method: 'GET', url: '/reports/dashboard', headers: { cookie: manager.cookies } }),
+        app.inject({ method: 'GET', url: '/reports/dashboard', headers: { cookie: admin.cookies } }),
+      ])
+      expect(managerRes.statusCode).toBe(200)
+      expect(adminRes.statusCode).toBe(200)
 
-      // seed ทั้ง 2 dept เท่า ๆ กัน
-      // total ทุก dept: 3 users, 2 enrollments, 2 certs, 2 certsExpiringSoon
-      await seedEnrollmentDirect(userA.userId, { status: 'COMPLETED', withCert: true })
-      await seedEnrollmentDirect(userB.userId, { status: 'COMPLETED', withCert: true })
+      const managerBody = managerRes.json<DashboardSummary>()
+      const adminBody = adminRes.json<DashboardSummary>()
 
-      const res = await app.inject({
-        method: 'GET',
-        url: '/reports/dashboard',
-        headers: { cookie: managerA.cookies },
-      })
-      expect(res.statusCode).toBe(200)
-      const body = res.json<DashboardSummary>()
-
-      // ─── dept A only: managerA + userA = 2 ───────────────────────────────
-      expect(body.totalUsers).toBe(2)
-      // dept B has 1 more user → if leaked would be 3
-      expect(body.totalUsers).not.toBe(3)
-
-      // ─── enrollments: userA เท่านั้น = 1 ─────────────────────────────────
-      expect(body.totalEnrollments).toBe(1)
-      // dept B has 1 enrollment → if leaked would be 2
-      expect(body.totalEnrollments).not.toBe(2)
-
-      // ─── certs: userA เท่านั้น = 1 ───────────────────────────────────────
-      expect(body.certsIssued).toBe(1)
-      // dept B has 1 cert → if leaked would be 2
-      expect(body.certsIssued).not.toBe(2)
-
-      // ─── expiring-soon: userA cert (20 days) = 1 ─────────────────────────
-      expect(body.certsExpiringSoon).toBe(1)
-      // dept B also has expiring cert → if leaked would be 2
-      expect(body.certsExpiringSoon).not.toBe(2)
-
-      // ─── completed enrollments = 1 (userA), NOT 2 ────────────────────────
-      expect(body.completedEnrollments).toBe(1)
-      expect(body.completedEnrollments).not.toBe(2)
-    })
-
-    it('MANAGER ไม่มี department → returns zeros, no 403', async () => {
-      const manager = await makeManager() // ไม่ assign dept
-      const res = await app.inject({
-        method: 'GET',
-        url: '/reports/dashboard',
-        headers: { cookie: manager.cookies },
-      })
-      expect(res.statusCode).toBe(200)
-      const body = res.json<DashboardSummary>()
-      expect(body.totalUsers).toBe(0)
-      expect(body.certsIssued).toBe(0)
+      expect(managerBody.totalUsers).toBe(adminBody.totalUsers)
+      expect(managerBody.totalEnrollments).toBe(adminBody.totalEnrollments)
+      expect(managerBody.certsIssued).toBe(adminBody.certsIssued)
+      expect(managerBody.totalUsers).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -241,36 +195,27 @@ describe('Reports module', () => {
       }
     })
 
-    it('MANAGER: เห็นเฉพาะ dept ตัวเอง — explicit cross-dept block', async () => {
-      const deptA = await createDept(`DeptA-${randomUUID().slice(0, 4)}`)
-      const deptB = await createDept(`DeptB-${randomUUID().slice(0, 4)}`)
-      const managerA = await makeManager(deptA.id)
-      const userA = await makeRegularUser(deptA.id)
-      const userB = await makeRegularUser(deptB.id)
+    // REFACTOR-1: department removed — MANAGER is temporarily unrestricted
+    // (same visibility as ADMIN) until the MANAGER role itself is removed in REFACTOR-2.
+    it('MANAGER sees enrollments across all users (no scoping left)', async () => {
+      const manager = await makeManager()
+      const userA = await makeRegularUser()
+      const userB = await makeRegularUser()
 
-      // seed 1 enrollment each dept → total = 2 if leaked
       const { enrollmentId: eidA } = await seedEnrollmentDirect(userA.userId, { status: 'IN_PROGRESS' })
       const { enrollmentId: eidB } = await seedEnrollmentDirect(userB.userId, { status: 'IN_PROGRESS' })
 
       const res = await app.inject({
         method: 'GET',
         url: '/reports/compliance',
-        headers: { cookie: managerA.cookies },
+        headers: { cookie: manager.cookies },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json<ComplianceList>()
 
-      // ─── total count: dept A only = 1, NOT 2 (both depts) ────────────────
-      expect(body.total).toBe(1)
-      expect(body.total).not.toBe(2) // if leaked would be 2
-
-      // ─── dept A enrollment IS present ────────────────────────────────────
       const ids = body.data.map((r) => r.enrollmentId)
       expect(ids).toContain(eidA)
-
-      // ─── dept B enrollment is ABSENT (explicit absence check) ────────────
-      expect(ids).not.toContain(eidB)
-      expect(body.data.filter((r) => r.userId === userB.userId)).toHaveLength(0)
+      expect(ids).toContain(eidB)
     })
 
     it('ADMIN filter by courseId → only that course', async () => {
@@ -364,29 +309,23 @@ describe('Reports module', () => {
       expect(body).not.toContain('@test.com')
     })
 
-    it('MANAGER export: CSV มีเฉพาะ dept ตัวเอง', async () => {
-      const deptA = await createDept(`DeptA-${randomUUID().slice(0, 4)}`)
-      const deptB = await createDept(`DeptB-${randomUUID().slice(0, 4)}`)
-      const managerA = await makeManager(deptA.id)
+    // REFACTOR-1: department removed — MANAGER is temporarily unrestricted
+    // (same visibility as ADMIN) until the MANAGER role itself is removed in REFACTOR-2.
+    it('MANAGER export: CSV includes all users (no scoping left)', async () => {
+      const manager = await makeManager()
 
-      // ตั้งชื่อ unique เพื่อตรวจหาใน CSV ได้ชัดเจน
-      const uniqueNameB = `UNIQUE-B-${randomUUID().slice(0, 8)}`
-      const { user: rawUserB, plainPassword: pwB } = await createUser({ role: 'USER', name: uniqueNameB })
-      await prisma.user.update({ where: { id: rawUserB.id }, data: { departmentId: deptB.id } })
-      const userB = { userId: rawUserB.id, cookies: (await loginAs(app, rawUserB.email, pwB)).cookies }
-
-      const userA = await makeRegularUser(deptA.id)
-      await seedEnrollmentDirect(userA.userId, { status: 'IN_PROGRESS' })
-      await seedEnrollmentDirect(userB.userId, { status: 'IN_PROGRESS' })
+      const uniqueName = `UNIQUE-${randomUUID().slice(0, 8)}`
+      const { user: rawUser, plainPassword: pw } = await createUser({ role: 'USER', name: uniqueName })
+      const targetUser = { userId: rawUser.id, cookies: (await loginAs(app, rawUser.email, pw)).cookies }
+      await seedEnrollmentDirect(targetUser.userId, { status: 'IN_PROGRESS' })
 
       const res = await app.inject({
         method: 'GET',
         url: '/reports/compliance/export',
-        headers: { cookie: managerA.cookies },
+        headers: { cookie: manager.cookies },
       })
       expect(res.statusCode).toBe(200)
-      // userB มีชื่อ unique — ต้องไม่ปรากฏใน CSV ของ MANAGER A
-      expect(res.payload).not.toContain(uniqueNameB)
+      expect(res.payload).toContain(uniqueName)
     })
 
     it('export สร้าง REPORT_EXPORT audit log', async () => {
@@ -406,7 +345,7 @@ describe('Reports module', () => {
         where: { action: 'REPORT_EXPORT', actorId: admin.userId },
         orderBy: { createdAt: 'desc' },
       })
-      expect(log?.metadata).toMatchObject({ scope: 'all' })
+      expect(log?.metadata).toMatchObject({ rows: expect.any(Number) })
     })
 
     it('USER → 403', async () => {

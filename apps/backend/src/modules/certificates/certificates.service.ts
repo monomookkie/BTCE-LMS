@@ -295,24 +295,12 @@ export async function listCertificates(
 ): Promise<{ data: (CertificateAdminResponse | CertificatePublicResponse)[]; total: number; page: number; limit: number }> {
   const { page, limit } = query
 
-  // MANAGER: บังคับ scope เป็น department ตัวเอง — ignore query.userId (เหมือน reports.service)
-  let managerDeptId: string | null | undefined = undefined // undefined = ไม่ scope (ADMIN/USER)
-  if (role === 'MANAGER') {
-    const self = await prisma.user.findUnique({ where: { id: requesterId }, select: { departmentId: true } })
-    managerDeptId = self?.departmentId ?? null
-    if (managerDeptId === null) {
-      // MANAGER ไม่มี dept → ไม่เห็นใครเลย (ไม่ error, สอดคล้อง reports.service)
-      return { data: [], total: 0, page, limit }
-    }
-  }
+  // USER ดูเฉพาะของตัวเอง — ไม่สนใจ query.userId; ADMIN/MANAGER ดูได้ตาม query.userId (ไม่ scope แล้ว)
+  const targetUserId = role === 'USER' ? requesterId : query.userId
 
-  // USER ดูเฉพาะของตัวเอง — ไม่สนใจ query.userId; MANAGER ก็ ignore query.userId (ใช้ dept scope แทน)
-  const targetUserId = role === 'USER' ? requesterId : role === 'ADMIN' ? query.userId : undefined
-
-  // รวมทุกเงื่อนไขด้วย AND — กัน search/status OR เผลอทะลุ dept scope
+  // รวมทุกเงื่อนไขด้วย AND — กัน search/status OR เผลอทะลุเงื่อนไขอื่น
   const andClauses: Prisma.CertificateWhereInput[] = []
   if (targetUserId != null) andClauses.push({ userId: targetUserId })
-  if (managerDeptId != null) andClauses.push({ user: { departmentId: managerDeptId } })
   if (query.courseId != null) andClauses.push({ courseId: query.courseId })
   if (query.status != null) andClauses.push(buildCertStatusWhere(query.status, new Date()))
   if (query.search != null) {
@@ -581,7 +569,7 @@ export async function listExternalCerts(
 }
 
 // ─── Scoped list for ADMIN/MANAGER viewing another user's external certs ────
-// ADMIN: userId ใดก็ได้ / MANAGER: เฉพาะ userId ใน dept ตัวเอง (404 ถ้าไม่ใช่ — กัน enumeration)
+// ADMIN/MANAGER: userId ใดก็ได้ (MANAGER ไม่ถูก scope แล้ว — รอลบ role ใน REFACTOR-2)
 // USER: เห็นเฉพาะของตัวเอง — query.userId ถูก ignore
 export async function listExternalCertsScoped(
   prisma: PrismaClient,
@@ -596,15 +584,7 @@ export async function listExternalCertsScoped(
     return listExternalCerts(prisma, requesterId, storage)
   }
 
-  if (role === 'MANAGER') {
-    const [self, target] = await Promise.all([
-      prisma.user.findUnique({ where: { id: requesterId }, select: { departmentId: true } }),
-      prisma.user.findUnique({ where: { id: queryUserId }, select: { departmentId: true } }),
-    ])
-    if (!self?.departmentId || !target || target.departmentId !== self.departmentId) {
-      throw notFound(t('error.user.notFound', undefined, locale))
-    }
-  } else if (role !== 'ADMIN') {
+  if (role !== 'ADMIN' && role !== 'MANAGER') {
     throw notFound(t('error.user.notFound', undefined, locale))
   }
 

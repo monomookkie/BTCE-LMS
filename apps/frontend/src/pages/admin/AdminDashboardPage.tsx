@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -7,9 +6,7 @@ import {
   CheckCircle2, Clock, ChevronRight,
 } from 'lucide-react'
 import type { ComplianceRow } from '@btec-lms/shared'
-import { useAuth } from '../../hooks/useAuth.js'
 import { getDashboardSummary, getComplianceList } from '../../api/reports.js'
-import { listDepartments } from '../../api/departments.js'
 import { StatCard } from '../../components/ui/StatCard.js'
 import { Card } from '../../components/ui/Card.js'
 import { ProgressBar } from '../../components/ui/ProgressBar.js'
@@ -21,24 +18,20 @@ import { DataTable } from '../../components/ui/DataTable.js'
 // ─── Query key factories ───────────────────────────────────────────────────────
 
 const DASH_KEY = ['reports', 'dashboard'] as const
-const complianceKey = (deptId: string | undefined) =>
-  ['reports', 'compliance', 'preview', deptId ?? 'all'] as const
-const DEPTS_KEY = ['departments'] as const
+const COMPLIANCE_PREVIEW_KEY = ['reports', 'compliance', 'preview'] as const
 
 // ─── Compliance preview columns ───────────────────────────────────────────────
 
 function useComplianceColumns(): Column<ComplianceRow>[] {
   const { t } = useTranslation()
   return [
-    { key: 'userName',         header: t('user.name'),           width: '22%' },
-    { key: 'department',       header: t('user.department'),      width: '18%',
-      render: (r) => r.department ?? '—' },
-    { key: 'courseTitle',      header: t('course.label'),         width: '24%' },
-    { key: 'progress',         header: t('enrollment.progress'),  width: '10%', align: 'right',
+    { key: 'userName',         header: t('user.name'),           width: '28%' },
+    { key: 'courseTitle',      header: t('course.label'),         width: '28%' },
+    { key: 'progress',         header: t('enrollment.progress'),  width: '11%', align: 'right',
       render: (r) => `${r.progress}%` },
-    { key: 'enrollmentStatus', header: t('enrollment.label'),     width: '13%',
+    { key: 'enrollmentStatus', header: t('enrollment.label'),     width: '16%',
       render: (r) => <StatusBadge type="enrollment" status={r.enrollmentStatus} /> },
-    { key: 'certStatus',       header: t('certificate.label'),    width: '13%',
+    { key: 'certStatus',       header: t('certificate.label'),    width: '17%',
       render: (r) => r.certStatus
         ? <StatusBadge type="cert" status={r.certStatus} />
         : <span className="text-slate-400">—</span> },
@@ -60,12 +53,7 @@ function StatCardSkeleton() {
 
 export default function AdminDashboardPage() {
   const { t } = useTranslation()
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'ADMIN'
 
-  const [selectedDeptId, setSelectedDeptId] = useState<string | undefined>(undefined)
-
-  // Dashboard summary — always global for ADMIN, dept-scoped for MANAGER (backend)
   const {
     data: summary,
     isLoading: summaryLoading,
@@ -73,27 +61,15 @@ export default function AdminDashboardPage() {
     refetch: refetchSummary,
   } = useQuery({ queryKey: DASH_KEY, queryFn: getDashboardSummary })
 
-  // Compliance preview — top 5 rows, filtered by dept (ADMIN only)
-  const effectiveDeptId = isAdmin ? selectedDeptId : undefined
+  // Compliance preview — top 5 rows
   const {
     data: compliance,
     isLoading: complianceLoading,
     isError: complianceError,
     refetch: refetchCompliance,
   } = useQuery({
-    queryKey: complianceKey(effectiveDeptId),
-    queryFn: () => getComplianceList({
-      ...(effectiveDeptId !== undefined && { departmentId: effectiveDeptId }),
-      limit: 5,
-      page: 1,
-    }),
-  })
-
-  // Department list for dropdown (ADMIN only)
-  const { data: departments } = useQuery({
-    queryKey: DEPTS_KEY,
-    queryFn: listDepartments,
-    enabled: isAdmin,
+    queryKey: COMPLIANCE_PREVIEW_KEY,
+    queryFn: () => getComplianceList({ limit: 5, page: 1 }),
   })
 
   const columns = useComplianceColumns()
@@ -111,33 +87,6 @@ export default function AdminDashboardPage() {
         <h1 className="text-2xl font-bold text-slate-800">
           {t('adminDash.title')}
         </h1>
-
-        {/* Dept filter — ADMIN: dropdown, MANAGER: label */}
-        {isAdmin ? (
-          <div className="flex items-center gap-2">
-            <label htmlFor="dept-select" className="text-sm text-slate-500">
-              {t('adminDash.deptFilter')}
-            </label>
-            <select
-              id="dept-select"
-              value={selectedDeptId ?? ''}
-              onChange={(e) => setSelectedDeptId(e.target.value || undefined)}
-              className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 shadow-sm focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
-            >
-              <option value="">{t('adminDash.deptAll')}</option>
-              {departments?.map((d) => (
-                <option key={d.id} value={d.id}>{d.name}</option>
-              ))}
-            </select>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2 rounded-lg bg-slate-100 px-3 py-1.5 text-sm text-slate-600">
-            {t('adminDash.viewingDept')}
-            <span className="font-medium text-slate-800">
-              {departments?.find((d) => d.id === user?.departmentId)?.name ?? '—'}
-            </span>
-          </div>
-        )}
       </div>
 
       {/* ── Stat Cards ── */}

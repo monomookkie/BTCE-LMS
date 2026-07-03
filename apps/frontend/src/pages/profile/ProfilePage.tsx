@@ -132,14 +132,6 @@ export default function ProfilePage() {
             readOnly
             disabled
           />
-          {user?.departmentId && (
-            <Input
-              label={t('profile.departmentReadOnly')}
-              value={user.departmentId}
-              readOnly
-              disabled
-            />
-          )}
           <Input
             label={t('user.name')}
             error={profileForm.formState.errors.name?.message}

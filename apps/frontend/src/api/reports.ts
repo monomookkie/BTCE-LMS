@@ -8,7 +8,6 @@ export function getDashboardSummary(): Promise<DashboardSummary> {
 export type EnrollmentStatus = 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED'
 
 export interface ComplianceParams {
-  departmentId?: string
   courseId?: string
   status?: EnrollmentStatus
   page?: number
@@ -17,7 +16,6 @@ export interface ComplianceParams {
 
 function buildComplianceQs(params: ComplianceParams): string {
   const qs = new URLSearchParams()
-  if (params.departmentId) qs.set('departmentId', params.departmentId)
   if (params.courseId) qs.set('courseId', params.courseId)
   if (params.status) qs.set('status', params.status)
   if (params.page != null) qs.set('page', String(params.page))
@@ -33,7 +31,7 @@ export function getComplianceList(params: ComplianceParams = {}): Promise<Compli
 // Content-Disposition filename from the server uses YYYY-MM-DD; we override the
 // download filename client-side to YYYYMMDD to match the required convention.
 export async function downloadComplianceCsv(
-  params: Pick<ComplianceParams, 'departmentId' | 'courseId' | 'status'> = {},
+  params: Pick<ComplianceParams, 'courseId' | 'status'> = {},
 ): Promise<void> {
   const query = buildComplianceQs(params)
   const blob = await apiFetchBlob(`/reports/compliance/export${query ? `?${query}` : ''}`)

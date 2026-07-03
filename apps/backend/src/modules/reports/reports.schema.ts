@@ -3,7 +3,6 @@ import { z } from 'zod'
 const enrollmentStatusSchema = z.enum(['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED'])
 
 export const complianceQuerySchema = z.object({
-  departmentId: z.string().cuid().optional(),
   courseId: z.string().cuid().optional(),
   status: enrollmentStatusSchema.optional(),
   page: z.coerce.number().int().min(1).default(1),
@@ -12,7 +11,6 @@ export const complianceQuerySchema = z.object({
 
 // export endpoint ไม่มี pagination — เพิ่ม filter เดียวกัน แต่ไม่มี page/limit
 export const complianceExportQuerySchema = z.object({
-  departmentId: z.string().cuid().optional(),
   courseId: z.string().cuid().optional(),
   status: enrollmentStatusSchema.optional(),
 })

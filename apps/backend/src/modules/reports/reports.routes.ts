@@ -13,7 +13,6 @@ const reportsRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
 
   // ─── GET /reports/dashboard — ADMIN / MANAGER ────────────────────────────────
-  // MANAGER เห็นเฉพาะ scope ตัวเอง (department)
   server.get('/reports/dashboard', {
     preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
     schema: {
@@ -25,8 +24,7 @@ const reportsRoutes: FastifyPluginAsync = async (app) => {
   })
 
   // ─── GET /reports/compliance — ADMIN / MANAGER (paginated) ──────────────────
-  // ADMIN: สามารถ filter ด้วย departmentId / courseId
-  // MANAGER: department scope จาก req.user เท่านั้น (query.departmentId ถูก ignore)
+  // ADMIN/MANAGER: สามารถ filter ด้วย courseId
   server.get('/reports/compliance', {
     preHandler: [app.requireRole(['ADMIN', 'MANAGER'])],
     schema: {

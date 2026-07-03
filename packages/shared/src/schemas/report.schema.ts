@@ -4,8 +4,8 @@ import { z } from 'zod'
 
 export const dashboardSummarySchema = z.object({
   totalUsers: z.number().int(),
-  totalCourses: z.number().int(),           // PUBLISHED courses (global — courses ไม่ผูก dept)
-  totalEnrollments: z.number().int(),       // scoped ตาม role
+  totalCourses: z.number().int(),           // PUBLISHED courses
+  totalEnrollments: z.number().int(),
   completedEnrollments: z.number().int(),
   pendingEnrollments: z.number().int(),     // ASSIGNED + IN_PROGRESS
   certsIssued: z.number().int(),
@@ -16,13 +16,12 @@ export const dashboardSummarySchema = z.object({
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>
 
 // ─── Compliance row ───────────────────────────────────────────────────────────
-// PII ขั้นต่ำ — ชื่อ/แผนก/หลักสูตรเท่านั้น ไม่มี email / employeeId
+// PII ขั้นต่ำ — ชื่อ/หลักสูตรเท่านั้น ไม่มี email / employeeId
 
 export const complianceRowSchema = z.object({
   enrollmentId: z.string(),
   userId: z.string(),
   userName: z.string(),
-  department: z.string().nullable(),        // nameEn localized ตาม locale
   courseId: z.string(),
   courseTitle: z.string(),                  // localized
   enrollmentStatus: z.enum(['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED']),

@@ -3,7 +3,6 @@ import { paginationQuerySchema, roleSchema } from '@btec-lms/shared'
 
 export const userListQuerySchema = paginationQuerySchema.extend({
   role: roleSchema.optional(),
-  departmentId: z.string().cuid().optional(),
   isActive: z
     .string()
     .optional()

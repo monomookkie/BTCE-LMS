@@ -26,44 +26,12 @@ function certStatus(
 
 export async function getDashboardSummary(
   prisma: PrismaClient,
-  requesterId: string,
-  role: string,
-  locale: Locale,
+  _requesterId: string,
+  _role: string,
+  _locale: Locale,
 ): Promise<DashboardSummary> {
-  // MANAGER scope: กรองตาม departmentId ของตัวเอง
-  let managerDeptId: string | null | undefined = undefined // undefined = ADMIN (ไม่จำกัด)
-
-  if (role === 'MANAGER') {
-    const self = await prisma.user.findUnique({
-      where: { id: requesterId },
-      select: { departmentId: true },
-    })
-    managerDeptId = self?.departmentId ?? null // null = MANAGER ไม่มี dept
-
-    if (managerDeptId === null) {
-      await logAudit(prisma, {
-        actorId: requesterId,
-        action: 'REPORT_DASHBOARD',
-        metadata: { warning: 'manager_no_department', locale },
-      })
-      return {
-        totalUsers: 0,
-        totalCourses: 0,
-        totalEnrollments: 0,
-        completedEnrollments: 0,
-        pendingEnrollments: 0,
-        certsIssued: 0,
-        certsExpiringSoon: 0,
-        certsExpired: 0,
-      }
-    }
-  }
-
   const now = new Date()
   const expirySoon = new Date(now.getTime() + EXPIRING_SOON_DAYS * 24 * 60 * 60 * 1000)
-
-  // Dept scoping: ADMIN → undefined (ไม่ filter), MANAGER → departmentId ของตัวเอง
-  const deptId = managerDeptId // undefined | string
 
   const [
     totalUsers,
@@ -75,54 +43,18 @@ export async function getDashboardSummary(
     certsExpiringSoon,
     certsExpired,
   ] = await Promise.all([
-    prisma.user.count({
-      where: {
-        deletedAt: null,
-        isActive: true,
-        ...(deptId !== undefined && { departmentId: deptId }),
-      },
-    }),
-    // หลักสูตรไม่ผูก dept — คืน global PUBLISHED count เสมอ
+    prisma.user.count({ where: { deletedAt: null, isActive: true } }),
     prisma.course.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
+    prisma.enrollment.count({ where: { deletedAt: null } }),
+    prisma.enrollment.count({ where: { deletedAt: null, status: 'COMPLETED' } }),
     prisma.enrollment.count({
-      where: {
-        deletedAt: null,
-        ...(deptId !== undefined && { user: { departmentId: deptId } }),
-      },
+      where: { deletedAt: null, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
     }),
-    prisma.enrollment.count({
-      where: {
-        deletedAt: null,
-        status: 'COMPLETED',
-        ...(deptId !== undefined && { user: { departmentId: deptId } }),
-      },
-    }),
-    prisma.enrollment.count({
-      where: {
-        deletedAt: null,
-        status: { in: ['ASSIGNED', 'IN_PROGRESS'] },
-        ...(deptId !== undefined && { user: { departmentId: deptId } }),
-      },
-    }),
+    prisma.certificate.count(),
     prisma.certificate.count({
-      where: {
-        ...(deptId !== undefined && { user: { departmentId: deptId } }),
-      },
+      where: { expiresAt: { gte: now, lte: expirySoon }, revokedAt: null },
     }),
-    prisma.certificate.count({
-      where: {
-        expiresAt: { gte: now, lte: expirySoon },
-        revokedAt: null,
-        ...(deptId !== undefined && { user: { departmentId: deptId } }),
-      },
-    }),
-    prisma.certificate.count({
-      where: {
-        expiresAt: { lt: now },
-        revokedAt: null,
-        ...(deptId !== undefined && { user: { departmentId: deptId } }),
-      },
-    }),
+    prisma.certificate.count({ where: { expiresAt: { lt: now }, revokedAt: null } }),
   ])
 
   return {
@@ -141,18 +73,11 @@ export async function getDashboardSummary(
 // สร้าง where clause ร่วมกันระหว่าง list + export
 
 function buildComplianceWhere(
-  deptId: string | undefined,  // undefined = ADMIN (all), string = scoped
   courseId: string | undefined,
   status: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED' | undefined,
-  additionalDeptFilter?: string, // query-level departmentId filter
 ) {
-  // กรอง dept ตาม role scope ก่อน แล้วค่อย intersect กับ query filter
-  // ใช้ dept ที่แคบกว่าเสมอ
-  const effectiveDeptId = deptId ?? additionalDeptFilter
-
   return {
     deletedAt: null,
-    ...(effectiveDeptId !== undefined && { user: { departmentId: effectiveDeptId } }),
     ...(courseId !== undefined && { courseId }),
     ...(status !== undefined && { status }),
   }
@@ -168,7 +93,6 @@ type EnrollmentRaw = {
   user: {
     id: string
     name: string
-    department: { nameEn: string; nameTh: string | null } | null
   }
   course: { id: string; titleEn: string; titleTh: string | null }
   certificate: { certNumber: string; expiresAt: Date | null; revokedAt: Date | null } | null
@@ -179,9 +103,6 @@ function toRow(e: EnrollmentRaw, locale: Locale): ComplianceRow {
     enrollmentId: e.id,
     userId: e.user.id,
     userName: e.user.name,
-    department: e.user.department
-      ? localizeField(e.user.department.nameEn, e.user.department.nameTh, locale)
-      : null,
     courseId: e.course.id,
     courseTitle: localizeField(e.course.titleEn, e.course.titleTh, locale),
     enrollmentStatus: e.status as ComplianceRow['enrollmentStatus'],
@@ -202,7 +123,6 @@ const ENROLLMENT_SELECT = {
     select: {
       id: true,
       name: true,
-      department: { select: { nameEn: true, nameTh: true } },
     },
   },
   course: { select: { id: true, titleEn: true, titleTh: true } },
@@ -215,36 +135,14 @@ const ENROLLMENT_SELECT = {
 
 export async function getComplianceList(
   prisma: PrismaClient,
-  requesterId: string,
-  role: string,
+  _requesterId: string,
+  _role: string,
   query: ComplianceQuery,
   locale: Locale,
 ): Promise<ComplianceList> {
   const { page, limit, courseId, status } = query
 
-  // Resolve dept scope
-  let scopeDeptId: string | undefined = undefined // ADMIN: undefined
-
-  if (role === 'MANAGER') {
-    const self = await prisma.user.findUnique({
-      where: { id: requesterId },
-      select: { departmentId: true },
-    })
-    if (!self?.departmentId) {
-      await logAudit(prisma, {
-        actorId: requesterId,
-        action: 'REPORT_COMPLIANCE',
-        metadata: { warning: 'manager_no_department', locale },
-      })
-      return { data: [], total: 0, page, limit }
-    }
-    scopeDeptId = self.departmentId
-  }
-
-  // ADMIN ใช้ query.departmentId filter ได้โดยตรง, MANAGER ถูก override ด้วย scope ตัวเอง
-  const effectiveDeptId = role === 'MANAGER' ? scopeDeptId : query.departmentId
-
-  const where = buildComplianceWhere(effectiveDeptId, courseId, status)
+  const where = buildComplianceWhere(courseId, status)
 
   const [total, rows] = await Promise.all([
     prisma.enrollment.count({ where }),
@@ -272,32 +170,12 @@ const CSV_MAX_ROWS = 10_000
 export async function getComplianceCsv(
   prisma: PrismaClient,
   requesterId: string,
-  role: string,
+  _role: string,
   query: ComplianceExportQuery,
   locale: Locale,
   ip: string | undefined,
 ): Promise<string> {
-  let scopeDeptId: string | undefined = undefined
-
-  if (role === 'MANAGER') {
-    const self = await prisma.user.findUnique({
-      where: { id: requesterId },
-      select: { departmentId: true },
-    })
-    if (!self?.departmentId) {
-      await logAudit(prisma, {
-        actorId: requesterId,
-        action: 'REPORT_EXPORT',
-        metadata: { warning: 'manager_no_department', rows: 0 },
-        ...(ip != null && { ip }),
-      })
-      return buildCsv([])
-    }
-    scopeDeptId = self.departmentId
-  }
-
-  const effectiveDeptId = role === 'MANAGER' ? scopeDeptId : query.departmentId
-  const where = buildComplianceWhere(effectiveDeptId, query.courseId, query.status)
+  const where = buildComplianceWhere(query.courseId, query.status)
 
   const rows = await prisma.enrollment.findMany({
     where,
@@ -310,9 +188,7 @@ export async function getComplianceCsv(
     actorId: requesterId,
     action: 'REPORT_EXPORT',
     metadata: {
-      scope: role === 'MANAGER' ? 'department' : 'all',
       rows: rows.length,
-      departmentId: effectiveDeptId ?? null,
       courseId: query.courseId ?? null,
     },
     ...(ip != null && { ip }),
@@ -337,7 +213,6 @@ function escapeCsv(value: string | null | undefined): string {
 function buildCsv(rows: ComplianceRow[]): string {
   const header = [
     'Name',
-    'Department',
     'Course',
     'Enrollment Status',
     'Progress (%)',
@@ -349,7 +224,6 @@ function buildCsv(rows: ComplianceRow[]): string {
   const lines = rows.map((r) =>
     [
       escapeCsv(r.userName),
-      escapeCsv(r.department),
       escapeCsv(r.courseTitle),
       escapeCsv(r.enrollmentStatus),
       escapeCsv(String(r.progress)),

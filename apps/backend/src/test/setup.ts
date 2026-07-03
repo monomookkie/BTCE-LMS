@@ -18,8 +18,7 @@ beforeEach(async () => {
     prisma.externalCertificate.deleteMany(), // FK → user (ON DELETE RESTRICT)
     prisma.enrollment.deleteMany(),          // FK → user, course
     prisma.refreshToken.deleteMany(), // FK → user
-    prisma.user.deleteMany(),         // FK → department
-    prisma.department.deleteMany(),
+    prisma.user.deleteMany(),
     prisma.option.deleteMany(),       // FK → question
     prisma.question.deleteMany(),     // FK → quiz
     prisma.quiz.deleteMany(),         // FK → course
