@@ -13,31 +13,11 @@ import {
 } from '../../api/materials.js'
 import { ApiError } from '../../lib/api.js'
 import { useToast } from '../../hooks/useToast.js'
+import { useTimeGate } from '../../hooks/useTimeGate.js'
 import { YoutubeVideoPlayer } from './YoutubeVideoPlayer.js'
 
 const materialProgressKey = (enrollmentId: string, materialId: string) =>
   ['materialProgress', enrollmentId, materialId] as const
-
-// true เมื่อเวลาผ่านไปตั้งแต่ openedAt ครบ minSeconds แล้ว — schedule ครั้งเดียวตอน threshold จะถึง (ไม่ poll ทุกวิ)
-function useElapsedReady(openedAt: string | null, minSeconds: number): boolean {
-  const computeReady = useCallback(() => {
-    if (openedAt == null) return false
-    return (Date.now() - new Date(openedAt).getTime()) / 1000 >= minSeconds
-  }, [openedAt, minSeconds])
-
-  const [ready, setReady] = useState(computeReady)
-
-  useEffect(() => {
-    setReady(computeReady())
-    if (openedAt == null || computeReady()) return
-
-    const remainingMs = minSeconds * 1000 - (Date.now() - new Date(openedAt).getTime())
-    const timer = window.setTimeout(() => setReady(true), Math.max(0, remainingMs))
-    return () => window.clearTimeout(timer)
-  }, [openedAt, minSeconds, computeReady])
-
-  return ready
-}
 
 interface VideoMaterialCardProps {
   material: MaterialPublicResponse
@@ -133,7 +113,7 @@ export function VideoMaterialCard({
   }, [embedFailedMutation])
 
   const embedFailed = embedFailedLocal || (progress?.embedFailed ?? false)
-  const timeGateReady = useElapsedReady(progress?.openedAt ?? null, MIN_READ_SECONDS)
+  const { ready: timeGateReady } = useTimeGate(progress?.openedAt ?? null, MIN_READ_SECONDS)
 
   if (progress == null) {
     return (

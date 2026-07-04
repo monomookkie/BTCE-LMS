@@ -32,6 +32,7 @@ import { useToast } from '../../hooks/useToast.js'
 import { formatDate } from '../../lib/format.js'
 import { extractYoutubeId } from '../../lib/youtube.js'
 import { VideoMaterialCard } from '../../components/course/VideoMaterialCard.js'
+import { GatedMaterialLink } from '../../components/course/GatedMaterialLink.js'
 
 // ─── Query key factories ─────────────────────────────────────────────────────
 
@@ -436,11 +437,8 @@ export default function CourseDetailPage() {
               const isMarking =
                 markCompleteMutation.isPending &&
                 markCompleteMutation.variables === material.id
-              const href = material.signedUrl ?? material.url ?? null
-              const isFile = material.type === 'PDF' || material.type === 'IMAGE' || material.type === 'DOC'
 
               // VIDEO ที่ parse เป็น YouTube ID ได้ — ฝังเล่น + track การดูจริง (Tier 3) แทนลิงก์เปิดแท็บใหม่
-              // ถ้า parse ไม่ได้ (ไม่ใช่ YouTube) — fallback ไปแสดงแบบเดิม (ลิงก์ธรรมดา)
               if (material.type === 'VIDEO' && material.url != null) {
                 const videoId = extractYoutubeId(material.url)
                 if (videoId != null && enrollment != null) {
@@ -458,6 +456,26 @@ export default function CourseDetailPage() {
                   )
                 }
               }
+
+              // PDF/LINK/IMAGE/DOC ปกติ — หรือ VIDEO ที่ parse YouTube ID ไม่ได้ (reuse embed-failed path
+              // กัน dead-end: วิดีโอที่ไม่ใช่ YouTube ไม่มีทาง track % ได้เลย ต้อง fallback เป็น time-gate)
+              if (enrollment != null) {
+                return (
+                  <GatedMaterialLink
+                    key={material.id}
+                    material={material}
+                    enrollmentId={enrollment.id}
+                    isDone={isDone}
+                    isMarking={isMarking}
+                    markCompletePending={markCompleteMutation.isPending}
+                    onMarkComplete={() => { markCompleteMutation.mutate(material.id) }}
+                  />
+                )
+              }
+
+              // enrollment null (ไม่ควรเกิด — ทั้ง query ถูก gate ด้วย isEnrolled อยู่แล้ว) — fallback แบบไม่ gate
+              const href = material.signedUrl ?? material.url ?? null
+              const isFile = material.type === 'PDF' || material.type === 'IMAGE' || material.type === 'DOC'
 
               return (
                 <li key={material.id} className="flex items-center gap-3 py-3">
