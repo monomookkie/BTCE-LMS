@@ -167,8 +167,19 @@ describe('Phase 4 — Certificate issuance, compliance, cron', () => {
     return res.json<{ id: string }>().id
   }
 
-  /** Mark material complete → return enrollment response */
+  /** Mark material complete → return enrollment response
+   *  ต้อง open ก่อน (Tier 2/3 view gate) — backdate openedAt เพื่อผ่านเกณฑ์เวลาขั้นต่ำโดยไม่ต้องรอจริง */
   async function completeMaterial(userCookies: string, enrollmentId: string, materialId: string) {
+    await app.inject({
+      method: 'POST',
+      url: `/enrollments/${enrollmentId}/materials/${materialId}/open`,
+      headers: { cookie: userCookies },
+    })
+    await prisma.materialProgress.updateMany({
+      where: { enrollmentId, materialId },
+      data: { openedAt: new Date(Date.now() - 301_000) },
+    })
+
     return app.inject({
       method: 'POST',
       url: `/enrollments/${enrollmentId}/complete-material/${materialId}`,

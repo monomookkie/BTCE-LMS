@@ -191,12 +191,29 @@ model Enrollment {
   user        User         @relation(fields: [userId], references: [id])
   course      Course       @relation(fields: [courseId], references: [id])
   certificate Certificate?
+  materialProgress MaterialProgress[]
 
   // unique constraint อยู่ที่ service layer (ตรวจ deletedAt: null) — ไม่ใช่ DB
   // เพราะ MySQL ไม่รองรับ partial/filtered unique index
   @@index([userId, courseId])
   @@index([userId, status, deletedAt])
   @@index([courseId, status, deletedAt])
+}
+
+// Tier 2/3 anti-cheat: track ว่าเปิดสื่อการเรียนจริงหรือยัง + ดูวิดีโอไปถึงไหน
+// ใช้ gate ก่อนอนุญาต mark-material-complete (ดู markMaterialComplete)
+model MaterialProgress {
+  id             String    @id @default(cuid())
+  enrollmentId   String
+  materialId     String
+  openedAt       DateTime? // ตั้งครั้งแรกที่เปิดเท่านั้น — เปิดซ้ำไม่ reset
+  watchedPercent Int       @default(0) // 0-100, เก็บค่าสูงสุดที่เคยดูถึง กันไถ progress ถอยหลัง
+  lastProgressAt DateTime?
+  createdAt      DateTime  @default(now())
+
+  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
+
+  @@unique([enrollmentId, materialId])
 }
 
 enum EnrollStatus {

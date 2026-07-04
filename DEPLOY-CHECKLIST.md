@@ -27,9 +27,36 @@ list — only pre-deploy blockers and cross-phase follow-ups land here.
 
 ---
 
+### 2. Material-completion anti-cheat gate (Tier 2/3) — steps 1-3 must ship together
+
+- **Found:** 2026-07-06, while building server-side view-tracking for
+  `POST /enrollments/:id/complete-material/:materialId`.
+- **What it is:** a 3-step rollout —
+  1. Backend gate (`enrollments.service.ts`'s `markMaterialComplete`) requires
+     a `MaterialProgress` row showing the material was actually opened
+     (`openedAt`) and, for VIDEO, watched to ≥90% (`watchedPercent`), or for
+     PDF/LINK/IMAGE/DOC, opened for ≥300s — **shipped 2026-07-06**.
+  2. YouTube embed + real watch-percent tracking + forward-seek blocking on
+     the frontend (`CourseDetailPage.tsx`) — not yet built.
+  3. PDF/LINK open-event + time-gated "Mark complete" button on the frontend
+     — not yet built.
+- **Why it blocks deploy:** the frontend currently calls `complete-material`
+  directly with no prior call to the new `POST .../materials/:materialId/open`
+  or `.../progress` endpoints. If step 1 (backend gate) reaches production
+  before steps 2-3 (frontend wiring) land, **every "Mark complete" click
+  returns 400** for every material type — a full regression of course
+  completion, not a partial one.
+- **Do not deploy step 1 alone.** Ship 1+2+3 in the same release, or gate
+  step 1's enforcement behind a feature flag if they must land separately.
+  Already-completed materials (recorded in `Enrollment.completedMaterials`
+  before this gate existed) are grandfathered through automatically — this
+  only affects materials not yet marked complete.
+
+---
+
 ## Deferred — fix in a later phase
 
-### 2. Cert-expiry notification links to a route that doesn't exist for USER
+### 3. Cert-expiry notification links to a route that doesn't exist for USER
 
 - **Found:** FE-5a verification pass (2026-07-02), while testing notification
   click-through.
@@ -50,7 +77,7 @@ list — only pre-deploy blockers and cross-phase follow-ups land here.
 
 ## Tech debt — before next TypeScript major upgrade
 
-### 3. `esModuleInterop: false` in `apps/backend/tsconfig.json` blocks TS 7.0 upgrade
+### 4. `esModuleInterop: false` in `apps/backend/tsconfig.json` blocks TS 7.0 upgrade
 
 - **Found:** 2026-07-04, while silencing the TS 6.0 deprecation warning on
   `esModuleInterop: false`.
@@ -72,7 +99,7 @@ list — only pre-deploy blockers and cross-phase follow-ups land here.
 
 ## Optional polish — after REFACTOR-2
 
-### 4. No audit log on `GET /reports/compliance` (compliance list view)
+### 5. No audit log on `GET /reports/compliance` (compliance list view)
 
 - **Found:** endpoint-security-review during REFACTOR-1 (department removal),
   2026-07-04.

@@ -16,6 +16,7 @@ beforeEach(async () => {
     prisma.trainingAttendee.deleteMany(),
     prisma.certificate.deleteMany(),          // FK → enrollment, user
     prisma.externalCertificate.deleteMany(), // FK → user (ON DELETE RESTRICT)
+    prisma.materialProgress.deleteMany(),    // FK → enrollment
     prisma.enrollment.deleteMany(),          // FK → user, course
     prisma.refreshToken.deleteMany(), // FK → user
     prisma.user.deleteMany(),

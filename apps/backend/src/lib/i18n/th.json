@@ -30,6 +30,8 @@
   "error.material.invalidMetadata": "ข้อมูล metadata ไม่ถูกต้อง: {{detail}}",
   "error.material.mimeNotAllowed": "ประเภทไฟล์ \"{{mimeType}}\" ไม่รองรับสำหรับประเภท {{type}}",
   "error.material.notEnrolled": "คุณต้องลงทะเบียนหลักสูตรนี้ก่อนจึงจะเข้าถึงสื่อการเรียนได้",
+  "error.material.notYetViewed": "คุณต้องเปิดดูสื่อการเรียนนี้ก่อนจึงจะทำเครื่องหมายว่าเรียนจบได้",
+  "error.material.watchTimeInsufficient": "กรุณาใช้เวลาทบทวนสื่อการเรียนนี้เพิ่มเติมก่อนทำเครื่องหมายว่าเรียนจบ",
 
   "error.enrollment.notFound": "ไม่พบข้อมูลการลงทะเบียน",
   "error.enrollment.alreadyEnrolled": "ผู้ใช้ลงทะเบียนหลักสูตรนี้แล้ว",

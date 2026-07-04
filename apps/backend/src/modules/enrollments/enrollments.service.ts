@@ -7,8 +7,9 @@ import type {
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
-import type { EnrollmentListQuery } from './enrollments.schema.js'
+import type { EnrollmentListQuery, MaterialProgressResponse } from './enrollments.schema.js'
 import { onEnrollmentCompleted } from '../certificates/certificates.service.js'
+import { MIN_READ_SECONDS, MIN_WATCHED_PERCENT } from '../../config/materialProgress.config.js'
 
 const ENROLLMENT_SELECT = {
   id: true,
@@ -105,6 +106,118 @@ async function findActiveEnrollment(prisma: PrismaClient, userId: string, course
   return prisma.enrollment.findFirst({
     where: { userId, courseId, deletedAt: null },
   })
+}
+
+function toMaterialProgressResponse(p: {
+  materialId: string
+  openedAt: Date | null
+  watchedPercent: number
+}): MaterialProgressResponse {
+  return {
+    materialId: p.materialId,
+    openedAt: p.openedAt?.toISOString() ?? null,
+    watchedPercent: p.watchedPercent,
+  }
+}
+
+// ตรวจ ownership ร่วมของ enrollment + material แล้ว return ทั้งคู่ (ใช้ซ้ำใน open/progress/complete)
+async function loadOwnedEnrollmentAndMaterial(
+  prisma: PrismaClient,
+  enrollmentId: string,
+  materialId: string,
+  userId: string,
+  locale: Locale,
+) {
+  const enrollment = await prisma.enrollment.findFirst({
+    where: { id: enrollmentId, deletedAt: null },
+    select: { id: true, userId: true, courseId: true, status: true, completedMaterials: true },
+  })
+  // notFound เสมอ — กัน enumeration ของ enrollment ID
+  if (!enrollment) throw notFound(t('error.enrollment.notFound', undefined, locale))
+  if (enrollment.userId !== userId) throw notFound(t('error.enrollment.notFound', undefined, locale))
+
+  const material = await prisma.material.findFirst({
+    where: { id: materialId, courseId: enrollment.courseId, deletedAt: null },
+    select: { id: true, type: true },
+  })
+  if (!material) throw notFound(t('error.material.notFound', undefined, locale))
+
+  return { enrollment, material }
+}
+
+// Tier 2/3 gate: ตรวจว่า "เปิดดูจริง" มาก่อนจึงอนุญาต mark-complete
+async function checkViewGate(
+  prisma: PrismaClient,
+  enrollmentId: string,
+  material: { id: string; type: string },
+  locale: Locale,
+): Promise<void> {
+  const progress = await prisma.materialProgress.findUnique({
+    where: { enrollmentId_materialId: { enrollmentId, materialId: material.id } },
+  })
+  if (!progress || progress.openedAt == null) {
+    throw badRequest(t('error.material.notYetViewed', undefined, locale))
+  }
+
+  if (material.type === 'VIDEO') {
+    if (progress.watchedPercent < MIN_WATCHED_PERCENT) {
+      throw badRequest(t('error.material.watchTimeInsufficient', undefined, locale))
+    }
+    return
+  }
+
+  const elapsedSeconds = (Date.now() - progress.openedAt.getTime()) / 1000
+  if (elapsedSeconds < MIN_READ_SECONDS) {
+    throw badRequest(t('error.material.watchTimeInsufficient', undefined, locale))
+  }
+}
+
+export async function openMaterial(
+  prisma: PrismaClient,
+  enrollmentId: string,
+  materialId: string,
+  userId: string,
+  locale: Locale = 'en',
+): Promise<MaterialProgressResponse> {
+  await loadOwnedEnrollmentAndMaterial(prisma, enrollmentId, materialId, userId, locale)
+
+  // idempotent — เปิดซ้ำไม่ reset openedAt เดิม
+  const progress = await prisma.materialProgress.upsert({
+    where: { enrollmentId_materialId: { enrollmentId, materialId } },
+    update: {},
+    create: { enrollmentId, materialId, openedAt: new Date() },
+  })
+
+  return toMaterialProgressResponse(progress)
+}
+
+export async function updateMaterialProgress(
+  prisma: PrismaClient,
+  enrollmentId: string,
+  materialId: string,
+  userId: string,
+  watchedPercent: number,
+  locale: Locale = 'en',
+): Promise<MaterialProgressResponse> {
+  await loadOwnedEnrollmentAndMaterial(prisma, enrollmentId, materialId, userId, locale)
+
+  const existing = await prisma.materialProgress.findUnique({
+    where: { enrollmentId_materialId: { enrollmentId, materialId } },
+  })
+  if (!existing || existing.openedAt == null) {
+    throw badRequest(t('error.material.notYetViewed', undefined, locale))
+  }
+
+  const progress = await prisma.materialProgress.update({
+    where: { id: existing.id },
+    // เก็บค่าสูงสุดเท่านั้น — กันไถ progress ถอยหลัง (เช่น seek ย้อนวิดีโอ)
+    data: {
+      watchedPercent: Math.max(existing.watchedPercent, watchedPercent),
+      lastProgressAt: new Date(),
+    },
+  })
+
+  return toMaterialProgressResponse(progress)
 }
 
 export async function assignEnrollment(
@@ -298,11 +411,18 @@ export async function markMaterialComplete(
 
   const material = await prisma.material.findFirst({
     where: { id: materialId, courseId: enrollment.courseId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, type: true },
   })
   if (!material) throw notFound(t('error.material.notFound', undefined, locale))
 
   const currentCompleted = (enrollment.completedMaterials as string[]) ?? []
+
+  // gate เฉพาะครั้งแรกที่ complete material นี้ — legacy completedMaterials (ก่อน migration
+  // นี้มี) grandfather ผ่านอัตโนมัติเพราะอยู่ใน currentCompleted แล้ว ไม่ถูกเรียกเช็คซ้ำ
+  if (!currentCompleted.includes(materialId)) {
+    await checkViewGate(prisma, enrollmentId, material, locale)
+  }
+
   const newCompleted = [...new Set([...currentCompleted, materialId])]
 
   const { progress, completedMaterials, isComplete } = await recalculateProgress(

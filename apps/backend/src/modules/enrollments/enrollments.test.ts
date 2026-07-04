@@ -301,6 +301,29 @@ describe('Enrollments module', () => {
       return res.json<{ id: string }>().id
     }
 
+    async function addVideoMaterial(adminCookies: string, courseId: string): Promise<string> {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/courses/${courseId}/materials/link`,
+        headers: { cookie: adminCookies },
+        payload: { type: 'VIDEO', titleEn: 'Video 1', url: 'https://youtube.com/watch?v=abc' },
+      })
+      return res.json<{ id: string }>().id
+    }
+
+    /** เปิด material ผ่าน endpoint จริง แล้ว backdate openedAt ใน DB เพื่อผ่านเกณฑ์เวลาขั้นต่ำ (LINK/PDF gate) โดยไม่ต้องรอจริง */
+    async function openAndPassTimeGate(enrollmentId: string, materialId: string, userCookies: string) {
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrollmentId}/materials/${materialId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await prisma.materialProgress.updateMany({
+        where: { enrollmentId, materialId },
+        data: { openedAt: new Date(Date.now() - 301_000) },
+      })
+    }
+
     it('mark material complete → progress updated', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { user, cookies: userCookies } = await setupUser()
@@ -308,6 +331,7 @@ describe('Enrollments module', () => {
       const matId = await addLinkMaterial(adminCookies, courseId)
 
       const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      await openAndPassTimeGate(enrolled.id, matId, userCookies)
 
       const res = await app.inject({
         method: 'POST',
@@ -328,6 +352,7 @@ describe('Enrollments module', () => {
       const matId = await addLinkMaterial(adminCookies, courseId)
 
       const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      await openAndPassTimeGate(enrolled.id, matId, userCookies)
 
       const res = await app.inject({
         method: 'POST',
@@ -347,6 +372,7 @@ describe('Enrollments module', () => {
       const mat2 = await addLinkMaterial(adminCookies, courseId)
 
       const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      await openAndPassTimeGate(enrolled.id, mat1, userCookies)
 
       // เรียนจบ mat1
       await app.inject({
@@ -365,7 +391,7 @@ describe('Enrollments module', () => {
       // mark mat1 อีกครั้ง (หรือตรวจ progress จาก DB โดยตรง)
       // recalculate ถูก trigger ตอน mark complete ครั้งแรก
       // mat2 ถูกลบหลัง — progress จะ recalculate เมื่อ mark material ครั้งถัดไป
-      // ดังนั้นทดสอบด้วย mark mat1 อีกครั้ง (idempotent) เพื่อ trigger recalc
+      // ดังนั้นทดสอบด้วย mark mat1 อีกครั้ง (idempotent, ไม่ต้องผ่าน gate ซ้ำเพราะ complete แล้ว) เพื่อ trigger recalc
       const res2 = await app.inject({
         method: 'POST',
         url: `/enrollments/${enrolled.id}/complete-material/${mat1}`,
@@ -379,12 +405,13 @@ describe('Enrollments module', () => {
 
     it('IDOR: USER complete-material ของ enrollment คนอื่น → 404', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user: victim } = await setupUser()
+      const { user: victim, cookies: victimCookies } = await setupUser()
       const { cookies: attackerCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
       const enrolled = (await assign(adminCookies, victim.id, courseId)).json<EnrollmentResponse>()
+      await openAndPassTimeGate(enrolled.id, matId, victimCookies)
 
       const res = await app.inject({
         method: 'POST',
@@ -409,6 +436,197 @@ describe('Enrollments module', () => {
         headers: { cookie: userCookies },
       })
       expect(res.statusCode).toBe(404)
+    })
+
+    // ─── Tier 2/3 view gate ───────────────────────────────────────────────────
+
+    it('LINK: complete โดยไม่เคย open มาก่อน → 400', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addLinkMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('LINK: open แล้วรีบ complete ทันที (ยังไม่ถึงเวลาขั้นต่ำ) → 400', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addLinkMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('open เป็น idempotent — เปิดซ้ำไม่ reset openedAt เดิม', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addLinkMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      await openAndPassTimeGate(enrolled.id, matId, userCookies)
+
+      // เปิดซ้ำ — ต้องไม่ reset openedAt กลับเป็นปัจจุบัน
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(200)
+
+      const completeRes = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+        headers: { cookie: userCookies },
+      })
+      expect(completeRes.statusCode).toBe(200)
+    })
+
+    it('VIDEO: watchedPercent < 90 → complete 400', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 50 },
+      })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('VIDEO: watchedPercent >= 90 → complete ผ่าน', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 95 },
+      })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('VIDEO: progress กันไถถอยหลัง — ส่งค่าน้อยกว่าเดิมไม่ลด watchedPercent', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 95 },
+      })
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 10 },
+      })
+      expect(res.json<{ watchedPercent: number }>().watchedPercent).toBe(95)
+    })
+
+    it('progress: ยิงก่อน open มาก่อน → 400', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 50 },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('IDOR: open/progress ของ enrollment คนอื่น → 404', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user: victim } = await setupUser()
+      const { cookies: attackerCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addLinkMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, victim.id, courseId)).json<EnrollmentResponse>()
+
+      const openRes = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: attackerCookies },
+      })
+      expect(openRes.statusCode).toBe(404)
+
+      const progressRes = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: attackerCookies },
+        payload: { watchedPercent: 50 },
+      })
+      expect(progressRes.statusCode).toBe(404)
     })
   })
 

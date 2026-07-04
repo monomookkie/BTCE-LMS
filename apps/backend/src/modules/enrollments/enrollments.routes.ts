@@ -6,6 +6,8 @@ import {
   enrollmentListQuerySchema,
   enrollmentParamsSchema,
   completeMaterialParamsSchema,
+  materialProgressInputSchema,
+  materialProgressResponseSchema,
 } from './enrollments.schema.js'
 import {
   assignEnrollment,
@@ -15,6 +17,8 @@ import {
   getEnrollment,
   markMaterialComplete,
   cancelEnrollment,
+  openMaterial,
+  updateMaterialProgress,
 } from './enrollments.service.js'
 import { resolveLocale } from '../../lib/i18n.js'
 
@@ -110,6 +114,48 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       req.ip,
     )
     return reply.send(enrollment)
+  })
+
+  // POST /enrollments/:id/materials/:materialId/open — USER (own only)
+  // Tier 2: บันทึกว่าเปิดสื่อการเรียนแล้ว (idempotent — เปิดซ้ำไม่ reset)
+  server.post('/:id/materials/:materialId/open', {
+    preHandler: [app.verifyJwt],
+    schema: {
+      params: completeMaterialParamsSchema,
+      response: { 200: materialProgressResponseSchema },
+    },
+  }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
+    const progress = await openMaterial(
+      app.prisma,
+      req.params.id,
+      req.params.materialId,
+      req.user.id,
+      locale,
+    )
+    return reply.send(progress)
+  })
+
+  // POST /enrollments/:id/materials/:materialId/progress — USER (own only)
+  // Tier 3: อัปเดต % ที่ดูวิดีโอถึง (เก็บค่าสูงสุด กันไถถอยหลัง)
+  server.post('/:id/materials/:materialId/progress', {
+    preHandler: [app.verifyJwt],
+    schema: {
+      params: completeMaterialParamsSchema,
+      body: materialProgressInputSchema,
+      response: { 200: materialProgressResponseSchema },
+    },
+  }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
+    const progress = await updateMaterialProgress(
+      app.prisma,
+      req.params.id,
+      req.params.materialId,
+      req.user.id,
+      req.body.watchedPercent,
+      locale,
+    )
+    return reply.send(progress)
   })
 
   // POST /enrollments/:id/complete-material/:materialId — USER (own only)

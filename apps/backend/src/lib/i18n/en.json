@@ -30,6 +30,8 @@
   "error.material.invalidMetadata": "Invalid metadata: {{detail}}",
   "error.material.mimeNotAllowed": "File type \"{{mimeType}}\" is not allowed for material type {{type}}",
   "error.material.notEnrolled": "You must be enrolled in this course to view materials",
+  "error.material.notYetViewed": "You must open this material before marking it complete",
+  "error.material.watchTimeInsufficient": "Please spend more time reviewing this material before marking it complete",
 
   "error.enrollment.notFound": "Enrollment not found",
   "error.enrollment.alreadyEnrolled": "User is already enrolled in this course",
