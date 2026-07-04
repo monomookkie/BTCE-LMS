@@ -37,7 +37,14 @@
     "invalidCredentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
     "accountLocked": "บัญชีถูกล็อก กรุณาติดต่อผู้ดูแลระบบ",
     "sessionExpired": "เซสชันหมดอายุ กรุณาเข้าสู่ระบบใหม่",
-    "loggingIn": "กำลังเข้าสู่ระบบ..."
+    "loggingIn": "กำลังเข้าสู่ระบบ...",
+    "registerTitle": "สร้างบัญชีของคุณ",
+    "registerSubtitle": "สมัครได้เฉพาะอีเมลองค์กร @redcross.or.th เท่านั้น",
+    "registering": "กำลังสร้างบัญชี...",
+    "noAccount": "ยังไม่มีบัญชี?",
+    "haveAccount": "มีบัญชีแล้ว?",
+    "registerLink": "สมัครสมาชิก",
+    "loginLink": "เข้าสู่ระบบ"
   },
   "course": {
     "label": "หลักสูตร",

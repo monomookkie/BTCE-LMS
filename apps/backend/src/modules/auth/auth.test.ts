@@ -125,6 +125,141 @@ describe('Auth module', () => {
     })
   })
 
+  // ─── POST /auth/register ──────────────────────────────────────────────────
+  // Rate limit (5/min) not covered here: apps/backend/src/plugins/rateLimit.ts
+  // allow-lists 127.0.0.1 in test env (the address app.inject() always uses),
+  // specifically to avoid tripping route-level limits during the test suite —
+  // so a 6-requests-then-429 test would pass without exercising anything.
+  // The route's `config.rateLimit.max: 5` is verified by code review instead.
+
+  describe('POST /auth/register', () => {
+    it('valid @redcross.or.th email → 201, role=USER, isActive=true, cookies set', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'New Staff',
+          email: `register-ok-${Date.now()}@redcross.or.th`,
+          password: 'ValidPass1!',
+        },
+      })
+      expect(res.statusCode).toBe(201)
+      const body = res.json<{ role: string; isActive: boolean }>()
+      expect(body.role).toBe('USER')
+      expect(body.isActive).toBe(true)
+
+      const setCookies = res.headers['set-cookie'] as string[]
+      expect(setCookies.some((c) => c.startsWith('access_token='))).toBe(true)
+      expect(setCookies.some((c) => c.startsWith('refresh_token='))).toBe(true)
+
+      // auto-login: /auth/me ใช้ cookie ที่ได้จาก register ได้ทันที
+      const meRes = await app.inject({
+        method: 'GET',
+        url: '/auth/me',
+        headers: { cookie: extractCookies(res) },
+      })
+      expect(meRes.statusCode).toBe(200)
+    })
+
+    it('duplicate email → 409 with generic message (no enumeration)', async () => {
+      const email = `dup-${Date.now()}@redcross.or.th`
+      await createUser({ email })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { name: 'Someone', email, password: 'ValidPass1!' },
+      })
+      expect(res.statusCode).toBe(409)
+      // ต้องไม่ใช่ข้อความ users.service.ts เดิม ("A user with this email already exists")
+      expect(res.json<{ message: string }>().message).not.toMatch(/already exists/i)
+    })
+
+    it('password shorter than 8 chars → 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'Short Pw',
+          email: `shortpw-${Date.now()}@redcross.or.th`,
+          password: 'Sh0rt!',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('sending role=ADMIN in payload → created user is still USER (no privilege escalation)', async () => {
+      const email = `noescalate-${Date.now()}@redcross.or.th`
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { name: 'Wannabe Admin', email, password: 'ValidPass1!', role: 'ADMIN' },
+      })
+      expect(res.statusCode).toBe(201)
+      expect(res.json<{ role: string }>().role).toBe('USER')
+
+      const dbUser = await prisma.user.findUnique({ where: { email } })
+      expect(dbUser?.role).toBe('USER')
+    })
+
+    it('register writes a USER_REGISTER audit log', async () => {
+      const email = `audit-${Date.now()}@redcross.or.th`
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: { name: 'Audit Me', email, password: 'ValidPass1!' },
+      })
+      const userId = res.json<{ id: string }>().id
+
+      const log = await prisma.auditLog.findFirst({
+        where: { action: 'USER_REGISTER', actorId: userId },
+      })
+      expect(log).not.toBeNull()
+    })
+
+    // ─── Domain restriction ──────────────────────────────────────────────────
+
+    it('non-redcross.or.th email (@gmail.com) → 400 domain error', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'Outsider',
+          email: `outsider-${Date.now()}@gmail.com`,
+          password: 'ValidPass1!',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('subdomain-spoofed email (@redcross.or.th.evil.com) → 400, not a bypass', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'Spoofer',
+          email: `spoof-${Date.now()}@redcross.or.th.evil.com`,
+          password: 'ValidPass1!',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('mixed-case domain (User@REDCROSS.OR.TH) → 201, case-insensitive match', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'Case Test',
+          email: `CaseTest-${Date.now()}@REDCROSS.OR.TH`,
+          password: 'ValidPass1!',
+        },
+      })
+      expect(res.statusCode).toBe(201)
+      expect(res.json<{ role: string }>().role).toBe('USER')
+    })
+  })
+
   // ─── POST /auth/refresh ───────────────────────────────────────────────────
 
   describe('POST /auth/refresh — refresh token rotation', () => {

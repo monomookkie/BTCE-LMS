@@ -1,7 +1,7 @@
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
-import { Navigate } from 'react-router-dom'
+import { Navigate, Link } from 'react-router-dom'
 import { loginInputSchema, type LoginInput } from '@btec-lms/shared'
 import { useAuth, useLoginMutation, ApiError } from '../../hooks/useAuth.js'
 import { LanguageSwitcher } from '../../components/LanguageSwitcher.js'
@@ -80,6 +80,13 @@ export default function LoginPage() {
           <Button type="submit" className="w-full" isLoading={isSubmitting}>
             {isSubmitting ? t('auth.loggingIn') : t('auth.login')}
           </Button>
+
+          <p className="text-center text-xs text-slate-500">
+            {t('auth.noAccount')}{' '}
+            <Link to="/register" className="font-medium text-brand-600 hover:underline">
+              {t('auth.registerLink')}
+            </Link>
+          </p>
         </form>
       </div>
     </div>

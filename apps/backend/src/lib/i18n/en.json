@@ -8,6 +8,8 @@
   "error.auth.required": "Authentication required",
   "error.auth.insufficientPermissions": "Insufficient permissions",
   "error.auth.mustChangePassword": "You must change your password before continuing",
+  "error.auth.registrationFailed": "Unable to complete registration. Please try signing in, or contact your administrator.",
+  "error.auth.emailDomainNotAllowed": "Registration is only available for @redcross.or.th email addresses.",
 
   "error.user.notFound": "User not found",
   "error.user.emailConflict": "A user with this email already exists",

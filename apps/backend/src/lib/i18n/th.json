@@ -8,6 +8,8 @@
   "error.auth.required": "กรุณาเข้าสู่ระบบก่อน",
   "error.auth.insufficientPermissions": "คุณไม่มีสิทธิ์เข้าถึงส่วนนี้",
   "error.auth.mustChangePassword": "กรุณาเปลี่ยนรหัสผ่านก่อนดำเนินการต่อ",
+  "error.auth.registrationFailed": "ไม่สามารถสมัครสมาชิกได้ กรุณาลองเข้าสู่ระบบ หรือติดต่อผู้ดูแลระบบ",
+  "error.auth.emailDomainNotAllowed": "สมัครสมาชิกได้เฉพาะอีเมลองค์กร @redcross.or.th เท่านั้น",
 
   "error.user.notFound": "ไม่พบข้อมูลผู้ใช้",
   "error.user.emailConflict": "มีผู้ใช้ที่ใช้อีเมลนี้อยู่แล้ว",

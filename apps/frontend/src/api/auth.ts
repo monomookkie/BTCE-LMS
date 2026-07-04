@@ -1,4 +1,4 @@
-import type { UserResponse } from '@btec-lms/shared'
+import type { UserResponse, RegisterInput } from '@btec-lms/shared'
 import { apiFetch } from '../lib/api.js'
 
 export interface MeResponse extends UserResponse {
@@ -13,6 +13,11 @@ export interface LoginInput {
 export function login(body: LoginInput): Promise<MeResponse> {
   // skipRefresh: 401 จาก /auth/login = credential ผิด ไม่ใช่ token expired
   return apiFetch<MeResponse>('/auth/login', { method: 'POST', json: body, skipRefresh: true })
+}
+
+export function register(body: RegisterInput): Promise<MeResponse> {
+  // skipRefresh: 400/409 จาก /auth/register ไม่ใช่ token expired
+  return apiFetch<MeResponse>('/auth/register', { method: 'POST', json: body, skipRefresh: true })
 }
 
 export function logout(): Promise<void> {

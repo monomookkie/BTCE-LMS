@@ -37,7 +37,14 @@
     "invalidCredentials": "Invalid email or password",
     "accountLocked": "Account is locked. Please contact your administrator.",
     "sessionExpired": "Your session has expired. Please login again.",
-    "loggingIn": "Signing in..."
+    "loggingIn": "Signing in...",
+    "registerTitle": "Create your account",
+    "registerSubtitle": "Registration is available for @redcross.or.th email addresses only",
+    "registering": "Creating account...",
+    "noAccount": "Don't have an account?",
+    "haveAccount": "Already have an account?",
+    "registerLink": "Register",
+    "loginLink": "Sign in"
   },
   "course": {
     "label": "Course",

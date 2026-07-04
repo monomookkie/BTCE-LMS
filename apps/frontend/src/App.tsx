@@ -5,6 +5,7 @@ import { RequireAuth } from './components/auth/RequireAuth.js'
 import { RequireRole } from './components/auth/RequireRole.js'
 import AppLayout from './components/layout/AppLayout.js'
 import LoginPage from './pages/auth/LoginPage.js'
+import RegisterPage from './pages/auth/RegisterPage.js'
 
 const UiShowcasePage = lazy(() => import('./pages/UiShowcasePage.js'))
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage.js'))
@@ -36,6 +37,7 @@ export default function App() {
       {/* Public */}
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/register" element={<RegisterPage />} />
       <Route
         path="/verify/:hash"
         element={

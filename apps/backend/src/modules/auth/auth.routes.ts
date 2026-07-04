@@ -1,8 +1,9 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
-import { loginInputSchema, changePasswordInputSchema } from '@btec-lms/shared'
+import { loginInputSchema, registerInputSchema, changePasswordInputSchema } from '@btec-lms/shared'
 import {
   loginUser,
+  registerUser,
   logoutUser,
   rotateRefreshToken,
   getMe,
@@ -43,6 +44,36 @@ const authRoutes: FastifyPluginAsync = async (app) => {
         .setCookie('refresh_token', refreshToken, REFRESH_COOKIE_OPTS)
 
       return reply.send(user)
+    },
+  )
+
+  // POST /auth/register — public, self-registration. role hardcode USER ฝั่ง
+  // service เสมอ, จำกัดเฉพาะอีเมล @redcross.or.th (validate ทั้ง schema + service)
+  server.post(
+    '/register',
+    {
+      config: { rateLimit: { max: 5, timeWindow: '1 minute' } },
+      schema: {
+        body: registerInputSchema,
+        response: { 201: meResponseSchema },
+      },
+    },
+    async (req, reply) => {
+      const locale = await resolveLocale(req, app.prisma)
+      const { accessToken, refreshToken, user } = await registerUser(
+        app.prisma,
+        (p) => app.jwt.sign(p),
+        req.body,
+        locale,
+        req.ip,
+        req.headers['user-agent'],
+      )
+
+      reply
+        .setCookie('access_token', accessToken, ACCESS_COOKIE_OPTS)
+        .setCookie('refresh_token', refreshToken, REFRESH_COOKIE_OPTS)
+
+      return reply.status(201).send(user)
     },
   )
 

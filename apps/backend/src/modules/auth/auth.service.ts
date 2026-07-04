@@ -1,9 +1,10 @@
 import { createHash, randomBytes } from 'node:crypto'
 import type { PrismaClient, Role } from '@prisma/client'
-import type { LoginInput, ChangePasswordInput } from '@btec-lms/shared'
+import type { LoginInput, ChangePasswordInput, RegisterInput } from '@btec-lms/shared'
+import { isAllowedRegisterEmailDomain } from '@btec-lms/shared'
 import { verifyPassword, hashPassword } from '../../lib/password.js'
 import { logAudit } from '../../lib/audit.js'
-import { unauthorized, notFound, badRequest } from '../../lib/errors.js'
+import { unauthorized, notFound, badRequest, conflict } from '../../lib/errors.js'
 import { t, type Locale } from '../../lib/i18n.js'
 import { env } from '../../config/env.js'
 import type { MeResponse } from './auth.schema.js'
@@ -91,6 +92,84 @@ export async function loginUser(
     action: 'USER_LOGIN',
     targetType: 'User',
     targetId: user.id,
+    ...(ip != null && { ip }),
+    ...(userAgent != null && { userAgent }),
+  })
+
+  return {
+    accessToken,
+    refreshToken: refreshRaw,
+    user: {
+      id: user.id,
+      employeeId: user.employeeId,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      language: (user.language === 'th' ? 'th' : 'en') as 'en' | 'th',
+      position: user.position,
+      avatarKey: user.avatarKey,
+      isActive: user.isActive,
+      mustChangePassword: user.mustChangePassword,
+      lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
+      createdAt: user.createdAt.toISOString(),
+    },
+  }
+}
+
+// ─── Self-registration ──────────────────────────────────────────────────────
+// Public endpoint: role hardcode 'USER' เสมอ (ไม่รับจาก input แม้ schema
+// จะไม่มี field role อยู่แล้วก็ตาม — defense-in-depth ไม่พึ่ง schema อย่างเดียว)
+// Domain check ซ้ำอีกชั้นฝั่ง service แม้ Zod refine จะกรองไปแล้วที่ route
+
+export async function registerUser(
+  prisma: PrismaClient,
+  sign: SignFn,
+  input: RegisterInput,
+  locale: Locale = 'en',
+  ip?: string,
+  userAgent?: string,
+): Promise<{ accessToken: string; refreshToken: string; user: MeResponse }> {
+  if (!isAllowedRegisterEmailDomain(input.email)) {
+    throw badRequest(t('error.auth.emailDomainNotAllowed', undefined, locale))
+  }
+
+  const exists = await prisma.user.findFirst({
+    where: { email: input.email, deletedAt: null },
+  })
+  // ข้อความ generic — ห้ามยืนยันว่า email นี้มีอยู่จริง (anti-enumeration)
+  if (exists) throw conflict(t('error.auth.registrationFailed', undefined, locale))
+
+  const password = await hashPassword(input.password)
+
+  const user = await prisma.user.create({
+    data: {
+      email: input.email,
+      password,
+      name: input.name,
+      role: 'USER',
+      isActive: true,
+      mustChangePassword: false, // สมัครเองแล้วตั้งรหัสเอง — ไม่ใช่ temp password จาก admin/CSV
+      ...(input.employeeId != null && { employeeId: input.employeeId }),
+      ...(input.position != null && { position: input.position }),
+    },
+  })
+
+  const accessToken = sign({ sub: user.id, role: user.role })
+  const refreshRaw = generateRefreshToken()
+  const tokenHash = hashToken(refreshRaw)
+  const expiresAt = new Date(Date.now() + REFRESH_MAX_AGE * 1000)
+
+  await prisma.$transaction([
+    prisma.refreshToken.create({ data: { userId: user.id, tokenHash, expiresAt } }),
+    prisma.user.update({ where: { id: user.id }, data: { lastLoginAt: new Date() } }),
+  ])
+
+  await logAudit(prisma, {
+    actorId: user.id,
+    action: 'USER_REGISTER',
+    targetType: 'User',
+    targetId: user.id,
+    metadata: { email: user.email },
     ...(ip != null && { ip }),
     ...(userAgent != null && { userAgent }),
   })

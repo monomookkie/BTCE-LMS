@@ -1,7 +1,8 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import i18next from '../i18n/index.js'
-import { login, logout, me, type LoginInput, type MeResponse } from '../api/auth.js'
+import { login, register, logout, me, type LoginInput, type MeResponse } from '../api/auth.js'
+import type { RegisterInput } from '@btec-lms/shared'
 import { ApiError } from '../lib/api.js'
 
 export const AUTH_QUERY_KEY = ['auth', 'me'] as const
@@ -33,6 +34,19 @@ export function useLoginMutation() {
       void i18next.changeLanguage(user.language)
       // setQueryData triggers re-render ของ LoginPage → <Navigate> จัดการ redirect เอง
       // ไม่ใช้ navigate() ตรงนี้เพราะจะ race กับ React render cycle (RequireAuth อาจเห็น user=null ชั่วคราว)
+      qc.setQueryData(AUTH_QUERY_KEY, user)
+    },
+  })
+}
+
+export function useRegisterMutation() {
+  const qc = useQueryClient()
+
+  return useMutation({
+    mutationFn: (body: RegisterInput) => register(body),
+    onSuccess: (user: MeResponse) => {
+      // auto-login pattern เดียวกับ useLoginMutation — server ออก cookie มาแล้ว
+      void i18next.changeLanguage(user.language)
       qc.setQueryData(AUTH_QUERY_KEY, user)
     },
   })

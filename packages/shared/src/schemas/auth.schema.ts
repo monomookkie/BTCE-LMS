@@ -5,8 +5,22 @@ export const loginInputSchema = z.object({
   password: z.string().min(8),
 })
 
+// self-registration จำกัดเฉพาะอีเมลองค์กร — exact match เท่านั้น กัน subdomain spoofing
+// เช่น user@redcross.or.th.evil.com หรือ user@sub.redcross.or.th ต้องไม่ผ่าน
+const REGISTER_ALLOWED_EMAIL_DOMAIN = 'redcross.or.th'
+
+export function getEmailDomain(email: string): string {
+  return email.trim().toLowerCase().split('@').pop() ?? ''
+}
+
+export function isAllowedRegisterEmailDomain(email: string): boolean {
+  return getEmailDomain(email) === REGISTER_ALLOWED_EMAIL_DOMAIN
+}
+
 export const registerInputSchema = z.object({
-  email: z.string().email(),
+  email: z.string().email().refine(isAllowedRegisterEmailDomain, {
+    message: `Email must be a @${REGISTER_ALLOWED_EMAIL_DOMAIN} address`,
+  }),
   password: z.string().min(8).max(72),
   name: z.string().min(1).max(100),
   employeeId: z.string().max(50).optional(),
