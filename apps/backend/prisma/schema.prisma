@@ -208,6 +208,8 @@ model MaterialProgress {
   materialId     String
   openedAt       DateTime? // ตั้งครั้งแรกที่เปิดเท่านั้น — เปิดซ้ำไม่ reset
   watchedPercent Int       @default(0) // 0-100, เก็บค่าสูงสุดที่เคยดูถึง กันไถ progress ถอยหลัง
+  durationSeconds Int? // ความยาววิดีโอ (client รายงานมา, lock ค่าแรกที่ได้รับ) ใช้คำนวณ time-ceiling กัน watchedPercent ปลอม
+  embedFailed    Boolean   @default(false) // YouTube iframe โหลดไม่สำเร็จ (network/CSP/timeout) — fallback เป็น time-gate แบบ LINK แทน percent-gate
   lastProgressAt DateTime?
   createdAt      DateTime  @default(now())
 

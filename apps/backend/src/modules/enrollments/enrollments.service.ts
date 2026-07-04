@@ -1,15 +1,21 @@
+import { Prisma } from '@prisma/client'
 import type { PrismaClient } from '@prisma/client'
 import type {
   EnrollmentResponse,
   AssignEnrollmentInput,
   SelfEnrollInput,
 } from '@btec-lms/shared'
+import {
+  MIN_READ_SECONDS,
+  MIN_WATCHED_PERCENT,
+  PROGRESS_CEILING_BUFFER_PERCENT,
+  MIN_ASSUMED_VIDEO_DURATION_SECONDS,
+} from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
 import type { EnrollmentListQuery, MaterialProgressResponse } from './enrollments.schema.js'
 import { onEnrollmentCompleted } from '../certificates/certificates.service.js'
-import { MIN_READ_SECONDS, MIN_WATCHED_PERCENT } from '../../config/materialProgress.config.js'
 
 const ENROLLMENT_SELECT = {
   id: true,
@@ -112,11 +118,13 @@ function toMaterialProgressResponse(p: {
   materialId: string
   openedAt: Date | null
   watchedPercent: number
+  embedFailed: boolean
 }): MaterialProgressResponse {
   return {
     materialId: p.materialId,
     openedAt: p.openedAt?.toISOString() ?? null,
     watchedPercent: p.watchedPercent,
+    embedFailed: p.embedFailed,
   }
 }
 
@@ -145,6 +153,14 @@ async function loadOwnedEnrollmentAndMaterial(
   return { enrollment, material }
 }
 
+// เกณฑ์เวลาขั้นต่ำ (LINK/PDF/IMAGE/DOC — และ VIDEO ที่ embed ล้มเหลว, ดู checkViewGate)
+function checkMinReadTime(openedAt: Date, locale: Locale): void {
+  const elapsedSeconds = (Date.now() - openedAt.getTime()) / 1000
+  if (elapsedSeconds < MIN_READ_SECONDS) {
+    throw badRequest(t('error.material.watchTimeInsufficient', undefined, locale))
+  }
+}
+
 // Tier 2/3 gate: ตรวจว่า "เปิดดูจริง" มาก่อนจึงอนุญาต mark-complete
 async function checkViewGate(
   prisma: PrismaClient,
@@ -160,15 +176,47 @@ async function checkViewGate(
   }
 
   if (material.type === 'VIDEO') {
+    // Fallback: YouTube embed โหลดไม่สำเร็จ (network/CSP/timeout) — client รายงาน embedFailed มาเอง
+    // เปลี่ยนไปใช้ time-gate แบบ LINK แทน percent-gate เพื่อไม่ปิดกั้นการเรียนจบทั้งที่ดูวิดีโอไม่ได้จริงๆ
+    // หมายเหตุ: embedFailed เป็นค่าที่ client รายงานเอง — ผู้ใช้ที่ตั้งใจโกงสามารถอ้างเท็จเพื่อลดเกณฑ์
+    // จาก "ต้องดูถึง 90%" เหลือแค่ "รอ 300 วิ" ยอมรับ trade-off นี้เพราะดีกว่าปิดกั้นคนที่ network บล็อกจริง
+    if (progress.embedFailed) {
+      checkMinReadTime(progress.openedAt, locale)
+      return
+    }
     if (progress.watchedPercent < MIN_WATCHED_PERCENT) {
       throw badRequest(t('error.material.watchTimeInsufficient', undefined, locale))
     }
     return
   }
 
-  const elapsedSeconds = (Date.now() - progress.openedAt.getTime()) / 1000
-  if (elapsedSeconds < MIN_READ_SECONDS) {
-    throw badRequest(t('error.material.watchTimeInsufficient', undefined, locale))
+  checkMinReadTime(progress.openedAt, locale)
+}
+
+// upsert ที่ทนต่อ race: สอง endpoint (open, embed-failed) อาจยิงพร้อมกันตอน material ยังไม่มี
+// MaterialProgress row เลย — ทั้งคู่พยายาม CREATE แล้วชน unique constraint ได้ (Prisma upsert ไม่ atomic
+// ข้าม request ใน MySQL) เมื่อชนแล้วแปลว่าอีกฝั่งสร้างสำเร็จไปแล้ว retry เป็น update แทน
+async function upsertMaterialProgressSafe(
+  prisma: PrismaClient,
+  enrollmentId: string,
+  materialId: string,
+  create: Prisma.MaterialProgressUncheckedCreateInput,
+  update: Prisma.MaterialProgressUpdateInput,
+) {
+  try {
+    return await prisma.materialProgress.upsert({
+      where: { enrollmentId_materialId: { enrollmentId, materialId } },
+      update,
+      create,
+    })
+  } catch (err) {
+    if (err instanceof Prisma.PrismaClientKnownRequestError && err.code === 'P2002') {
+      return prisma.materialProgress.update({
+        where: { enrollmentId_materialId: { enrollmentId, materialId } },
+        data: update,
+      })
+    }
+    throw err
   }
 }
 
@@ -182,13 +230,67 @@ export async function openMaterial(
   await loadOwnedEnrollmentAndMaterial(prisma, enrollmentId, materialId, userId, locale)
 
   // idempotent — เปิดซ้ำไม่ reset openedAt เดิม
-  const progress = await prisma.materialProgress.upsert({
-    where: { enrollmentId_materialId: { enrollmentId, materialId } },
-    update: {},
-    create: { enrollmentId, materialId, openedAt: new Date() },
-  })
+  const progress = await upsertMaterialProgressSafe(
+    prisma,
+    enrollmentId,
+    materialId,
+    { enrollmentId, materialId, openedAt: new Date() },
+    {},
+  )
 
   return toMaterialProgressResponse(progress)
+}
+
+// ให้ frontend hydrate % ที่ดูถึงแล้วตอนโหลดหน้าใหม่ — ไม่งั้น UI จะโชว์ 0% ทั้งที่ server จำ max ไว้แล้ว
+export async function getMaterialProgress(
+  prisma: PrismaClient,
+  enrollmentId: string,
+  materialId: string,
+  userId: string,
+  locale: Locale = 'en',
+): Promise<MaterialProgressResponse> {
+  await loadOwnedEnrollmentAndMaterial(prisma, enrollmentId, materialId, userId, locale)
+
+  const progress = await prisma.materialProgress.findUnique({
+    where: { enrollmentId_materialId: { enrollmentId, materialId } },
+  })
+
+  return progress != null
+    ? toMaterialProgressResponse(progress)
+    : { materialId, openedAt: null, watchedPercent: 0, embedFailed: false }
+}
+
+// Client รายงานว่า YouTube embed โหลดไม่สำเร็จ — ให้ checkViewGate fallback เป็น time-gate แบบ LINK
+// upsert (ไม่ require ว่า /open ต้องสำเร็จมาก่อน) — กัน race condition ระหว่าง open กับ embed-failed
+// ที่ยิงใกล้กันมาก (embed ล้มเหลวเร็วกว่า open mutation จะ commit เสร็จ) ไม่งั้น flag จะเงียบๆ ไม่ถูกบันทึก
+export async function markEmbedFailed(
+  prisma: PrismaClient,
+  enrollmentId: string,
+  materialId: string,
+  userId: string,
+  locale: Locale = 'en',
+): Promise<MaterialProgressResponse> {
+  await loadOwnedEnrollmentAndMaterial(prisma, enrollmentId, materialId, userId, locale)
+
+  const progress = await upsertMaterialProgressSafe(
+    prisma,
+    enrollmentId,
+    materialId,
+    { enrollmentId, materialId, openedAt: new Date(), embedFailed: true },
+    { embedFailed: true },
+  )
+
+  return toMaterialProgressResponse(progress)
+}
+
+// Sanity check: watchedPercent ที่อ้างมาต้องสมเหตุสมผลกับเวลาจริงที่ผ่านไปตั้งแต่ openedAt
+// ไม่ใช่การพิสูจน์ 100% ว่าไม่โกง (durationSeconds เป็นค่าที่ client รายงานเอง) แต่ยกระดับจาก
+// "ยิง POST เดียวจบ" เป็น "ต้องรอเวลาจริงประมาณเท่าที่อ้างว่าดู" — เพดานคำนวณจากเวลาที่ผ่านมา ไม่ใช่จำนวนครั้งที่เรียก
+function computeMaxReasonablePercent(openedAt: Date, durationSeconds: number | null): number {
+  const elapsedSeconds = (Date.now() - openedAt.getTime()) / 1000
+  const effectiveDuration = durationSeconds ?? MIN_ASSUMED_VIDEO_DURATION_SECONDS
+  const ceiling = (elapsedSeconds / effectiveDuration) * 100 + PROGRESS_CEILING_BUFFER_PERCENT
+  return Math.min(100, Math.max(0, Math.round(ceiling)))
 }
 
 export async function updateMaterialProgress(
@@ -197,6 +299,7 @@ export async function updateMaterialProgress(
   materialId: string,
   userId: string,
   watchedPercent: number,
+  durationSeconds: number | undefined,
   locale: Locale = 'en',
 ): Promise<MaterialProgressResponse> {
   await loadOwnedEnrollmentAndMaterial(prisma, enrollmentId, materialId, userId, locale)
@@ -208,12 +311,18 @@ export async function updateMaterialProgress(
     throw badRequest(t('error.material.notYetViewed', undefined, locale))
   }
 
+  // lock duration ที่ค่าแรกที่ได้รับ — ไม่ยอมให้เปลี่ยนภายหลัง (กันปั่น ceiling ให้หลวมขึ้นทีหลัง)
+  const lockedDuration = existing.durationSeconds ?? durationSeconds ?? null
+  const maxReasonablePercent = computeMaxReasonablePercent(existing.openedAt, lockedDuration)
+  const sanitizedPercent = Math.min(watchedPercent, maxReasonablePercent)
+
   const progress = await prisma.materialProgress.update({
     where: { id: existing.id },
-    // เก็บค่าสูงสุดเท่านั้น — กันไถ progress ถอยหลัง (เช่น seek ย้อนวิดีโอ)
     data: {
-      watchedPercent: Math.max(existing.watchedPercent, watchedPercent),
+      // เก็บค่าสูงสุดเท่านั้น — กันไถ progress ถอยหลัง (เช่น seek ย้อนวิดีโอ)
+      watchedPercent: Math.max(existing.watchedPercent, sanitizedPercent),
       lastProgressAt: new Date(),
+      ...(existing.durationSeconds == null && lockedDuration != null && { durationSeconds: lockedDuration }),
     },
   })
 

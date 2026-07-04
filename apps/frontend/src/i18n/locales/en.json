@@ -219,7 +219,12 @@
     "attemptHistory": "Attempt history",
     "noAttempts": "No attempts yet",
     "yourAnswer": "Your answer",
-    "notAnswered": "Not answered"
+    "notAnswered": "Not answered",
+    "videoWatchedPercent": "{{percent}}% watched",
+    "videoNeedMorePercent": "Watch at least {{percent}}% to mark complete",
+    "videoSeekBlocked": "Please watch in order — skipping ahead isn't allowed",
+    "videoEmbedFailed": "Unable to load the video player. Please open the video directly using the link below.",
+    "videoFallbackWaitHint": "Please wait at least {{minutes}} minutes after opening before marking complete"
   },
   "status": {
     "quiz": {

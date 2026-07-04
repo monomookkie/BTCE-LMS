@@ -30,6 +30,8 @@ import { getQuizForTaking, submitQuizAnswers, getMyQuizAttempts } from '../../ap
 import { ApiError } from '../../lib/api.js'
 import { useToast } from '../../hooks/useToast.js'
 import { formatDate } from '../../lib/format.js'
+import { extractYoutubeId } from '../../lib/youtube.js'
+import { VideoMaterialCard } from '../../components/course/VideoMaterialCard.js'
 
 // ─── Query key factories ─────────────────────────────────────────────────────
 
@@ -436,6 +438,26 @@ export default function CourseDetailPage() {
                 markCompleteMutation.variables === material.id
               const href = material.signedUrl ?? material.url ?? null
               const isFile = material.type === 'PDF' || material.type === 'IMAGE' || material.type === 'DOC'
+
+              // VIDEO ที่ parse เป็น YouTube ID ได้ — ฝังเล่น + track การดูจริง (Tier 3) แทนลิงก์เปิดแท็บใหม่
+              // ถ้า parse ไม่ได้ (ไม่ใช่ YouTube) — fallback ไปแสดงแบบเดิม (ลิงก์ธรรมดา)
+              if (material.type === 'VIDEO' && material.url != null) {
+                const videoId = extractYoutubeId(material.url)
+                if (videoId != null && enrollment != null) {
+                  return (
+                    <VideoMaterialCard
+                      key={material.id}
+                      material={material}
+                      videoId={videoId}
+                      enrollmentId={enrollment.id}
+                      isDone={isDone}
+                      isMarking={isMarking}
+                      markCompletePending={markCompleteMutation.isPending}
+                      onMarkComplete={() => { markCompleteMutation.mutate(material.id) }}
+                    />
+                  )
+                }
+              }
 
               return (
                 <li key={material.id} className="flex items-center gap-3 py-3">

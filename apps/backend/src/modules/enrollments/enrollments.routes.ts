@@ -19,6 +19,8 @@ import {
   cancelEnrollment,
   openMaterial,
   updateMaterialProgress,
+  getMaterialProgress,
+  markEmbedFailed,
 } from './enrollments.service.js'
 import { resolveLocale } from '../../lib/i18n.js'
 
@@ -120,6 +122,7 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
   // Tier 2: บันทึกว่าเปิดสื่อการเรียนแล้ว (idempotent — เปิดซ้ำไม่ reset)
   server.post('/:id/materials/:materialId/open', {
     preHandler: [app.verifyJwt],
+    config: { rateLimit: { max: 20, timeWindow: '1 minute' } },
     schema: {
       params: completeMaterialParamsSchema,
       response: { 200: materialProgressResponseSchema },
@@ -136,10 +139,52 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
     return reply.send(progress)
   })
 
+  // POST /enrollments/:id/materials/:materialId/embed-failed — USER (own only)
+  // client รายงานว่า YouTube embed โหลดไม่สำเร็จ (network/CSP/timeout) — gate จะ fallback เป็น time-gate แบบ LINK
+  server.post('/:id/materials/:materialId/embed-failed', {
+    preHandler: [app.verifyJwt],
+    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+    schema: {
+      params: completeMaterialParamsSchema,
+      response: { 200: materialProgressResponseSchema },
+    },
+  }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
+    const progress = await markEmbedFailed(
+      app.prisma,
+      req.params.id,
+      req.params.materialId,
+      req.user.id,
+      locale,
+    )
+    return reply.send(progress)
+  })
+
+  // GET /enrollments/:id/materials/:materialId/progress — USER (own only)
+  // hydrate % ที่ดูถึงแล้วตอนโหลดหน้าใหม่ (default { watchedPercent: 0, openedAt: null } ถ้ายังไม่เคยเปิด)
+  server.get('/:id/materials/:materialId/progress', {
+    preHandler: [app.verifyJwt],
+    schema: {
+      params: completeMaterialParamsSchema,
+      response: { 200: materialProgressResponseSchema },
+    },
+  }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
+    const progress = await getMaterialProgress(
+      app.prisma,
+      req.params.id,
+      req.params.materialId,
+      req.user.id,
+      locale,
+    )
+    return reply.send(progress)
+  })
+
   // POST /enrollments/:id/materials/:materialId/progress — USER (own only)
   // Tier 3: อัปเดต % ที่ดูวิดีโอถึง (เก็บค่าสูงสุด กันไถถอยหลัง)
   server.post('/:id/materials/:materialId/progress', {
     preHandler: [app.verifyJwt],
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
     schema: {
       params: completeMaterialParamsSchema,
       body: materialProgressInputSchema,
@@ -153,6 +198,7 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       req.params.materialId,
       req.user.id,
       req.body.watchedPercent,
+      req.body.durationSeconds,
       locale,
     )
     return reply.send(progress)

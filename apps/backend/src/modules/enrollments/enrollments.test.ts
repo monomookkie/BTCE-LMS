@@ -324,6 +324,14 @@ describe('Enrollments module', () => {
       })
     }
 
+    /** backdate openedAt แบบกำหนดวินาทีเอง — ใช้ทดสอบ time-ceiling sanity check ของ VIDEO progress */
+    async function backdateOpenedAt(enrollmentId: string, materialId: string, secondsAgo: number) {
+      await prisma.materialProgress.updateMany({
+        where: { enrollmentId, materialId },
+        data: { openedAt: new Date(Date.now() - secondsAgo * 1000) },
+      })
+    }
+
     it('mark material complete → progress updated', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { user, cookies: userCookies } = await setupUser()
@@ -544,11 +552,13 @@ describe('Enrollments module', () => {
         url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
         headers: { cookie: userCookies },
       })
+      // backdate ให้เวลาผ่านไปมากพอ — ไม่งั้น time-ceiling sanity check จะ clamp 95% ลงเพราะเพิ่ง open
+      await backdateOpenedAt(enrolled.id, matId, 100_000)
       await app.inject({
         method: 'POST',
         url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
         headers: { cookie: userCookies },
-        payload: { watchedPercent: 95 },
+        payload: { watchedPercent: 95, durationSeconds: 600 },
       })
 
       const res = await app.inject({
@@ -572,19 +582,236 @@ describe('Enrollments module', () => {
         url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
         headers: { cookie: userCookies },
       })
+      await backdateOpenedAt(enrolled.id, matId, 100_000)
       await app.inject({
         method: 'POST',
         url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
         headers: { cookie: userCookies },
-        payload: { watchedPercent: 95 },
+        payload: { watchedPercent: 95, durationSeconds: 600 },
       })
       const res = await app.inject({
         method: 'POST',
         url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
         headers: { cookie: userCookies },
-        payload: { watchedPercent: 10 },
+        payload: { watchedPercent: 10, durationSeconds: 600 },
       })
       expect(res.json<{ watchedPercent: number }>().watchedPercent).toBe(95)
+    })
+
+    // ─── Time-ceiling sanity check (กัน watchedPercent ปลอมที่ไม่ผ่านเวลาจริง) ─────
+
+    it('VIDEO: ยิง watchedPercent สูงทันทีหลัง open (ไม่มีเวลาผ่านจริง) → ถูก clamp ตาม time-ceiling', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      // ไม่ backdate — ยิง progress แทบจะทันทีหลัง open (elapsed ~0s)
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 100, durationSeconds: 600 },
+      })
+      const watchedPercent = res.json<{ watchedPercent: number }>().watchedPercent
+      // ceiling ≈ (elapsed/600)*100 + 10 buffer ≈ 10 — ต้องไม่ใช่ 100 ที่ client อ้าง
+      expect(watchedPercent).toBeLessThan(20)
+    })
+
+    it('VIDEO: ไม่ส่ง durationSeconds เลย → ใช้ MIN_ASSUMED_VIDEO_DURATION_SECONDS (30s) เป็น fallback ceiling ที่เข้มกว่า', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await backdateOpenedAt(enrolled.id, matId, 15) // elapsed = 15s
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 100 }, // ไม่ส่ง durationSeconds
+      })
+      const watchedPercent = res.json<{ watchedPercent: number }>().watchedPercent
+      // fallback duration = 30s → ceiling = (15/30)*100+10 = 60 — ยังต่ำกว่า 100 ที่ client อ้าง
+      expect(watchedPercent).toBeLessThanOrEqual(60)
+      expect(watchedPercent).toBeGreaterThan(0)
+    })
+
+    it('VIDEO: durationSeconds ถูก lock ที่ค่าแรก — ส่งค่าใหม่ครั้งถัดไปไม่มีผลต่อ ceiling', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await backdateOpenedAt(enrolled.id, matId, 300) // elapsed = 300s
+
+      // ครั้งแรก: ล็อก duration = 600s → ceiling = (300/600)*100+10 = 60
+      const first = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 40, durationSeconds: 600 },
+      })
+      expect(first.json<{ watchedPercent: number }>().watchedPercent).toBe(40)
+
+      // ครั้งถัดไป: พยายามส่ง durationSeconds เล็กลงเพื่อปั่น ceiling ให้หลวมขึ้น — ต้องไม่มีผล (ยังใช้ 600 ที่ล็อกไว้)
+      const second = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 90, durationSeconds: 5 },
+      })
+      // ถ้า duration ถูกปั่นสำเร็จ (ใช้ 5 แทน 600) ceiling จะทะลุ 100 ทันที ทำให้ผ่าน 90 ไปได้ — ต้องไม่เกิดขึ้น
+      expect(second.json<{ watchedPercent: number }>().watchedPercent).toBe(60)
+    })
+
+    it('VIDEO: เวลาผ่านจริงเพียงพอ (elapsed สอดคล้องกับ % ที่อ้าง) → ไม่ถูก clamp', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await backdateOpenedAt(enrolled.id, matId, 540) // 90% ของวิดีโอ 600 วิ
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 90, durationSeconds: 600 },
+      })
+      expect(res.json<{ watchedPercent: number }>().watchedPercent).toBe(90)
+    })
+
+    // ─── embed-failed fallback (YouTube โหลดไม่สำเร็จ → time-gate แบบ LINK) ────
+
+    it('VIDEO: embed-failed → complete gate เปลี่ยนเป็น time-gate (300 วิ) แทน percent-gate', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+
+      const embedFailedRes = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/embed-failed`,
+        headers: { cookie: userCookies },
+      })
+      expect(embedFailedRes.statusCode).toBe(200)
+      expect(embedFailedRes.json<{ embedFailed: boolean }>().embedFailed).toBe(true)
+
+      // watchedPercent ยังคง 0 (ไม่เคย track ได้) — ถ้าเป็น percent-gate ปกติจะ 400 ตลอดไป
+      // แต่เพิ่งเปิดมา ไม่ถึง 300 วิ — ต้อง 400 (ตาม time-gate ไม่ใช่ percent-gate)
+      const tooSoon = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+        headers: { cookie: userCookies },
+      })
+      expect(tooSoon.statusCode).toBe(400)
+
+      // backdate ให้ผ่าน 300 วิ — ต้องผ่านได้ทั้งที่ watchedPercent ยังเป็น 0
+      await backdateOpenedAt(enrolled.id, matId, 301)
+      const afterWait = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+        headers: { cookie: userCookies },
+      })
+      expect(afterWait.statusCode).toBe(200)
+    })
+
+    it('VIDEO: ไม่ embed-failed (ปกติ) → ยังคงใช้ percent-gate แม้เวลาผ่านไปนาน', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await backdateOpenedAt(enrolled.id, matId, 10_000) // เวลาผ่านมากพอสำหรับ time-gate แล้ว
+
+      // ไม่เคย mark embed-failed, watchedPercent ยังเป็น 0 — ต้องยังโดน percent-gate บล็อกอยู่
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('embed-failed: ยิงก่อน open มาก่อน → upsert สร้าง progress row ให้เอง (กัน race กับ /open)', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/embed-failed`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json<{ embedFailed: boolean; openedAt: string | null }>()
+      expect(body.embedFailed).toBe(true)
+      expect(body.openedAt).not.toBeNull()
+    })
+
+    it('IDOR: embed-failed ของ enrollment คนอื่น → 404', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user: victim } = await setupUser()
+      const { cookies: attackerCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, victim.id, courseId)).json<EnrollmentResponse>()
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/embed-failed`,
+        headers: { cookie: attackerCookies },
+      })
+      expect(res.statusCode).toBe(404)
     })
 
     it('progress: ยิงก่อน open มาก่อน → 400', async () => {
@@ -627,6 +854,62 @@ describe('Enrollments module', () => {
         payload: { watchedPercent: 50 },
       })
       expect(progressRes.statusCode).toBe(404)
+
+      const getRes = await app.inject({
+        method: 'GET',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: attackerCookies },
+      })
+      expect(getRes.statusCode).toBe(404)
+    })
+
+    it('GET progress: ยังไม่เคยเปิด → default { watchedPercent: 0, openedAt: null }', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addLinkMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json()).toEqual({ materialId: matId, openedAt: null, watchedPercent: 0, embedFailed: false })
+    })
+
+    it('GET progress: หลัง open + progress → hydrate ค่าล่าสุด', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const matId = await addVideoMaterial(adminCookies, courseId)
+
+      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+        headers: { cookie: userCookies },
+      })
+      // backdate ให้เวลาผ่านไปมากพอ — ไม่งั้น time-ceiling sanity check จะ clamp 42% ลงเพราะเพิ่ง open
+      await backdateOpenedAt(enrolled.id, matId, 100_000)
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+        payload: { watchedPercent: 42, durationSeconds: 600 },
+      })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+        headers: { cookie: userCookies },
+      })
+      const body = res.json<{ materialId: string; openedAt: string | null; watchedPercent: number }>()
+      expect(body.watchedPercent).toBe(42)
+      expect(body.openedAt).not.toBeNull()
     })
   })
 

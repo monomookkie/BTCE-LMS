@@ -219,7 +219,12 @@
     "attemptHistory": "ประวัติการสอบ",
     "noAttempts": "ยังไม่เคยสอบ",
     "yourAnswer": "คำตอบของคุณ",
-    "notAnswered": "ไม่ได้ตอบ"
+    "notAnswered": "ไม่ได้ตอบ",
+    "videoWatchedPercent": "ดูไปแล้ว {{percent}}%",
+    "videoNeedMorePercent": "ดูอย่างน้อย {{percent}}% เพื่อทำเครื่องหมายว่าเรียนจบ",
+    "videoSeekBlocked": "กรุณาดูตามลำดับ — ไม่สามารถกรอข้ามไปข้างหน้าได้",
+    "videoEmbedFailed": "ไม่สามารถโหลดตัวเล่นวิดีโอได้ กรุณาเปิดวิดีโอโดยตรงผ่านลิงก์ด้านล่าง",
+    "videoFallbackWaitHint": "กรุณารออย่างน้อย {{minutes}} นาทีหลังเปิดวิดีโอ ก่อนทำเครื่องหมายว่าเรียนจบ"
   },
   "status": {
     "quiz": {
