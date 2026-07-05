@@ -9,6 +9,18 @@ import { Skeleton } from '../ui/Skeleton.js'
 
 const NOTIFICATIONS_KEY = ['notifications', 'me'] as const
 
+// mirror ของแถว notification จริง — title + subtitle เรียงกัน
+function NotificationRowSkeleton() {
+  return (
+    <li className="px-4 py-3">
+      <div className="space-y-1.5">
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-1/2" />
+      </div>
+    </li>
+  )
+}
+
 export function NotificationBell() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -81,11 +93,9 @@ export function NotificationBell() {
 
           <div className="max-h-96 overflow-y-auto">
             {isLoading ? (
-              <div className="space-y-3 p-4">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-4 w-3/4" />
-                <Skeleton className="h-4 w-5/6" />
-              </div>
+              <ul className="divide-y divide-slate-100">
+                {Array.from({ length: 3 }).map((_, i) => <NotificationRowSkeleton key={i} />)}
+              </ul>
             ) : !data || data.data.length === 0 ? (
               <p className="px-4 py-8 text-center text-sm text-slate-400">{t('notification.empty')}</p>
             ) : (

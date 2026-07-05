@@ -13,6 +13,24 @@ import { useToast } from '../../hooks/useToast.js'
 const COURSES_KEY = ['courses', 'published'] as const
 const ENROLLMENTS_ME_KEY = ['enrollments', 'me'] as const
 
+// mirror ของ course card จริง — category tag, title, description 2 บรรทัด, stats 2 บรรทัด, ปุ่มท้ายการ์ด
+function CourseCardSkeleton() {
+  return (
+    <Card className="flex flex-col">
+      <div className="mb-3 space-y-2">
+        <Skeleton className="h-3 w-16" />
+        <Skeleton className="h-4 w-3/4" />
+        <Skeleton className="h-3 w-full" />
+      </div>
+      <div className="mt-auto space-y-1.5">
+        <Skeleton className="h-3 w-20" />
+        <Skeleton className="h-3 w-24" />
+      </div>
+      <Skeleton className="mt-3 h-7 w-24 rounded-full" />
+    </Card>
+  )
+}
+
 export default function BrowseCoursesPage() {
   const { t } = useTranslation()
   const qc = useQueryClient()
@@ -102,11 +120,7 @@ export default function BrowseCoursesPage() {
       {/* Course grid */}
       {isLoading ? (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 6 }).map((_, i) => (
-            <Card key={i}>
-              <Skeleton className="h-32" />
-            </Card>
-          ))}
+          {Array.from({ length: 6 }).map((_, i) => <CourseCardSkeleton key={i} />)}
         </div>
       ) : filtered.length === 0 ? (
         <p className="py-12 text-center text-sm text-slate-400">

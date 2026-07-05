@@ -239,11 +239,12 @@ export default function CertificateEnginePage() {
 
   const columns = useMemo<Column<CertificateAdminResponse>[]>(
     () => [
-      { key: 'certNumber', header: t('certificate.certNumber'), width: '16%' },
+      { key: 'certNumber', header: t('certificate.certNumber'), width: '16%', skeleton: 'text' },
       {
         key: 'userName',
         header: t('user.name'),
         width: '20%',
+        skeleton: 'text-sub',
         render: (c) => (
           <div>
             <p className="font-medium text-slate-800">{c.userName}</p>
@@ -251,18 +252,19 @@ export default function CertificateEnginePage() {
           </div>
         ),
       },
-      { key: 'courseTitle', header: t('course.label'), width: '22%' },
-      { key: 'status', header: t('adminCourse.status'), width: '13%',
+      { key: 'courseTitle', header: t('course.label'), width: '22%', skeleton: 'text' },
+      { key: 'status', header: t('adminCourse.status'), width: '13%', skeleton: 'pill',
         render: (c) => <StatusBadge type="cert" status={c.status} /> },
-      { key: 'issuedAt', header: t('certificate.issued'), width: '12%',
+      { key: 'issuedAt', header: t('certificate.issued'), width: '12%', skeleton: 'text',
         render: (c) => new Date(c.issuedAt).toLocaleDateString() },
-      { key: 'expiresAt', header: t('certificate.expires'), width: '12%',
+      { key: 'expiresAt', header: t('certificate.expires'), width: '12%', skeleton: 'text',
         render: (c) => c.expiresAt ? new Date(c.expiresAt).toLocaleDateString() : '—' },
       {
         key: 'actions',
         header: '',
         width: '8%',
         align: 'right',
+        skeleton: 'icons',
         render: (c) => (
           <Button size="sm" variant="ghost" onClick={() => setDetailId(c.id)} title={t('adminCertificate.detail')}>
             <Eye size={14} />

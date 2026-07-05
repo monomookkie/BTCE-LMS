@@ -5,6 +5,7 @@ import { CheckCircle2, Circle, ExternalLink } from 'lucide-react'
 import type { MaterialPublicResponse } from '@btec-lms/shared'
 import { MIN_WATCHED_PERCENT, MIN_READ_SECONDS } from '@btec-lms/shared'
 import { Button } from '../ui/Button.js'
+import { Skeleton } from '../ui/Skeleton.js'
 import {
   getMaterialProgress,
   openMaterial,
@@ -115,10 +116,16 @@ export function VideoMaterialCard({
   const embedFailed = embedFailedLocal || (progress?.embedFailed ?? false)
   const { ready: timeGateReady } = useTimeGate(progress?.openedAt ?? null, MIN_READ_SECONDS)
 
+  // ชื่อ material รู้จาก props ทันที (sync) แสดงได้เลย — เฉพาะปุ่ม action กับพื้นที่วิดีโอเท่านั้นที่รอ progress query (async)
+  // aspect-video จองพื้นที่เท่า iframe จริงเป๊ะ กัน layout shift ตอน YouTube โหลดเสร็จ
   if (progress == null) {
     return (
-      <li className="py-3">
-        <div className="h-32 animate-pulse rounded-lg bg-slate-100" />
+      <li className="space-y-3 py-3">
+        <div className="flex items-center justify-between gap-3">
+          <p className="truncate text-sm font-medium text-slate-700">{material.title}</p>
+          <Skeleton className="h-8 w-28 shrink-0 rounded-lg" />
+        </div>
+        <Skeleton className="aspect-video w-full rounded-lg" />
       </li>
     )
   }

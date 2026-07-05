@@ -1,10 +1,15 @@
 import type { ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { Skeleton } from './Skeleton.js'
 import { Button } from './Button.js'
+import { Skeleton } from './Skeleton.js'
 
 // ──────────────────────────────────────────────────────────────── types ──
+
+// รูปทรง skeleton ต่อคอลัมน์ตอนโหลด — ต้องตรงกับสิ่งที่ column นั้น render จริง ไม่ใช่แท่งเหมือนกันทุกคอลัมน์
+// 'text' (ค่าเริ่มต้น): บรรทัดเดียว, 'text-sub': ชื่อ+บรรทัดรอง (เช่น name+email), 'pill': ตรงกับ Badge/StatusBadge,
+// 'bar': ตรงกับ ProgressBar, 'icons': ตรงกับกลุ่มปุ่มไอคอนในคอลัมน์ actions, 'none': ไม่ต้องมี skeleton
+export type ColumnSkeleton = 'text' | 'text-sub' | 'pill' | 'bar' | 'icons' | 'none'
 
 export interface Column<T> {
   key: string
@@ -12,6 +17,7 @@ export interface Column<T> {
   render?: (row: T) => ReactNode
   width?: string
   align?: 'left' | 'center' | 'right'
+  skeleton?: ColumnSkeleton
 }
 
 export interface PaginationConfig {
@@ -29,6 +35,44 @@ interface DataTableProps<T extends object> {
   emptyMessage?: string | undefined
   pagination?: PaginationConfig | undefined
   className?: string | undefined
+}
+
+// ─────────────────────────────────────────────────────── skeleton cells ──
+
+// ความกว้าง text วนตามแถว ให้ดูเป็นข้อความยาวไม่เท่ากันจริง ไม่ใช่แท่งเต็มความกว้างซ้ำทุกแถว
+const TEXT_WIDTHS = ['w-4/5', 'w-full', 'w-3/5', 'w-5/6']
+
+function SkeletonCell({ type, rowIndex }: { type: ColumnSkeleton; rowIndex: number }) {
+  if (type === 'none') return null
+  if (type === 'pill') return <Skeleton className="h-5 w-16 rounded-full" />
+  if (type === 'icons') {
+    return (
+      <div className="flex gap-2">
+        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-4" />
+        <Skeleton className="h-4 w-4" />
+      </div>
+    )
+  }
+  if (type === 'bar') {
+    return (
+      <div className="space-y-1">
+        <Skeleton className="h-2 w-full rounded-full" />
+        <Skeleton className="h-3 w-8" />
+      </div>
+    )
+  }
+
+  const widthClass = TEXT_WIDTHS[rowIndex % TEXT_WIDTHS.length]
+  if (type === 'text-sub') {
+    return (
+      <div className="space-y-1.5">
+        <Skeleton className={`h-4 ${widthClass}`} />
+        <Skeleton className="h-3 w-2/3" />
+      </div>
+    )
+  }
+  return <Skeleton className={`h-4 ${widthClass}`} />
 }
 
 // ──────────────────────────────────────────────────────── align helpers ──
@@ -61,7 +105,7 @@ export function DataTable<T extends object>({
 
   return (
     <div className={className}>
-      <div className="overflow-x-auto rounded-xl border border-slate-100">
+      <div className="overflow-x-auto rounded-md border border-slate-100">
         <table className="w-full text-sm">
           <thead className="bg-slate-50">
             <tr>
@@ -70,7 +114,7 @@ export function DataTable<T extends object>({
                   key={col.key}
                   style={col.width ? { width: col.width } : undefined}
                   className={[
-                    'px-4 py-3 text-xs font-semibold uppercase tracking-wide text-slate-500',
+                    'px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500',
                     thAlign[col.align ?? 'left'],
                   ].join(' ')}
                 >
@@ -81,11 +125,11 @@ export function DataTable<T extends object>({
           </thead>
           <tbody className="divide-y divide-slate-100 bg-white">
             {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
+              Array.from({ length: pagination?.pageSize ?? 5 }).map((_, i) => (
                 <tr key={i}>
                   {columns.map((col) => (
-                    <td key={col.key} className="px-4 py-3">
-                      <Skeleton className="h-4 w-full" />
+                    <td key={col.key} className="px-3 py-2">
+                      <SkeletonCell type={col.skeleton ?? 'text'} rowIndex={i} />
                     </td>
                   ))}
                 </tr>
@@ -94,7 +138,7 @@ export function DataTable<T extends object>({
               <tr>
                 <td
                   colSpan={columns.length}
-                  className="px-4 py-12 text-center text-sm text-slate-400"
+                  className="px-3 py-8 text-center text-sm text-slate-400"
                 >
                   {emptyMessage ?? t('ui.table.empty')}
                 </td>
@@ -109,7 +153,7 @@ export function DataTable<T extends object>({
                     <td
                       key={col.key}
                       className={[
-                        'px-4 py-3 text-slate-700',
+                        'px-3 py-2 text-slate-700',
                         tdAlign[col.align ?? 'left'],
                       ].join(' ')}
                     >

@@ -7,11 +7,11 @@ import {
 } from 'lucide-react'
 import type { ComplianceRow } from '@btec-lms/shared'
 import { getDashboardSummary, getComplianceList } from '../../api/reports.js'
-import { StatCard } from '../../components/ui/StatCard.js'
+import { StatCard, StatCardSkeleton } from '../../components/ui/StatCard.js'
 import { Card } from '../../components/ui/Card.js'
 import { ProgressBar } from '../../components/ui/ProgressBar.js'
-import { Skeleton } from '../../components/ui/Skeleton.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
+import { Skeleton } from '../../components/ui/Skeleton.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
 
@@ -25,28 +25,17 @@ const COMPLIANCE_PREVIEW_KEY = ['reports', 'compliance', 'preview'] as const
 function useComplianceColumns(): Column<ComplianceRow>[] {
   const { t } = useTranslation()
   return [
-    { key: 'userName',         header: t('user.name'),           width: '28%' },
-    { key: 'courseTitle',      header: t('course.label'),         width: '28%' },
-    { key: 'progress',         header: t('enrollment.progress'),  width: '11%', align: 'right',
+    { key: 'userName',         header: t('user.name'),           width: '28%', skeleton: 'text' },
+    { key: 'courseTitle',      header: t('course.label'),         width: '28%', skeleton: 'text' },
+    { key: 'progress',         header: t('enrollment.progress'),  width: '11%', align: 'right', skeleton: 'text',
       render: (r) => `${r.progress}%` },
-    { key: 'enrollmentStatus', header: t('enrollment.label'),     width: '16%',
+    { key: 'enrollmentStatus', header: t('enrollment.label'),     width: '16%', skeleton: 'pill',
       render: (r) => <StatusBadge type="enrollment" status={r.enrollmentStatus} /> },
-    { key: 'certStatus',       header: t('certificate.label'),    width: '17%',
+    { key: 'certStatus',       header: t('certificate.label'),    width: '17%', skeleton: 'pill',
       render: (r) => r.certStatus
         ? <StatusBadge type="cert" status={r.certStatus} />
         : <span className="text-slate-400">—</span> },
   ]
-}
-
-// ─── Skeleton loaders ─────────────────────────────────────────────────────────
-
-function StatCardSkeleton() {
-  return (
-    <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-      <Skeleton className="mb-3 h-4 w-24" />
-      <Skeleton className="h-8 w-16" />
-    </div>
-  )
 }
 
 // ─── AdminDashboardPage ───────────────────────────────────────────────────────
@@ -184,7 +173,7 @@ export default function AdminDashboardPage() {
               {t('adminDash.recertTitle')}
             </div>
             {summaryLoading ? (
-              <Skeleton className="my-2 h-10 w-16 bg-brand-700" />
+              <Skeleton className="my-1 h-12 w-16 bg-white/20" />
             ) : (
               <p className="my-1 text-5xl font-bold">
                 {summary?.certsExpiringSoon ?? 0}
@@ -203,10 +192,22 @@ export default function AdminDashboardPage() {
           {/* Learning progress */}
           <Card header={<h2 className="font-semibold text-slate-700">{t('adminDash.progressTitle')}</h2>}>
             {summaryLoading ? (
-              <div className="space-y-3">
-                <Skeleton className="h-4 w-full" />
-                <Skeleton className="h-2 w-full" />
-                <Skeleton className="h-4 w-1/2" />
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-3.5 w-28" />
+                    <Skeleton className="h-3.5 w-8" />
+                  </div>
+                  <Skeleton className="h-2 w-full rounded-full" />
+                </div>
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="flex items-center justify-between">
+                      <Skeleton className="h-3.5 w-24" />
+                      <Skeleton className="h-3.5 w-8" />
+                    </div>
+                  ))}
+                </div>
               </div>
             ) : (
               <div className="space-y-4">

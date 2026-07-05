@@ -295,6 +295,7 @@ export default function CourseManagementPage() {
       {
         key: 'titleEn',
         header: t('adminCourse.titleEn'),
+        skeleton: 'text-sub',
         render: (c) => (
           <div>
             <p className="font-medium text-slate-800">{c.titleEn}</p>
@@ -306,6 +307,7 @@ export default function CourseManagementPage() {
         key: 'categoryEn',
         header: t('course.category'),
         width: '14%',
+        skeleton: 'text-sub',
         render: (c) => (
           <div>
             <p>{c.categoryEn}</p>
@@ -313,15 +315,16 @@ export default function CourseManagementPage() {
           </div>
         ),
       },
-      { key: 'status',    header: t('adminCourse.status'), width: '12%',
+      { key: 'status',    header: t('adminCourse.status'), width: '12%', skeleton: 'pill',
         render: (c) => <StatusBadge type="course" status={c.status} /> },
-      { key: 'passScore', header: t('adminCourse.passScore'), width: '9%', align: 'right',
+      { key: 'passScore', header: t('adminCourse.passScore'), width: '9%', align: 'right', skeleton: 'text',
         render: (c) => `${c.passScore}%` },
       {
         key: 'actions',
         header: '',
         width: '22%',
         align: 'right',
+        skeleton: 'icons',
         render: (c) => (
           <div className="flex items-center justify-end gap-1">
             {/* Manage materials/quiz */}

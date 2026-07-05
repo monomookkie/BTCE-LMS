@@ -1,7 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { BookOpen, CheckCircle, Award, AlertTriangle } from 'lucide-react'
-import { StatCard } from '../../components/ui/StatCard.js'
+import { StatCard, StatCardSkeleton } from '../../components/ui/StatCard.js'
 import { Card } from '../../components/ui/Card.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import { ProgressBar } from '../../components/ui/ProgressBar.js'
@@ -12,6 +12,32 @@ import { formatDate } from '../../lib/format.js'
 
 const ENROLLMENTS_ME_KEY = ['enrollments', 'me'] as const
 const CERTS_ME_KEY = ['certificates', 'me'] as const
+
+// mirror ของแถว enrollment ใน "Recent Progress" — ชื่อคอร์ส+badge บรรทัดบน, progress bar บรรทัดล่าง
+function ProgressListRowSkeleton() {
+  return (
+    <li className="py-3">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <Skeleton className="h-2 w-full rounded-full" />
+    </li>
+  )
+}
+
+// mirror ของแถว certificate ใน "Recent Certs" — ชื่อคอร์ส+วันที่ ซ้าย, badge ขวา
+function CertListRowSkeleton() {
+  return (
+    <li className="flex items-start justify-between gap-2 py-3">
+      <div className="space-y-1.5">
+        <Skeleton className="h-4 w-36" />
+        <Skeleton className="h-3 w-28" />
+      </div>
+      <Skeleton className="h-5 w-16 rounded-full" />
+    </li>
+  )
+}
 
 export default function UserDashboardPage() {
   const { t, i18n } = useTranslation()
@@ -79,11 +105,7 @@ export default function UserDashboardPage() {
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <Skeleton className="h-16" />
-            </Card>
-          ))
+          Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
         ) : (
           <>
             <StatCard
@@ -120,7 +142,9 @@ export default function UserDashboardPage() {
           }
         >
           {isLoading ? (
-            <Skeleton lines={4} />
+            <ul className="divide-y divide-slate-100">
+              {Array.from({ length: 3 }).map((_, i) => <ProgressListRowSkeleton key={i} />)}
+            </ul>
           ) : activeEnrollments.length === 0 ? (
             <p className="py-6 text-center text-sm text-slate-400">
               {t('dashboard.emptyEnrollments')}
@@ -156,7 +180,9 @@ export default function UserDashboardPage() {
           }
         >
           {isLoading ? (
-            <Skeleton lines={3} />
+            <ul className="divide-y divide-slate-100">
+              {Array.from({ length: 3 }).map((_, i) => <CertListRowSkeleton key={i} />)}
+            </ul>
           ) : recentCerts.length === 0 ? (
             <p className="py-6 text-center text-sm text-slate-400">
               {t('dashboard.emptyCerts')}

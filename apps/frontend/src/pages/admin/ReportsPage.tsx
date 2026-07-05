@@ -14,23 +14,13 @@ import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Card } from '../../components/ui/Card.js'
-import { StatCard } from '../../components/ui/StatCard.js'
-import { Skeleton } from '../../components/ui/Skeleton.js'
+import { StatCard, StatCardSkeleton } from '../../components/ui/StatCard.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
 
 const STATUSES: EnrollmentStatus[] = ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED']
 const PAGE_SIZE = 20
-
-function StatCardSkeleton() {
-  return (
-    <div className="rounded-xl border border-slate-100 bg-white p-5 shadow-sm">
-      <Skeleton className="mb-3 h-4 w-24" />
-      <Skeleton className="h-8 w-16" />
-    </div>
-  )
-}
 
 export default function ReportsPage() {
   const { t } = useTranslation()
@@ -71,17 +61,17 @@ export default function ReportsPage() {
 
   const columns = useMemo<Column<ComplianceRow>[]>(
     () => [
-      { key: 'userName', header: t('user.name'), width: '22%' },
-      { key: 'courseTitle', header: t('course.label'), width: '24%' },
-      { key: 'enrollmentStatus', header: t('enrollment.label'), width: '15%',
+      { key: 'userName', header: t('user.name'), width: '22%', skeleton: 'text' },
+      { key: 'courseTitle', header: t('course.label'), width: '24%', skeleton: 'text' },
+      { key: 'enrollmentStatus', header: t('enrollment.label'), width: '15%', skeleton: 'pill',
         render: (r) => <StatusBadge type="enrollment" status={r.enrollmentStatus} /> },
-      { key: 'progress', header: t('enrollment.progress'), width: '11%', align: 'right',
+      { key: 'progress', header: t('enrollment.progress'), width: '11%', align: 'right', skeleton: 'text',
         render: (r) => `${r.progress}%` },
-      { key: 'certStatus', header: t('certificate.label'), width: '14%',
+      { key: 'certStatus', header: t('certificate.label'), width: '14%', skeleton: 'pill',
         render: (r) => r.certStatus
           ? <StatusBadge type="cert" status={r.certStatus} />
           : <span className="text-slate-400">—</span> },
-      { key: 'certExpiresAt', header: t('certificate.expires'), width: '14%',
+      { key: 'certExpiresAt', header: t('certificate.expires'), width: '14%', skeleton: 'text',
         render: (r) => r.certExpiresAt ? new Date(r.certExpiresAt).toLocaleDateString() : '—' },
     ],
     [t],

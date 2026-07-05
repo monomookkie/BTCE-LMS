@@ -245,6 +245,7 @@ export default function AnnouncementsPage() {
       {
         key: 'titleEn',
         header: t('adminAnnouncement.titleEn'),
+        skeleton: 'text-sub',
         render: (a) => (
           <div>
             <p className="font-medium text-slate-800">{a.titleEn}</p>
@@ -252,16 +253,17 @@ export default function AnnouncementsPage() {
           </div>
         ),
       },
-      { key: 'type', header: t('adminAnnouncement.type'), width: '12%' },
-      { key: 'status', header: t('adminCourse.status'), width: '12%',
+      { key: 'type', header: t('adminAnnouncement.type'), width: '12%', skeleton: 'text' },
+      { key: 'status', header: t('adminCourse.status'), width: '12%', skeleton: 'pill',
         render: (a) => <StatusBadge type="announcement" status={a.status} /> },
-      { key: 'createdAt', header: t('certificate.issued'), width: '14%',
+      { key: 'createdAt', header: t('certificate.issued'), width: '14%', skeleton: 'text',
         render: (a) => new Date(a.createdAt).toLocaleDateString() },
       {
         key: 'actions',
         header: '',
         width: '22%',
         align: 'right',
+        skeleton: 'icons',
         render: (a) => (
           <div className="flex items-center justify-end gap-1">
             <Button size="sm" variant="ghost" onClick={() => setFormModal({ open: true, announcement: a })} title={t('common.edit')}>

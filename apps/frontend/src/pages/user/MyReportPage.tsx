@@ -2,12 +2,11 @@ import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { BookOpen, CheckCircle, TrendingUp, Award } from 'lucide-react'
 import type { EnrollmentResponse, CertificatePublicResponse } from '@btec-lms/shared'
-import { StatCard } from '../../components/ui/StatCard.js'
+import { StatCard, StatCardSkeleton } from '../../components/ui/StatCard.js'
 import { Card } from '../../components/ui/Card.js'
 import { DataTable, type Column } from '../../components/ui/DataTable.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import { ProgressBar } from '../../components/ui/ProgressBar.js'
-import { Skeleton } from '../../components/ui/Skeleton.js'
 import { listMyEnrollments } from '../../api/enrollments.js'
 import { listMyCertificates } from '../../api/certificates.js'
 import { formatDate } from '../../lib/format.js'
@@ -58,28 +57,33 @@ export default function MyReportPage() {
     {
       key: 'courseTitle',
       header: t('course.label'),
+      skeleton: 'text',
       render: (r) => <span className="font-medium text-slate-700">{r.courseTitle}</span>,
     },
     {
       key: 'status',
       header: 'Status',
       width: '130px',
+      skeleton: 'pill',
       render: (r) => <StatusBadge type="enrollment" status={r.status} />,
     },
     {
       key: 'progress',
       header: t('enrollment.progress'),
       width: '160px',
+      skeleton: 'bar',
       render: (r) => <ProgressBar value={r.progress} showValue />,
     },
     {
       key: 'dueAt',
       header: t('enrollment.dueDate'),
+      skeleton: 'text',
       render: (r) => (r.dueAt != null ? formatDate(r.dueAt, i18n.language) : '—'),
     },
     {
       key: 'completedAt',
       header: t('report.completedOn'),
+      skeleton: 'text',
       render: (r) =>
         r.completedAt != null ? formatDate(r.completedAt, i18n.language) : '—',
     },
@@ -89,6 +93,7 @@ export default function MyReportPage() {
     {
       key: 'courseTitle',
       header: t('course.label'),
+      skeleton: 'text',
       render: (r) => <span className="font-medium text-slate-700">{r.courseTitle}</span>,
     },
     {
@@ -96,22 +101,26 @@ export default function MyReportPage() {
       header: t('quiz.score'),
       align: 'center',
       width: '80px',
+      skeleton: 'text',
       render: (r) => `${r.score}%`,
     },
     {
       key: 'issuedAt',
       header: t('certificate.issued'),
+      skeleton: 'text',
       render: (r) => formatDate(r.issuedAt, i18n.language),
     },
     {
       key: 'expiresAt',
       header: t('certificate.expires'),
+      skeleton: 'text',
       render: (r) => (r.expiresAt != null ? formatDate(r.expiresAt, i18n.language) : '—'),
     },
     {
       key: 'status',
       header: 'Status',
       width: '130px',
+      skeleton: 'pill',
       render: (r) => <StatusBadge type="cert" status={r.status} />,
     },
   ]
@@ -137,11 +146,7 @@ export default function MyReportPage() {
       {/* Summary stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         {isLoading ? (
-          Array.from({ length: 4 }).map((_, i) => (
-            <Card key={i}>
-              <Skeleton className="h-16" />
-            </Card>
-          ))
+          Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
         ) : (
           <>
             <StatCard

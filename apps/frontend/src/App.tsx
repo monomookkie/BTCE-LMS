@@ -4,10 +4,10 @@ import { useAuth } from './hooks/useAuth.js'
 import { RequireAuth } from './components/auth/RequireAuth.js'
 import { RequireRole } from './components/auth/RequireRole.js'
 import AppLayout from './components/layout/AppLayout.js'
+import { PageSkeleton } from './components/ui/PageSkeleton.js'
 import LoginPage from './pages/auth/LoginPage.js'
 import RegisterPage from './pages/auth/RegisterPage.js'
 
-const UiShowcasePage = lazy(() => import('./pages/UiShowcasePage.js'))
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage.js'))
 const UserDashboardPage = lazy(() => import('./pages/user/UserDashboardPage.js'))
 const BrowseCoursesPage = lazy(() => import('./pages/user/BrowseCoursesPage.js'))
@@ -26,7 +26,7 @@ const NotFoundPage          = lazy(() => import('./pages/NotFoundPage.js'))
 
 function RootRedirect() {
   const { user, isLoading } = useAuth()
-  if (isLoading) return null
+  if (isLoading) return <PageSkeleton variant="app" />
   if (!user) return <Navigate to="/login" replace />
   return <Navigate to={user.role === 'USER' ? '/dashboard' : '/admin/dashboard'} replace />
 }
@@ -41,18 +41,8 @@ export default function App() {
       <Route
         path="/verify/:hash"
         element={
-          <Suspense fallback={null}>
+          <Suspense fallback={<PageSkeleton variant="auth" />}>
             <CertVerifyPage />
-          </Suspense>
-        }
-      />
-
-      {/* Dev-only showcase */}
-      <Route
-        path="/ui-showcase"
-        element={
-          <Suspense fallback={null}>
-            <UiShowcasePage />
           </Suspense>
         }
       />
@@ -63,7 +53,7 @@ export default function App() {
           <Route
             path="/dashboard"
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageSkeleton variant="dashboard" />}>
                 <UserDashboardPage />
               </Suspense>
             }
@@ -71,7 +61,7 @@ export default function App() {
           <Route
             path="/courses"
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageSkeleton variant="courses" />}>
                 <BrowseCoursesPage />
               </Suspense>
             }
@@ -79,7 +69,7 @@ export default function App() {
           <Route
             path="/courses/:id"
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageSkeleton />}>
                 <CourseDetailPage />
               </Suspense>
             }
@@ -87,7 +77,7 @@ export default function App() {
           <Route
             path="/certs"
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageSkeleton variant="table" />}>
                 <MyCertificatesPage />
               </Suspense>
             }
@@ -95,7 +85,7 @@ export default function App() {
           <Route
             path="/report"
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageSkeleton />}>
                 <MyReportPage />
               </Suspense>
             }
@@ -103,7 +93,7 @@ export default function App() {
           <Route
             path="/profile"
             element={
-              <Suspense fallback={null}>
+              <Suspense fallback={<PageSkeleton />}>
                 <ProfilePage />
               </Suspense>
             }
@@ -114,7 +104,7 @@ export default function App() {
             <Route
                 path="/admin/dashboard"
                 element={
-                  <Suspense fallback={null}>
+                  <Suspense fallback={<PageSkeleton variant="dashboard" />}>
                     <AdminDashboardPage />
                   </Suspense>
                 }
@@ -122,7 +112,7 @@ export default function App() {
             <Route
               path="/admin/courses"
               element={
-                <Suspense fallback={null}>
+                <Suspense fallback={<PageSkeleton variant="table" />}>
                   <CourseManagementPage />
                 </Suspense>
               }
@@ -130,7 +120,7 @@ export default function App() {
             <Route
               path="/admin/courses/:id"
               element={
-                <Suspense fallback={null}>
+                <Suspense fallback={<PageSkeleton />}>
                   <CourseDetailAdminPage />
                 </Suspense>
               }
@@ -138,7 +128,7 @@ export default function App() {
             <Route
               path="/admin/certificates"
               element={
-                <Suspense fallback={null}>
+                <Suspense fallback={<PageSkeleton variant="table" />}>
                   <CertificateEnginePage />
                 </Suspense>
               }
@@ -146,7 +136,7 @@ export default function App() {
             <Route
               path="/admin/reports"
               element={
-                <Suspense fallback={null}>
+                <Suspense fallback={<PageSkeleton variant="table" />}>
                   <ReportsPage />
                 </Suspense>
               }
@@ -154,7 +144,7 @@ export default function App() {
             <Route
               path="/admin/announcements"
               element={
-                <Suspense fallback={null}>
+                <Suspense fallback={<PageSkeleton variant="table" />}>
                   <AnnouncementsPage />
                 </Suspense>
               }
@@ -163,7 +153,7 @@ export default function App() {
             <Route
               path="/admin/users"
               element={
-                <Suspense fallback={null}>
+                <Suspense fallback={<PageSkeleton variant="table" />}>
                   <UserDirectoryPage />
                 </Suspense>
               }
@@ -176,7 +166,7 @@ export default function App() {
       <Route
         path="*"
         element={
-          <Suspense fallback={null}>
+          <Suspense fallback={<PageSkeleton variant="auth" />}>
             <NotFoundPage />
           </Suspense>
         }

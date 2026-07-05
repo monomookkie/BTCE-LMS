@@ -12,22 +12,70 @@ import { ApiError } from '../../lib/api.js'
 import { Card } from '../../components/ui/Card.js'
 import { Input } from '../../components/ui/Input.js'
 import { Button } from '../../components/ui/Button.js'
+import { Skeleton } from '../../components/ui/Skeleton.js'
 import { LanguageSwitcher } from '../../components/LanguageSwitcher.js'
 import { useToast } from '../../hooks/useToast.js'
 
-// ─── Base schemas (outside component) used only for type inference ─────────
+// ─── Schema builders (module scope) — types derived via ReturnType so the
+// schema construction itself only ever happens inside useMemo, not as an
+// unused module-level side effect purely for type extraction. ────────────
 
-const _profileBaseSchema = z.object({
-  name: z.string().min(1).max(100),
-  position: z.string().max(100).optional(),
-})
+type TFn = ReturnType<typeof useTranslation>['t']
 
-const _passwordBaseSchema = changePasswordInputSchema.extend({
-  confirmPassword: z.string().min(1),
-})
+function buildProfileSchema(t: TFn) {
+  return z.object({
+    name: z.string().min(1, t('common.required')).max(100),
+    position: z.string().max(100).optional(),
+  })
+}
 
-type ProfileFormValues = z.infer<typeof _profileBaseSchema>
-type PasswordFormValues = z.infer<typeof _passwordBaseSchema>
+function buildPasswordSchema(t: TFn) {
+  return changePasswordInputSchema
+    .extend({
+      // backend policy: min 8, max 72 — match exactly, no extra complexity rules
+      newPassword: z.string().min(8, t('profile.passwordMinLength', { count: 8 })).max(72),
+      confirmPassword: z.string().min(1, t('common.required')),
+    })
+    .refine((d) => d.newPassword === d.confirmPassword, {
+      message: t('profile.passwordMismatch'),
+      path: ['confirmPassword'],
+    })
+}
+
+type ProfileFormValues = z.infer<ReturnType<typeof buildProfileSchema>>
+type PasswordFormValues = z.infer<ReturnType<typeof buildPasswordSchema>>
+
+// mirror ของ ProfilePage จริง — 3 Card section: Personal Info (3 input rows), Language Pref (1 row), Change Password (3 rows)
+function ProfilePageSkeleton() {
+  return (
+    <div className="mx-auto max-w-2xl space-y-6 p-6">
+      <Skeleton className="h-5 w-32" />
+      <Card header={<Skeleton className="h-3.5 w-28" />}>
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="space-y-1.5">
+              <Skeleton className="h-3 w-20" />
+              <Skeleton className="h-9 w-full rounded-xl" />
+            </div>
+          ))}
+        </div>
+      </Card>
+      <Card header={<Skeleton className="h-3.5 w-32" />}>
+        <Skeleton className="h-9 w-40 rounded-lg" />
+      </Card>
+      <Card header={<Skeleton className="h-3.5 w-28" />}>
+        <div className="space-y-4">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="space-y-1.5">
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-9 w-full rounded-xl" />
+            </div>
+          ))}
+        </div>
+      </Card>
+    </div>
+  )
+}
 
 // ─── Component ────────────────────────────────────────────────────────────
 
@@ -39,29 +87,8 @@ export default function ProfilePage() {
   const toast = useToast()
 
   // Schemas rebuilt when language changes so error messages are always localised
-  const profileSchema = useMemo(
-    () =>
-      z.object({
-        name: z.string().min(1, t('common.required')).max(100),
-        position: z.string().max(100).optional(),
-      }),
-    [t],
-  )
-
-  const passwordSchema = useMemo(
-    () =>
-      changePasswordInputSchema
-        .extend({
-          // backend policy: min 8, max 72 — match exactly, no extra complexity rules
-          newPassword: z.string().min(8, t('profile.passwordMinLength', { count: 8 })).max(72),
-          confirmPassword: z.string().min(1, t('common.required')),
-        })
-        .refine((d) => d.newPassword === d.confirmPassword, {
-          message: t('profile.passwordMismatch'),
-          path: ['confirmPassword'],
-        }),
-    [t],
-  )
+  const profileSchema = useMemo(() => buildProfileSchema(t), [t])
+  const passwordSchema = useMemo(() => buildPasswordSchema(t), [t])
 
   // ─── Profile form ──────────────────────────────────────────────────
 
@@ -110,6 +137,8 @@ export default function ProfilePage() {
       passwordForm.setError('root', { message })
     }
   }
+
+  if (!user) return <ProfilePageSkeleton />
 
   return (
     <div className="mx-auto max-w-2xl space-y-6 p-6">

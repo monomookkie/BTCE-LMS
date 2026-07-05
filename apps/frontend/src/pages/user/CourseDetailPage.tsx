@@ -255,6 +255,69 @@ function QuizRunner({ courseId, quiz, attemptsUsed, passScore }: QuizRunnerProps
   return null
 }
 
+// mirror ของ course header card จริง — category tag, title, description, progress row
+function CourseHeaderSkeleton() {
+  return (
+    <Card>
+      <div className="space-y-4">
+        <div className="space-y-1.5">
+          <Skeleton className="h-3 w-20" />
+          <Skeleton className="h-5 w-2/3" />
+        </div>
+        <Skeleton className="h-3.5 w-full" />
+        <div className="flex flex-wrap gap-4">
+          <Skeleton className="h-3 w-24" />
+          <Skeleton className="h-3 w-28" />
+        </div>
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+          </div>
+          <Skeleton className="h-2 w-full rounded-full" />
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// mirror ของแถว material ใน list จริง (ก่อนแยก branch VIDEO/GatedMaterialLink) — icon + title/type + ปุ่มท้ายแถว
+function MaterialRowSkeleton() {
+  return (
+    <li className="flex items-center gap-3 py-3">
+      <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-16" />
+      </div>
+      <Skeleton className="h-7 w-24 shrink-0 rounded-lg" />
+    </li>
+  )
+}
+
+// mirror ของ quiz section จริง — title+meta บรรทัดบน, attempt history rows
+function QuizSectionSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="flex flex-wrap items-center gap-3">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-3 w-40" />
+      </div>
+      <div className="space-y-1.5">
+        {Array.from({ length: 2 }).map((_, i) => (
+          <div key={i} className="flex items-center gap-3">
+            <Skeleton className="h-3 w-6" />
+            <Skeleton className="h-3 w-10" />
+            <Skeleton className="h-5 w-16 rounded-full" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+        ))}
+      </div>
+      <Skeleton className="h-9 w-28 rounded-lg" />
+    </div>
+  )
+}
+
 // ─── CourseDetailPage ────────────────────────────────────────────────────────
 
 export default function CourseDetailPage() {
@@ -336,11 +399,14 @@ export default function CourseDetailPage() {
 
   if (courseLoad) {
     return (
-      <div className="space-y-4 p-6">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="h-8 w-2/3" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-40" />
+      <div className="space-y-6 p-6">
+        <Skeleton className="h-4 w-24" />
+        <CourseHeaderSkeleton />
+        <Card header={<h2 className="text-sm font-semibold text-slate-700">{t('courseDetail.materials')}</h2>}>
+          <ul className="divide-y divide-slate-100">
+            {Array.from({ length: 3 }).map((_, i) => <MaterialRowSkeleton key={i} />)}
+          </ul>
+        </Card>
       </div>
     )
   }
@@ -423,7 +489,9 @@ export default function CourseDetailPage() {
         }
       >
         {enrollLoad || matLoad ? (
-          <Skeleton lines={4} />
+          <ul className="divide-y divide-slate-100">
+            {Array.from({ length: 3 }).map((_, i) => <MaterialRowSkeleton key={i} />)}
+          </ul>
         ) : !isEnrolled ? (
           <p className="py-6 text-center text-sm text-slate-400">{t('courseDetail.notEnrolled')}</p>
         ) : matErr ? (
@@ -541,7 +609,7 @@ export default function CourseDetailPage() {
           {quizNotFound ? (
             <p className="py-6 text-center text-sm text-slate-400">{t('courseDetail.noQuiz')}</p>
           ) : quiz == null && !quizErr ? (
-            <Skeleton lines={2} />
+            <QuizSectionSkeleton />
           ) : quiz != null ? (
             <div className="space-y-5">
               {/* Quiz meta */}
@@ -556,9 +624,7 @@ export default function CourseDetailPage() {
               </div>
 
               {/* Attempt history */}
-              {attemptsLoad ? (
-                <Skeleton lines={2} />
-              ) : attempts.length > 0 ? (
+              {attemptsLoad ? null : attempts.length > 0 ? (
                 <div>
                   <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-400">
                     {t('courseDetail.attemptHistory')}

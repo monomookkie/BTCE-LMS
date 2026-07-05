@@ -312,6 +312,7 @@ export default function UserDirectoryPage() {
       {
         key: 'name',
         header: t('user.name'),
+        skeleton: 'text-sub',
         render: (u) => (
           <div>
             <p className="font-medium text-slate-800">{u.name}</p>
@@ -323,18 +324,21 @@ export default function UserDirectoryPage() {
         key: 'role',
         header: t('user.role'),
         width: '12%',
+        skeleton: 'pill',
         render: (u) => <Badge variant={u.role === 'ADMIN' ? 'purple' : 'gray'}>{t(`user.roles.${u.role}`)}</Badge>,
       },
       {
         key: 'status',
         header: t('adminCourse.status'),
         width: '10%',
+        skeleton: 'pill',
         render: (u) => <StatusBadge type="user" status={u.isActive ? 'active' : 'suspended'} />,
       },
       {
         key: 'lastLoginAt',
         header: t('userDirectory.lastLogin'),
         width: '14%',
+        skeleton: 'text',
         render: (u) => (u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : t('userDirectory.never')),
       },
       {
@@ -342,6 +346,7 @@ export default function UserDirectoryPage() {
         header: '',
         width: '18%',
         align: 'right',
+        skeleton: 'icons',
         render: (u) => {
           const isSelf = u.id === currentUser?.id
           return (

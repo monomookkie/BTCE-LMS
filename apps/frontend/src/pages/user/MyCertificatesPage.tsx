@@ -63,6 +63,7 @@ export default function MyCertificatesPage() {
     {
       key: 'courseTitle',
       header: t('course.label'),
+      skeleton: 'text',
       render: (r) => (
         <span className="font-medium text-slate-800">{r.courseTitle}</span>
       ),
@@ -72,22 +73,26 @@ export default function MyCertificatesPage() {
       header: t('quiz.score'),
       align: 'center',
       width: '80px',
+      skeleton: 'text',
       render: (r) => `${r.score}%`,
     },
     {
       key: 'issuedAt',
       header: t('certificate.issued'),
+      skeleton: 'text',
       render: (r) => formatDate(r.issuedAt, i18n.language),
     },
     {
       key: 'expiresAt',
       header: t('certificate.expires'),
+      skeleton: 'text',
       render: (r) => (r.expiresAt != null ? formatDate(r.expiresAt, i18n.language) : '—'),
     },
     {
       key: 'status',
       header: 'Status',
       width: '130px',
+      skeleton: 'pill',
       render: (r) => <StatusBadge type="cert" status={r.status} />,
     },
     {
@@ -95,6 +100,7 @@ export default function MyCertificatesPage() {
       header: '',
       width: '140px',
       align: 'right',
+      skeleton: 'icons',
       render: (r) => (
         <Button
           size="sm"
@@ -114,17 +120,20 @@ export default function MyCertificatesPage() {
     {
       key: 'title',
       header: t('material.title'),
+      skeleton: 'text',
       render: (r) => <span className="font-medium text-slate-800">{r.title}</span>,
     },
-    { key: 'issuer', header: t('externalCert.issuer') },
+    { key: 'issuer', header: t('externalCert.issuer'), skeleton: 'text' },
     {
       key: 'issuedAt',
       header: t('certificate.issued'),
+      skeleton: 'text',
       render: (r) => formatDate(r.issuedAt, i18n.language),
     },
     {
       key: 'expiresAt',
       header: t('certificate.expires'),
+      skeleton: 'text',
       render: (r) => (r.expiresAt != null ? formatDate(r.expiresAt, i18n.language) : '—'),
     },
   ]

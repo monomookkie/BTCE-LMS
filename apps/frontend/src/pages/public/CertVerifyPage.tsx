@@ -11,11 +11,31 @@ import { Skeleton } from '../../components/ui/Skeleton.js'
 const HEADER_GRADIENT = { background: 'linear-gradient(135deg,#0D1B2A,#1A3A5C)' }
 const PAGE_GRADIENT = { background: 'linear-gradient(135deg,#061523,#0D1B2A,#1A3A5C,#1A56DB)' }
 
+// mirror ของผลลัพธ์ verify จริง — status row (label+badge pill), แล้ว 5 แถว dt/dd label-value
+function VerifyResultSkeleton() {
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between">
+        <Skeleton className="h-3.5 w-20" />
+        <Skeleton className="h-5 w-16 rounded-full" />
+      </div>
+      <dl className="space-y-3 border-t border-slate-100 pt-4">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex justify-between gap-4">
+            <Skeleton className="h-3.5 w-24" />
+            <Skeleton className="h-3.5 w-28" />
+          </div>
+        ))}
+      </dl>
+    </div>
+  )
+}
+
 export default function CertVerifyPage() {
   const { t } = useTranslation()
   const { hash } = useParams<{ hash: string }>()
 
-  const { data, isLoading, error } = useQuery({
+  const { data, error, isLoading } = useQuery({
     queryKey: ['public', 'verify', hash],
     queryFn: () => getPublicCertificate(hash!),
     enabled: !!hash,
@@ -41,14 +61,7 @@ export default function CertVerifyPage() {
         </div>
 
         <div className="px-8 py-6">
-          {isLoading && (
-            <div className="space-y-3">
-              <Skeleton className="h-5 w-3/4" />
-              <Skeleton className="h-5 w-1/2" />
-              <Skeleton className="h-5 w-2/3" />
-              <Skeleton className="h-5 w-1/3" />
-            </div>
-          )}
+          {isLoading && <VerifyResultSkeleton />}
 
           {notFound && (
             <div className="flex flex-col items-center gap-3 py-6 text-center">

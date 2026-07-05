@@ -519,6 +519,56 @@ function QuestionCard({
   )
 }
 
+// mirror ของ quiz settings card จริง — title+subtitle บรรทัดบน, meta 2 รายการ, ปุ่มขวา
+function QuizSettingsCardSkeleton() {
+  return (
+    <Card>
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <Skeleton className="h-4.5 w-40" />
+          <div className="flex gap-4">
+            <Skeleton className="h-3 w-24" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-7 w-16 rounded-lg" />
+          <Skeleton className="h-7 w-20 rounded-lg" />
+        </div>
+      </div>
+    </Card>
+  )
+}
+
+// mirror ของ QuestionCard จริง — order buttons + question title + N option rows + action buttons
+function QuestionCardSkeleton() {
+  return (
+    <Card noPadding>
+      <div className="flex items-start gap-3 p-4">
+        <div className="flex flex-col gap-1 pt-1">
+          <Skeleton className="h-3 w-3" />
+          <Skeleton className="h-3 w-3" />
+        </div>
+        <div className="min-w-0 flex-1 space-y-3">
+          <Skeleton className="h-4 w-3/4" />
+          <div className="space-y-1.5">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-2 rounded-lg border border-slate-100 px-3 py-2">
+                <Skeleton className="h-4 w-4 rounded-full" />
+                <Skeleton className="h-3.5 w-2/3" />
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-1">
+          <Skeleton className="h-6 w-6 rounded" />
+          <Skeleton className="h-6 w-6 rounded" />
+        </div>
+      </div>
+    </Card>
+  )
+}
+
 // ─── QuizEditorTab ──────────────────────────────────────────────────────────
 
 interface QuizEditorTabProps {
@@ -599,10 +649,12 @@ export default function QuizEditorTab({ courseId, isArchived }: QuizEditorTabPro
 
   if (isLoading) {
     return (
-      <div className="space-y-3">
-        <Skeleton className="h-20 w-full" />
-        <Skeleton className="h-24 w-full" />
-        <Skeleton className="h-24 w-full" />
+      <div className="space-y-4">
+        <QuizSettingsCardSkeleton />
+        <Skeleton className="h-4 w-28" />
+        <div className="space-y-3">
+          {Array.from({ length: 2 }).map((_, i) => <QuestionCardSkeleton key={i} />)}
+        </div>
       </div>
     )
   }

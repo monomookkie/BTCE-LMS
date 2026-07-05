@@ -406,6 +406,26 @@ function MaterialRow({ material, index, total, onMoveUp, onMoveDown, onEdit, onD
   )
 }
 
+// mirror ของ MaterialRow จริง — order buttons + icon + title/subtitle + type badge + action buttons
+function MaterialRowSkeleton() {
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3">
+      <div className="flex flex-col gap-1">
+        <Skeleton className="h-3 w-3" />
+        <Skeleton className="h-3 w-3" />
+      </div>
+      <Skeleton className="h-4 w-4 shrink-0 rounded-full" />
+      <div className="min-w-0 flex-1 space-y-1.5">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-20" />
+      </div>
+      <Skeleton className="h-4 w-14 rounded-md" />
+      <Skeleton className="h-6 w-6 rounded" />
+      <Skeleton className="h-6 w-6 rounded" />
+    </div>
+  )
+}
+
 // ─── CourseDetailAdminPage ────────────────────────────────────────────────────
 
 type Tab = 'materials' | 'quiz'
@@ -472,7 +492,7 @@ export default function CourseDetailAdminPage() {
         </Link>
         <span>/</span>
         {courseLoading ? (
-          <Skeleton className="h-4 w-32" />
+          <Skeleton className="h-3.5 w-32" />
         ) : (
           <span className="font-medium text-slate-700">{course?.titleEn}</span>
         )}
@@ -482,8 +502,11 @@ export default function CourseDetailAdminPage() {
       <Card>
         {courseLoading ? (
           <div className="space-y-2">
-            <Skeleton className="h-6 w-64" />
-            <Skeleton className="h-4 w-40" />
+            <Skeleton className="h-5 w-1/2" />
+            <div className="flex flex-wrap gap-4">
+              <Skeleton className="h-3 w-28" />
+              <Skeleton className="h-3 w-24" />
+            </div>
           </div>
         ) : course ? (
           <div className="flex items-start justify-between">
@@ -560,12 +583,7 @@ export default function CourseDetailAdminPage() {
           {/* Materials list */}
           {materialsLoading ? (
             <div className="space-y-2">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-3 rounded-xl border border-slate-100 px-4 py-3">
-                  <Skeleton className="h-4 w-4" />
-                  <Skeleton className="h-4 flex-1" />
-                </div>
-              ))}
+              {Array.from({ length: 3 }).map((_, i) => <MaterialRowSkeleton key={i} />)}
             </div>
           ) : !materials?.length ? (
             <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 py-12 text-center text-sm text-slate-400">
