@@ -1,4 +1,8 @@
 {
+  "app": {
+    "name": "Blood Testing Education Center",
+    "subtitle": "National Blood Center, Thai Red Cross Society"
+  },
   "common": {
     "save": "Save",
     "cancel": "Cancel",
@@ -190,6 +194,7 @@
     "myReport": "My Report",
     "profile": "Profile",
     "admin": "Administration",
+    "myLearning": "My Learning",
     "users": "Users",
     "reports": "Reports",
     "announcements": "Announcements",

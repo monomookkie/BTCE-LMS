@@ -1,11 +1,10 @@
-import { NavLink } from 'react-router-dom'
+import { NavLink, Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
   LayoutDashboard,
   BookOpen,
   Award,
   BarChart3,
-  User,
   Users,
   Megaphone,
   LogOut,
@@ -26,7 +25,6 @@ const userNav: NavItem[] = [
   { path: '/courses',    labelKey: 'nav.courses',       Icon: BookOpen },
   { path: '/certs',      labelKey: 'nav.certificates',  Icon: Award },
   { path: '/report',     labelKey: 'nav.myReport',      Icon: BarChart3 },
-  { path: '/profile',    labelKey: 'nav.profile',       Icon: User },
 ]
 
 const adminNav: NavItem[] = [
@@ -40,9 +38,10 @@ const adminNav: NavItem[] = [
 
 interface SidebarProps {
   onNavigate?: () => void
+  isCollapsed?: boolean
 }
 
-export function Sidebar({ onNavigate }: SidebarProps) {
+export function Sidebar({ onNavigate, isCollapsed = false }: SidebarProps) {
   const { t } = useTranslation()
   const { user } = useAuth()
   const logout = useLogoutMutation()
@@ -50,28 +49,73 @@ export function Sidebar({ onNavigate }: SidebarProps) {
   const isAdmin = user?.role === 'ADMIN'
   const nav = isAdmin ? adminNav : userNav
 
+  const sectionLabel = isAdmin ? t('nav.admin') : t('nav.myLearning')
+  const roleLabel = user?.role ? t(`user.roles.${user.role}` as never) as string : ''
+  const collapseLabelClass = isCollapsed
+    ? 'max-w-0 -translate-x-1 opacity-0'
+    : 'max-w-40 translate-x-0 opacity-100'
+  const logoLabelClass = isCollapsed
+    ? 'max-h-0 max-w-0 -translate-x-1 opacity-0'
+    : 'max-h-20 max-w-[11rem] translate-x-0 opacity-100'
+
   return (
-    <aside className="flex h-full w-[200px] flex-col bg-gradient-to-b from-navy-900 to-navy-800">
+    <aside
+      className={[
+        'flex h-full flex-col overflow-hidden bg-gradient-to-b from-navy-900 to-navy-800 transition-[width] duration-300 ease-in-out',
+        isCollapsed ? 'w-14' : 'w-60',
+      ].join(' ')}
+    >
       {/* Logo */}
-      <div className="flex h-[52px] shrink-0 items-center gap-2.5 border-b border-white/10 px-4">
-        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-500">
-          <Droplets size={18} className="text-white" />
+      <div
+        className={[
+          'flex shrink-0 items-center border-b border-white/10',
+          isCollapsed ? 'py-3' : 'py-4',
+          isCollapsed ? 'justify-center px-2' : 'gap-3 px-3.5',
+        ].join(' ')}
+      >
+        <div
+          className={[
+            'flex shrink-0 items-center justify-center rounded-md bg-white transition-[width,height] duration-300 ease-in-out',
+            isCollapsed ? 'h-8 w-8' : 'h-9 w-9',
+          ].join(' ')}
+        >
+          <Droplets size={isCollapsed ? 15 : 17} className="text-danger" />
         </div>
-        <span className="text-sm font-bold text-white">BTEC LMS</span>
+        <div
+          aria-hidden={isCollapsed}
+          className={[
+            'min-w-0 overflow-hidden transition-[max-height,max-width,opacity,transform] duration-200 ease-out',
+            logoLabelClass,
+          ].join(' ')}
+        >
+          <p className="text-sm font-bold leading-snug text-white">{t('app.name')}</p>
+          <p className="mt-1.5 text-xs leading-snug text-white/50">{t('app.subtitle')}</p>
+        </div>
       </div>
 
       {/* Nav */}
-      <nav className="flex-1 overflow-y-auto px-2 py-3">
-        <ul className="space-y-0.5">
+      <nav className={['flex-1 overflow-y-auto py-4', isCollapsed ? 'px-1.5' : 'px-2.5'].join(' ')}>
+        <p
+          aria-hidden={isCollapsed}
+          className={[
+            'overflow-hidden whitespace-nowrap px-2.5 pb-2.5 text-[11px] font-semibold tracking-wider text-white/40 transition-[max-height,opacity,transform] duration-200 ease-out',
+            isCollapsed ? 'max-h-0 -translate-x-1 opacity-0' : 'max-h-8 translate-x-0 opacity-100',
+          ].join(' ')}
+        >
+          {sectionLabel}
+        </p>
+        <ul className="space-y-1">
           {nav.map((item) => {
             return (
               <li key={item.path}>
                 <NavLink
                   to={item.path}
                   onClick={onNavigate}
+                  title={isCollapsed ? (t(item.labelKey as never) as string) : undefined}
                   className={({ isActive }) =>
                     [
-                      'flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                      'flex items-center overflow-hidden rounded-md py-2 text-sm font-medium transition-colors',
+                      isCollapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
                       isActive
                         ? 'bg-brand-500/20 text-white'
                         : 'text-white/70 hover:bg-white/10 hover:text-white',
@@ -79,7 +123,15 @@ export function Sidebar({ onNavigate }: SidebarProps) {
                   }
                 >
                   <item.Icon size={16} className="shrink-0" />
-                  {t(item.labelKey as never) as string}
+                  <span
+                    aria-hidden={isCollapsed}
+                    className={[
+                      'overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
+                      collapseLabelClass,
+                    ].join(' ')}
+                  >
+                    {t(item.labelKey as never) as string}
+                  </span>
                 </NavLink>
               </li>
             )
@@ -89,21 +141,48 @@ export function Sidebar({ onNavigate }: SidebarProps) {
 
       {/* User + Logout */}
       {user && (
-        <div className="shrink-0 border-t border-white/10 px-3 py-3">
-          <div className="mb-2 flex items-center gap-2.5">
-            <Avatar name={user.name} size="sm" />
-            <div className="min-w-0">
-              <p className="truncate text-xs font-medium text-white">{user.name}</p>
-              <p className="truncate text-[10px] text-white/50">{user.email}</p>
+        <div className={['shrink-0 border-t border-white/10 py-2.5', isCollapsed ? 'px-2' : 'px-2.5'].join(' ')}>
+          <Link
+            to="/profile"
+            onClick={onNavigate}
+            title={isCollapsed ? user.name : undefined}
+            className={[
+              'flex items-center rounded-md border border-white/10 bg-white/5 py-2 transition-colors hover:border-white/20 hover:bg-white/10',
+              isCollapsed ? 'justify-center px-1' : 'gap-2 px-2',
+            ].join(' ')}
+          >
+            <Avatar name={user.name} size="md" />
+            <div
+              aria-hidden={isCollapsed}
+              className={[
+                'min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
+                collapseLabelClass,
+              ].join(' ')}
+            >
+              <p className="truncate text-xs font-semibold text-white">{user.name}</p>
+              <p className="truncate text-xs text-white/50">{roleLabel}</p>
             </div>
-          </div>
+          </Link>
+          <div className="my-2 border-t border-white/10" />
           <button
             onClick={() => logout.mutate()}
             disabled={logout.isPending}
-            className="flex w-full items-center gap-2 rounded-lg px-3 py-1.5 text-xs font-medium text-white/60 transition-colors hover:bg-white/10 hover:text-white"
+            title={isCollapsed ? t('auth.logout') : undefined}
+            className={[
+              'flex w-full items-center rounded-md py-1.5 text-sm font-medium text-white/60 transition-colors hover:bg-red-500/10 hover:text-red-100 disabled:opacity-60',
+              isCollapsed ? 'justify-center px-2' : 'gap-2 px-2.5',
+            ].join(' ')}
           >
-            <LogOut size={13} />
-            {t('auth.logout')}
+            <LogOut size={15} />
+            <span
+              aria-hidden={isCollapsed}
+              className={[
+                'overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
+                collapseLabelClass,
+              ].join(' ')}
+            >
+              {t('auth.logout')}
+            </span>
           </button>
         </div>
       )}
