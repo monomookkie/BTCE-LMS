@@ -6,6 +6,7 @@ import { Bell } from 'lucide-react'
 import type { NotificationResponse } from '@btec-lms/shared'
 import { listMyNotifications, markNotificationRead, markAllNotificationsRead } from '../../api/notifications.js'
 import { Skeleton } from '../ui/Skeleton.js'
+import { Transition } from '../ui/Transition.js'
 
 const NOTIFICATIONS_KEY = ['notifications', 'me'] as const
 
@@ -76,8 +77,11 @@ export function NotificationBell() {
         )}
       </button>
 
-      {open && (
-        <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-slate-100 bg-white shadow-lg">
+      <Transition
+        show={open}
+        variant="popover"
+        className="absolute right-0 z-20 mt-2 w-80 origin-top-right rounded-xl border border-slate-100 bg-white shadow-lg"
+      >
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             <span className="text-sm font-semibold text-slate-800">{t('notification.title')}</span>
             {unreadCount > 0 && (
@@ -129,8 +133,7 @@ export function NotificationBell() {
               </ul>
             )}
           </div>
-        </div>
-      )}
+      </Transition>
     </div>
   )
 }

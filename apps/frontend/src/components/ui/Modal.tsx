@@ -2,6 +2,7 @@ import { useEffect, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
+import { useDelayedUnmount } from './Transition.js'
 
 type ModalSize = 'sm' | 'md' | 'lg'
 
@@ -22,6 +23,7 @@ const sizeClasses: Record<ModalSize, string> = {
 
 export function Modal({ isOpen, onClose, title, children, size = 'md', hideCloseButton = false }: ModalProps) {
   const { t } = useTranslation()
+  const mounted = useDelayedUnmount(isOpen, 150)
 
   useEffect(() => {
     if (!isOpen) return
@@ -34,12 +36,15 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
     }
   }, [isOpen, onClose])
 
-  if (!isOpen) return null
+  if (!mounted) return null
 
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
-        className="absolute inset-0 bg-black/40 backdrop-blur-sm"
+        className={[
+          'absolute inset-0 bg-black/40 backdrop-blur-sm',
+          isOpen ? 'animate-backdrop-in' : 'animate-backdrop-out',
+        ].join(' ')}
         onClick={onClose}
         aria-hidden="true"
       />
@@ -47,6 +52,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
         className={[
           'relative w-full rounded-lg bg-white shadow-xl',
           sizeClasses[size],
+          isOpen ? 'animate-modal-in' : 'animate-modal-out',
         ].join(' ')}
         role="dialog"
         aria-modal="true"
