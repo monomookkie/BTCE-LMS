@@ -45,14 +45,14 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
       />
       <div
         className={[
-          'relative w-full rounded-2xl bg-white shadow-xl',
+          'relative w-full rounded-lg bg-white shadow-xl',
           sizeClasses[size],
         ].join(' ')}
         role="dialog"
         aria-modal="true"
       >
         {(title || !hideCloseButton) && (
-          <div className="flex items-center justify-between border-b border-slate-100 px-6 py-4">
+          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
             {title && <h2 className="text-base font-semibold text-slate-800">{title}</h2>}
             {!hideCloseButton && (
               <button
@@ -65,7 +65,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
             )}
           </div>
         )}
-        <div className="px-6 py-5">{children}</div>
+        <div className="px-4 py-3.5">{children}</div>
       </div>
     </div>,
     document.body,

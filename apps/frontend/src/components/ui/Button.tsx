@@ -19,8 +19,8 @@ const variantClasses: Record<ButtonVariant, string> = {
 }
 
 const sizeClasses: Record<ButtonSize, string> = {
-  sm: 'px-3 py-1.5 text-xs gap-1.5',
-  md: 'px-4 py-2.5 text-sm gap-2',
+  sm: 'px-2.5 py-1.5 text-xs gap-1.5',
+  md: 'px-3 py-1.5 text-sm gap-1.5',
 }
 
 export function Button({
@@ -37,7 +37,7 @@ export function Button({
     <button
       disabled={disabled ?? isLoading}
       className={[
-        'inline-flex items-center justify-center rounded-xl font-medium transition-colors',
+        'inline-flex items-center justify-center rounded-md font-medium transition-colors',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
         'disabled:cursor-not-allowed',
         variantClasses[variant],

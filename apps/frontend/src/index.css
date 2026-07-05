@@ -1,3 +1,11 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+@layer base {
+  /* Keep the UI at the browser's natural scale so shared Tailwind spacing,
+     type, and radius utilities do not make the app feel zoomed in. */
+  html {
+    font-size: 16px;
+  }
+}

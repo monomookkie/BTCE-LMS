@@ -8,7 +8,7 @@ interface Props {
 
 const OPTIONS: { value: SupportedLocale; label: string }[] = [
   { value: 'en', label: 'EN' },
-  { value: 'th', label: 'ไทย' },
+  { value: 'th', label: 'TH' },
 ]
 
 export function LanguageSwitcher({ isAuthenticated = false, className }: Props) {
