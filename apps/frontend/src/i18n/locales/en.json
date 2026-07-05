@@ -336,7 +336,14 @@
   "externalCert": {
     "title": "External Certificates",
     "noData": "No external certificates uploaded",
-    "issuer": "Issued by"
+    "issuer": "Issued by",
+    "add": "Add Certificate",
+    "certTitle": "Certificate title",
+    "issuedAt": "Issued on",
+    "expiresAt": "Expires on (optional)",
+    "fileUpload": "File (PDF or image, optional)",
+    "uploading": "Uploading...",
+    "added": "Certificate added"
   },
   "adminDash": {
     "title": "Admin Dashboard",
