@@ -2,11 +2,12 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Link } from 'react-router-dom'
+import { Droplets } from 'lucide-react'
 import { loginInputSchema, type LoginInput } from '@btec-lms/shared'
 import { useAuth, useLoginMutation, ApiError } from '../../hooks/useAuth.js'
-import { LanguageSwitcher } from '../../components/LanguageSwitcher.js'
 import { Input } from '../../components/ui/Input.js'
 import { Button } from '../../components/ui/Button.js'
+import { PageSkeleton } from '../../components/ui/PageSkeleton.js'
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -27,6 +28,8 @@ export default function LoginPage() {
     return <Navigate to={dest} replace />
   }
 
+  if (isLoading) return <PageSkeleton variant="auth" />
+
   const onSubmit = async (data: LoginInput) => {
     try {
       await loginMutation.mutateAsync(data)
@@ -44,13 +47,13 @@ export default function LoginPage() {
       <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl">
         {/* Card header — navy gradient */}
         <div
-          className="px-8 py-6 text-white"
+          className="flex flex-col items-center px-8 py-6 text-center text-white"
           style={{ background: 'linear-gradient(135deg,#0D1B2A,#1A3A5C)' }}
         >
-          <div className="mb-4 flex justify-end">
-            <LanguageSwitcher />
+          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-white">
+            <Droplets size={28} className="text-danger" />
           </div>
-          <h1 className="text-xl font-bold">{t('auth.loginTitle')}</h1>
+          <h1 className="text-lg font-bold">{t('auth.loginTitle')}</h1>
           <p className="mt-1 text-sm text-white/70">{t('auth.loginSubtitle')}</p>
         </div>
 
@@ -59,6 +62,7 @@ export default function LoginPage() {
             type="email"
             autoComplete="email"
             label={t('auth.email')}
+            placeholder={t('auth.emailPlaceholder')}
             error={errors.email?.message}
             {...register('email')}
           />
@@ -67,6 +71,7 @@ export default function LoginPage() {
             type="password"
             autoComplete="current-password"
             label={t('auth.password')}
+            placeholder="••••••••"
             error={errors.password?.message}
             {...register('password')}
           />
@@ -87,6 +92,8 @@ export default function LoginPage() {
               {t('auth.registerLink')}
             </Link>
           </p>
+
+          <p className="text-center text-xs text-slate-500">{t('auth.forgotPasswordHint')}</p>
         </form>
       </div>
     </div>

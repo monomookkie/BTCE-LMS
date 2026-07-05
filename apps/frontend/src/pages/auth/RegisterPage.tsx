@@ -9,6 +9,7 @@ import { registerInputSchema } from '@btec-lms/shared'
 import { useAuth, useRegisterMutation, ApiError } from '../../hooks/useAuth.js'
 import { Input } from '../../components/ui/Input.js'
 import { Button } from '../../components/ui/Button.js'
+import { PageSkeleton } from '../../components/ui/PageSkeleton.js'
 
 type TFn = ReturnType<typeof useTranslation>['t']
 
@@ -47,6 +48,8 @@ export default function RegisterPage() {
     const dest = user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'
     return <Navigate to={dest} replace />
   }
+
+  if (isLoading) return <PageSkeleton variant="auth" />
 
   const onSubmit = async (data: RegisterFormValues) => {
     try {
