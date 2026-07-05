@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { BookOpen, CheckCircle, Award, AlertTriangle } from 'lucide-react'
 import { StatCard, StatCardSkeleton } from '../../components/ui/StatCard.js'
 import { Card } from '../../components/ui/Card.js'
@@ -152,19 +153,24 @@ export default function UserDashboardPage() {
           ) : (
             <ul className="divide-y divide-slate-100">
               {activeEnrollments.map((e) => (
-                <li key={e.id} className="py-3">
-                  <div className="mb-1 flex items-center justify-between gap-2">
-                    <span className="truncate text-sm font-medium text-slate-700">
-                      {e.courseTitle}
-                    </span>
-                    <StatusBadge type="enrollment" status={e.status} />
-                  </div>
-                  <ProgressBar value={e.progress} showValue />
-                  {e.dueAt != null && (
-                    <p className="mt-1 text-xs text-slate-400">
-                      {t('enrollment.dueDate')}: {formatDate(e.dueAt, i18n.language)}
-                    </p>
-                  )}
+                <li key={e.id}>
+                  <Link
+                    to={`/courses/${e.courseId}`}
+                    className="block rounded-lg py-3 transition-colors hover:bg-slate-50"
+                  >
+                    <div className="mb-1 flex items-center justify-between gap-2">
+                      <span className="truncate text-sm font-medium text-slate-700">
+                        {e.courseTitle}
+                      </span>
+                      <StatusBadge type="enrollment" status={e.status} />
+                    </div>
+                    <ProgressBar value={e.progress} showValue />
+                    {e.dueAt != null && (
+                      <p className="mt-1 text-xs text-slate-400">
+                        {t('enrollment.dueDate')}: {formatDate(e.dueAt, i18n.language)}
+                      </p>
+                    )}
+                  </Link>
                 </li>
               ))}
             </ul>

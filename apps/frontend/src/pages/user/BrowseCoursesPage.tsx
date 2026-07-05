@@ -1,6 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
+import { Link } from 'react-router-dom'
 import { Search } from 'lucide-react'
 import { Card } from '../../components/ui/Card.js'
 import { Button } from '../../components/ui/Button.js'
@@ -165,9 +166,12 @@ export default function BrowseCoursesPage() {
 
                 <div className="mt-3">
                   {isEnrolled ? (
-                    <span className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700">
-                      {t('browse.alreadyEnrolled')}
-                    </span>
+                    <Link
+                      to={`/courses/${course.id}`}
+                      className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+                    >
+                      {t('browse.continueLearning')}
+                    </Link>
                   ) : course.allowSelfEnroll ? (
                     <Button
                       size="sm"
