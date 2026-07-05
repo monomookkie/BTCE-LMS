@@ -143,6 +143,7 @@ const authRoutes: FastifyPluginAsync = async (app) => {
   server.post(
     '/change-password',
     {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
       preHandler: [app.verifyJwt],
       schema: {
         body: changePasswordInputSchema,
