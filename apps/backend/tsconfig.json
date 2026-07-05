@@ -12,9 +12,6 @@
     "sourceMap": true,
     "declaration": true,
     "skipLibCheck": true,
-    // esModuleInterop stays false: NodeNext already handles ESM/CJS interop here.
-    // Flipping to true breaks pino's FastifyBaseLogger type resolution (85 errors across Fastify generics).
-    // Revisit before TS 7.0 removes the flag — will need a real pino/Fastify logger typing fix then.
     "esModuleInterop": false,
     "ignoreDeprecations": "5.0",
     "jsx": "react-jsx",
