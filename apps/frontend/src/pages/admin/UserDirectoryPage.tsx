@@ -266,7 +266,7 @@ export default function UserDirectoryPage() {
   const qc = useQueryClient()
 
   const [search, setSearch] = useState('')
-  const [roleFilter, setRoleFilter] = useState<'' | Role>('')
+  const [positionFilter, setPositionFilter] = useState('')
   const [statusFilter, setStatusFilter] = useState<'' | 'active' | 'suspended'>('')
   const [page, setPage] = useState(1)
   const [formModal, setFormModal] = useState<{ open: boolean; user?: UserResponse }>({ open: false })
@@ -275,16 +275,29 @@ export default function UserDirectoryPage() {
   const [suspendTarget, setSuspendTarget] = useState<{ user: UserResponse; next: boolean } | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin', 'users', search, roleFilter, statusFilter, page],
+    queryKey: ['admin', 'users', search, positionFilter, statusFilter, page],
     queryFn: () =>
       listAdminUsers({
         ...(search ? { search } : {}),
-        ...(roleFilter ? { role: roleFilter } : {}),
+        ...(positionFilter ? { position: positionFilter } : {}),
         ...(statusFilter ? { isActive: statusFilter === 'active' } : {}),
         page,
         limit: PAGE_SIZE,
       }),
   })
+
+  const { data: positionData } = useQuery({
+    queryKey: ['admin', 'users', 'positions'],
+    queryFn: () => listAdminUsers({ limit: 100 }),
+  })
+
+  const positionOptions = useMemo(
+    () =>
+      Array.from(
+        new Set((positionData?.data ?? []).map((u) => u.position?.trim()).filter(Boolean) as string[]),
+      ).sort((a, b) => a.localeCompare(b)),
+    [positionData?.data],
+  )
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => deleteAdminUser(id),
@@ -321,30 +334,48 @@ export default function UserDirectoryPage() {
         ),
       },
       {
+        key: 'position',
+        header: t('userDirectory.position'),
+        width: '16%',
+        skeleton: 'text',
+        render: (u) => (
+          <span className="text-sm text-slate-600">
+            {u.position?.trim() || '—'}
+          </span>
+        ),
+      },
+      {
         key: 'role',
         header: t('user.role'),
-        width: '12%',
+        width: '10%',
         skeleton: 'pill',
         render: (u) => <Badge variant={u.role === 'ADMIN' ? 'purple' : 'gray'}>{t(`user.roles.${u.role}`)}</Badge>,
       },
       {
         key: 'status',
         header: t('adminCourse.status'),
-        width: '10%',
+        width: '9%',
         skeleton: 'pill',
         render: (u) => <StatusBadge type="user" status={u.isActive ? 'active' : 'suspended'} />,
       },
       {
+        key: 'createdAt',
+        header: t('userDirectory.registeredAt'),
+        width: '11%',
+        skeleton: 'text',
+        render: (u) => new Date(u.createdAt).toLocaleDateString(),
+      },
+      {
         key: 'lastLoginAt',
         header: t('userDirectory.lastLogin'),
-        width: '14%',
+        width: '12%',
         skeleton: 'text',
         render: (u) => (u.lastLoginAt ? new Date(u.lastLoginAt).toLocaleDateString() : t('userDirectory.never')),
       },
       {
         key: 'actions',
         header: '',
-        width: '18%',
+        width: '14%',
         align: 'right',
         skeleton: 'icons',
         render: (u) => {
@@ -419,13 +450,16 @@ export default function UserDirectoryPage() {
           />
         </div>
         <select
-          value={roleFilter}
-          onChange={(e) => { setRoleFilter(e.target.value as typeof roleFilter); setPage(1) }}
+          value={positionFilter}
+          onChange={(e) => { setPositionFilter(e.target.value); setPage(1) }}
           className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:w-auto"
         >
-          <option value="">{t('userDirectory.allRoles')}</option>
-          {ROLES.map((r) => (
-            <option key={r} value={r}>{t(`user.roles.${r}`)}</option>
+          <option value="">{t('userDirectory.allPositions')}</option>
+          {positionFilter && !positionOptions.includes(positionFilter) && (
+            <option value={positionFilter}>{positionFilter}</option>
+          )}
+          {positionOptions.map((position) => (
+            <option key={position} value={position}>{position}</option>
           ))}
         </select>
         <select

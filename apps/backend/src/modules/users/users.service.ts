@@ -62,7 +62,7 @@ export async function listUsers(
   requesterId: string,
   ip?: string,
 ): Promise<{ data: UserResponse[]; total: number; page: number; limit: number }> {
-  const { page, limit, search, role, isActive } = query
+  const { page, limit, search, role, position, isActive } = query
   const skip = (page - 1) * limit
 
   const where = {
@@ -75,6 +75,7 @@ export async function listUsers(
       ],
     }),
     ...(role != null && { role }),
+    ...(position && { position }),
     ...(isActive !== undefined && { isActive }),
   }
 
@@ -92,7 +93,13 @@ export async function listUsers(
   await logAudit(prisma, {
     actorId: requesterId,
     action: 'USER_LIST',
-    metadata: { page, limit, ...(search != null && { search }), ...(role != null && { role }) },
+    metadata: {
+      page,
+      limit,
+      ...(search != null && { search }),
+      ...(role != null && { role }),
+      ...(position != null && { position }),
+    },
     ...(ip != null && { ip }),
   })
 

@@ -139,7 +139,7 @@
     "role": "Role",
     "roles": {
       "ADMIN": "Administrator",
-      "USER": "Staff"
+      "USER": "User"
     },
     "profile": "Profile",
     "changePassword": "Change password",
@@ -152,6 +152,7 @@
     "newUser": "New User",
     "search": "Search name, email, employee ID...",
     "allRoles": "All roles",
+    "allPositions": "All position",
     "allStatus": "All statuses",
     "noUsers": "No users found",
     "email": "Email",
@@ -160,6 +161,7 @@
     "generatePassword": "Generate",
     "employeeId": "Employee ID",
     "position": "Position",
+    "registeredAt": "Registered",
     "lastLogin": "Last login",
     "never": "Never",
     "createUser": "Create User",

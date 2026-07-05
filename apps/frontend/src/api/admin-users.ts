@@ -7,6 +7,7 @@ const BASE = (import.meta.env['VITE_API_URL'] as string | undefined) ?? '/api'
 export interface UserListParams {
   search?: string
   role?: 'ADMIN' | 'USER'
+  position?: string
   isActive?: boolean
   page?: number
   limit?: number
@@ -23,6 +24,7 @@ export function listAdminUsers(params: UserListParams = {}): Promise<AdminUserLi
   const qs = new URLSearchParams()
   if (params.search) qs.set('search', params.search)
   if (params.role) qs.set('role', params.role)
+  if (params.position) qs.set('position', params.position)
   if (params.isActive != null) qs.set('isActive', String(params.isActive))
   qs.set('page', String(params.page ?? 1))
   qs.set('limit', String(params.limit ?? 20))
