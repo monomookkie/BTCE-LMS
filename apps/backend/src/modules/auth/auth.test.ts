@@ -134,13 +134,16 @@ describe('Auth module', () => {
 
   describe('POST /auth/register', () => {
     it('valid @redcross.or.th email → 201, role=USER, isActive=true, cookies set', async () => {
+      const email = `register-ok-${Date.now()}@redcross.or.th`
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
         payload: {
           name: 'New Staff',
-          email: `register-ok-${Date.now()}@redcross.or.th`,
+          email,
           password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
         },
       })
       expect(res.statusCode).toBe(201)
@@ -159,6 +162,11 @@ describe('Auth module', () => {
         headers: { cookie: extractCookies(res) },
       })
       expect(meRes.statusCode).toBe(200)
+
+      // department + position ถูก persist ลง DB จริง
+      const dbUser = await prisma.user.findUnique({ where: { email } })
+      expect(dbUser?.department).toBe('Blood Bank Division')
+      expect(dbUser?.position).toBe('Nurse')
     })
 
     it('duplicate email → 409 with generic message (no enumeration)', async () => {
@@ -168,7 +176,13 @@ describe('Auth module', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
-        payload: { name: 'Someone', email, password: 'ValidPass1!' },
+        payload: {
+          name: 'Someone',
+          email,
+          password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
+        },
       })
       expect(res.statusCode).toBe(409)
       // ต้องไม่ใช่ข้อความ users.service.ts เดิม ("A user with this email already exists")
@@ -183,6 +197,51 @@ describe('Auth module', () => {
           name: 'Short Pw',
           email: `shortpw-${Date.now()}@redcross.or.th`,
           password: 'Sh0rt!',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('password missing complexity (no uppercase/special char) → 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'Weak Pw',
+          email: `weakpw-${Date.now()}@redcross.or.th`,
+          password: 'alllowercase1',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('missing department → 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'No Dept',
+          email: `nodept-${Date.now()}@redcross.or.th`,
+          password: 'ValidPass1!',
+          position: 'Nurse',
+        },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('missing position → 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'No Position',
+          email: `noposition-${Date.now()}@redcross.or.th`,
+          password: 'ValidPass1!',
+          department: 'Blood Bank Division',
         },
       })
       expect(res.statusCode).toBe(400)
@@ -193,7 +252,14 @@ describe('Auth module', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
-        payload: { name: 'Wannabe Admin', email, password: 'ValidPass1!', role: 'ADMIN' },
+        payload: {
+          name: 'Wannabe Admin',
+          email,
+          password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
+          role: 'ADMIN',
+        },
       })
       expect(res.statusCode).toBe(201)
       expect(res.json<{ role: string }>().role).toBe('USER')
@@ -207,7 +273,13 @@ describe('Auth module', () => {
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
-        payload: { name: 'Audit Me', email, password: 'ValidPass1!' },
+        payload: {
+          name: 'Audit Me',
+          email,
+          password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
+        },
       })
       const userId = res.json<{ id: string }>().id
 
@@ -227,6 +299,8 @@ describe('Auth module', () => {
           name: 'Outsider',
           email: `outsider-${Date.now()}@gmail.com`,
           password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
         },
       })
       expect(res.statusCode).toBe(400)
@@ -240,6 +314,8 @@ describe('Auth module', () => {
           name: 'Spoofer',
           email: `spoof-${Date.now()}@redcross.or.th.evil.com`,
           password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
         },
       })
       expect(res.statusCode).toBe(400)
@@ -253,6 +329,8 @@ describe('Auth module', () => {
           name: 'Case Test',
           email: `CaseTest-${Date.now()}@REDCROSS.OR.TH`,
           password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          position: 'Nurse',
         },
       })
       expect(res.statusCode).toBe(201)

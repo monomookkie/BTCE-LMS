@@ -52,9 +52,14 @@ async function extractError(res: Response): Promise<ApiError> {
 }
 
 function handleSessionExpiry(): void {
-  // ถ้าอยู่ที่ /login อยู่แล้ว ไม่ต้อง redirect หรือ clear — ป้องกัน reload loop
-  // (เกิดเมื่อ useAuth ยิง /auth/me บน login page แล้วไม่มี session)
-  if (window.location.pathname.startsWith('/login')) return
+  // ถ้าอยู่ที่หน้า public (login/register) อยู่แล้ว ไม่ต้อง redirect หรือ clear —
+  // ป้องกัน reload loop (เกิดเมื่อ useAuth ยิง /auth/me บนหน้า public แล้วไม่มี session)
+  if (
+    window.location.pathname.startsWith('/login') ||
+    window.location.pathname.startsWith('/register')
+  ) {
+    return
+  }
   queryClient.clear()
   window.location.href = '/login'
 }

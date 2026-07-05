@@ -17,14 +17,28 @@ export function isAllowedRegisterEmailDomain(email: string): boolean {
   return getEmailDomain(email) === REGISTER_ALLOWED_EMAIL_DOMAIN
 }
 
+// self-registration เท่านั้น: บังคับ complexity (login/change-password/admin-create
+// ยังใช้แค่ min/max เดิม ไม่แตะ) — เพราะ register ไม่มี admin คอยตรวจสอบตัวตนก่อน
+export const registerPasswordSchema = z
+  .string()
+  .min(8)
+  .max(72)
+  .regex(/[a-z]/, 'Password must contain a lowercase letter')
+  .regex(/[A-Z]/, 'Password must contain an uppercase letter')
+  .regex(/[0-9]/, 'Password must contain a number')
+  .regex(/[^A-Za-z0-9]/, 'Password must contain a special character')
+
+// self-registration: department + position บังคับกรอกทั้งคู่ (ต่างจาก
+// admin-create-user / CSV import ที่ยัง optional เหมือนเดิม — ไม่แตะ field เดิม)
 export const registerInputSchema = z.object({
   email: z.string().email().refine(isAllowedRegisterEmailDomain, {
     message: `Email must be a @${REGISTER_ALLOWED_EMAIL_DOMAIN} address`,
   }),
-  password: z.string().min(8).max(72),
+  password: registerPasswordSchema,
   name: z.string().min(1).max(100),
+  department: z.string().trim().min(1).max(100),
+  position: z.string().trim().min(1).max(100),
   employeeId: z.string().max(50).optional(),
-  position: z.string().max(100).optional(),
 })
 
 export const changePasswordInputSchema = z.object({

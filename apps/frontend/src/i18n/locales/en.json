@@ -29,10 +29,25 @@
   "auth": {
     "login": "Login",
     "logout": "Logout",
-    "register": "Register",
+    "register": "Sign up",
+    "namePlaceholder": "e.g. Somchai Jaidee",
+    "department": "Department",
+    "departmentPlaceholder": "e.g. Blood Screening",
     "email": "Email",
     "emailPlaceholder": "yourname@redcross.or.th",
+    "jobPosition": "Job Position",
+    "positionPlaceholder": "e.g. Medical Technologist",
+    "positionSelectPlaceholder": "Select job position",
+    "positionOther": "Specify job position",
+    "positionOtherPlaceholder": "Enter your job position",
     "password": "Password",
+    "passwordRequirements": "At least 8 characters, with uppercase, lowercase, a number, and a special character",
+    "strength": {
+      "weak": "Weak password",
+      "fair": "Fair password",
+      "good": "Good password",
+      "strong": "Strong password"
+    },
     "currentPassword": "Current password",
     "newPassword": "New password",
     "confirmPassword": "Confirm password",
@@ -45,11 +60,11 @@
     "sessionExpired": "Your session has expired. Please login again.",
     "loggingIn": "Signing in...",
     "registerTitle": "Create your account",
-    "registerSubtitle": "Registration is available for @redcross.or.th email addresses only",
+    "registerSubtitle": "Sign-up is available for @redcross.or.th email addresses only",
     "registering": "Creating account...",
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
-    "registerLink": "Register",
+    "registerLink": "Sign up",
     "loginLink": "Sign in"
   },
   "course": {
@@ -292,6 +307,7 @@
     "passwordSection": "Change Password",
     "passwordChanged": "Password changed — please sign in again",
     "passwordMismatch": "Passwords do not match",
+    "passwordsMatch": "Passwords match",
     "passwordMinLength": "Password must be at least {{count}} characters"
   },
   "dashboard": {

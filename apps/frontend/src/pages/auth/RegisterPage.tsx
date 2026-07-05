@@ -3,15 +3,25 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Link } from 'react-router-dom'
-import { Droplets } from 'lucide-react'
+import { Droplets, Check, X } from 'lucide-react'
 import { z } from 'zod'
 import { registerInputSchema } from '@btec-lms/shared'
 import { useAuth, useRegisterMutation, ApiError } from '../../hooks/useAuth.js'
 import { Input } from '../../components/ui/Input.js'
 import { Button } from '../../components/ui/Button.js'
 import { PageSkeleton } from '../../components/ui/PageSkeleton.js'
+import { PasswordStrengthMeter } from '../../components/auth/PasswordStrengthMeter.js'
 
 type TFn = ReturnType<typeof useTranslation>['t']
+
+const OTHER_POSITION = 'Others'
+const POSITION_OPTIONS = [
+  'Medical Technologist',
+  'Medical Scientist',
+  'Medical Technician Assistant',
+  'General Administration Officer',
+  OTHER_POSITION,
+] as const
 
 // confirmPassword ตรวจแค่ฝั่ง client — schema จริงที่ส่งไป backend คือ registerInputSchema
 // เดิม (ไม่มี confirmPassword) ผ่าน .extend() นี่คือ superset ไม่ใช่ schema คนละตัว
@@ -19,6 +29,16 @@ function buildRegisterFormSchema(t: TFn) {
   return registerInputSchema
     .extend({
       confirmPassword: z.string().min(1, t('common.required')),
+      positionOther: z.string().trim().max(100).optional(),
+    })
+    .superRefine((d, ctx) => {
+      if (d.position === OTHER_POSITION && !d.positionOther?.trim()) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: t('common.required'),
+          path: ['positionOther'],
+        })
+      }
     })
     .refine((d) => d.password === d.confirmPassword, {
       message: t('profile.passwordMismatch'),
@@ -39,10 +59,17 @@ export default function RegisterPage() {
     register,
     handleSubmit,
     setError,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<RegisterFormValues>({
     resolver: zodResolver(registerFormSchema),
   })
+
+  const passwordValue = watch('password') ?? ''
+  const confirmPasswordValue = watch('confirmPassword') ?? ''
+  const positionValue = watch('position') ?? ''
+  const isOtherPosition = positionValue === OTHER_POSITION
+  const showMatchIndicator = confirmPasswordValue.length > 0
 
   if (!isLoading && user) {
     const dest = user.role === 'ADMIN' ? '/admin/dashboard' : '/dashboard'
@@ -53,8 +80,16 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormValues) => {
     try {
-      const { confirmPassword: _confirmPassword, ...body } = data
-      await registerMutation.mutateAsync(body)
+      const {
+        confirmPassword: _confirmPassword,
+        positionOther: _positionOther,
+        ...body
+      } = data
+
+      await registerMutation.mutateAsync({
+        ...body,
+        position: isOtherPosition ? data.positionOther!.trim() : data.position,
+      })
     } catch (err) {
       const message = err instanceof ApiError ? err.message : t('common.error')
       setError('root', { message })
@@ -82,6 +117,7 @@ export default function RegisterPage() {
         <form onSubmit={handleSubmit(onSubmit)} noValidate className="space-y-4 px-8 py-6">
           <Input
             label={t('user.name')}
+            placeholder={t('auth.namePlaceholder')}
             error={errors.name?.message}
             {...register('name')}
           />
@@ -90,25 +126,88 @@ export default function RegisterPage() {
             type="email"
             autoComplete="email"
             label={t('auth.email')}
+            placeholder={t('auth.emailPlaceholder')}
             error={errors.email?.message}
             {...register('email')}
           />
 
           <Input
+            label={t('auth.department')}
+            placeholder={t('auth.departmentPlaceholder')}
+            error={errors.department?.message}
+            {...register('department')}
+          />
+
+          <div className="flex flex-col gap-1">
+            <label htmlFor="position" className="text-sm font-medium text-slate-700">
+              {t('auth.jobPosition')}
+            </label>
+            <select
+              id="position"
+              className={[
+                'rounded-md border bg-slate-50 px-3 py-1.5 text-sm text-slate-800',
+                'transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20',
+                errors.position
+                  ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
+                  : 'border-slate-200',
+              ].join(' ')}
+              defaultValue=""
+              {...register('position')}
+            >
+              <option value="" disabled>
+                {t('auth.positionSelectPlaceholder')}
+              </option>
+              {POSITION_OPTIONS.map((position) => (
+                <option key={position} value={position}>
+                  {position}
+                </option>
+              ))}
+            </select>
+            {errors.position && <p className="text-xs text-red-500">{errors.position.message}</p>}
+          </div>
+
+          {isOtherPosition && (
+            <Input
+              label={t('auth.positionOther')}
+              placeholder={t('auth.positionOtherPlaceholder')}
+              error={errors.positionOther?.message}
+              {...register('positionOther')}
+            />
+          )}
+
+          <Input
             type="password"
             autoComplete="new-password"
             label={t('auth.password')}
+            placeholder="••••••••"
+            helperText={t('auth.passwordRequirements')}
             error={errors.password?.message}
             {...register('password')}
           />
+
+          <PasswordStrengthMeter password={passwordValue} />
 
           <Input
             type="password"
             autoComplete="new-password"
             label={t('auth.confirmPassword')}
+            placeholder="••••••••"
             error={errors.confirmPassword?.message}
             {...register('confirmPassword')}
           />
+
+          {showMatchIndicator && !errors.confirmPassword && (
+            <p
+              className={`-mt-2 flex items-center gap-1 text-xs ${
+                passwordValue === confirmPasswordValue ? 'text-emerald-600' : 'text-danger'
+              }`}
+            >
+              {passwordValue === confirmPasswordValue ? <Check size={13} /> : <X size={13} />}
+              {passwordValue === confirmPasswordValue
+                ? t('profile.passwordsMatch')
+                : t('profile.passwordMismatch')}
+            </p>
+          )}
 
           {errors.root && (
             <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-danger">

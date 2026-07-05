@@ -149,8 +149,9 @@ export async function registerUser(
       role: 'USER',
       isActive: true,
       mustChangePassword: false, // สมัครเองแล้วตั้งรหัสเอง — ไม่ใช่ temp password จาก admin/CSV
+      department: input.department,
+      position: input.position,
       ...(input.employeeId != null && { employeeId: input.employeeId }),
-      ...(input.position != null && { position: input.position }),
     },
   })
 

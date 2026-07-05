@@ -30,9 +30,24 @@
     "login": "เข้าสู่ระบบ",
     "logout": "ออกจากระบบ",
     "register": "ลงทะเบียน",
+    "namePlaceholder": "เช่น สมชาย ใจดี",
+    "department": "แผนก",
+    "departmentPlaceholder": "เช่น ตรวจคัดกรองโลหิต",
     "email": "อีเมล",
     "emailPlaceholder": "yourname@redcross.or.th",
+    "jobPosition": "ตำแหน่งงาน",
+    "positionPlaceholder": "เช่น นักเทคนิคการแพทย์",
+    "positionSelectPlaceholder": "เลือกตำแหน่งงาน",
+    "positionOther": "ระบุตำแหน่งงาน",
+    "positionOtherPlaceholder": "กรอกตำแหน่งงานของคุณ",
     "password": "รหัสผ่าน",
+    "passwordRequirements": "อย่างน้อย 8 ตัวอักษร มีตัวพิมพ์ใหญ่ พิมพ์เล็ก ตัวเลข และอักขระพิเศษ",
+    "strength": {
+      "weak": "รหัสผ่านอ่อน",
+      "fair": "รหัสผ่านพอใช้",
+      "good": "รหัสผ่านดี",
+      "strong": "รหัสผ่านแข็งแรง"
+    },
     "currentPassword": "รหัสผ่านปัจจุบัน",
     "newPassword": "รหัสผ่านใหม่",
     "confirmPassword": "ยืนยันรหัสผ่าน",
@@ -292,6 +307,7 @@
     "passwordSection": "เปลี่ยนรหัสผ่าน",
     "passwordChanged": "เปลี่ยนรหัสผ่านแล้ว — กรุณาเข้าสู่ระบบใหม่",
     "passwordMismatch": "รหัสผ่านไม่ตรงกัน",
+    "passwordsMatch": "รหัสผ่านตรงกัน",
     "passwordMinLength": "รหัสผ่านต้องมีอย่างน้อย {{count}} ตัวอักษร"
   },
   "dashboard": {

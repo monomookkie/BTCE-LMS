@@ -17,6 +17,8 @@ model User {
   password          String
   role              Role      @default(USER)
   position          String?
+  department        String? // free-text — ไม่ใช่ relational model เดิมที่ลบใน REFACTOR-1
+                            // กรอกได้แค่ตอน self-register (required ที่นั่น); ช่องทางอื่นไม่ set
   avatarKey         String?   // key ใน Cloudinary (ไม่เก็บ base64)
   isActive          Boolean   @default(true)
   mustChangePassword Boolean  @default(false) // บังคับเปลี่ยนรหัสหลังล็อกอินแรก
