@@ -1,5 +1,5 @@
 import { useMemo } from 'react'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Link } from 'react-router-dom'
@@ -9,6 +9,7 @@ import { registerInputSchema } from '@btec-lms/shared'
 import { useAuth, useRegisterMutation, ApiError } from '../../hooks/useAuth.js'
 import { Input } from '../../components/ui/Input.js'
 import { Button } from '../../components/ui/Button.js'
+import { Select } from '../../components/ui/Select.js'
 import { PageSkeleton } from '../../components/ui/PageSkeleton.js'
 import { PasswordStrengthMeter } from '../../components/auth/PasswordStrengthMeter.js'
 
@@ -57,6 +58,7 @@ export default function RegisterPage() {
 
   const {
     register,
+    control,
     handleSubmit,
     setError,
     watch,
@@ -138,33 +140,22 @@ export default function RegisterPage() {
             {...register('department')}
           />
 
-          <div className="flex flex-col gap-1">
-            <label htmlFor="position" className="text-sm font-medium text-slate-700">
-              {t('auth.jobPosition')}
-            </label>
-            <select
-              id="position"
-              className={[
-                'rounded-md border bg-slate-50 px-3 py-1.5 text-sm text-slate-800',
-                'transition-colors focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20',
-                errors.position
-                  ? 'border-red-400 focus:border-red-400 focus:ring-red-400/20'
-                  : 'border-slate-200',
-              ].join(' ')}
-              defaultValue=""
-              {...register('position')}
-            >
-              <option value="" disabled>
-                {t('auth.positionSelectPlaceholder')}
-              </option>
-              {POSITION_OPTIONS.map((position) => (
-                <option key={position} value={position}>
-                  {position}
-                </option>
-              ))}
-            </select>
-            {errors.position && <p className="text-xs text-red-500">{errors.position.message}</p>}
-          </div>
+          <Controller
+            name="position"
+            control={control}
+            defaultValue=""
+            render={({ field }) => (
+              <Select
+                id="position"
+                label={t('auth.jobPosition')}
+                placeholder={t('auth.positionSelectPlaceholder')}
+                value={field.value ?? ''}
+                onChange={field.onChange}
+                error={errors.position?.message}
+                options={POSITION_OPTIONS.map((position) => ({ value: position, label: position }))}
+              />
+            )}
+          />
 
           {isOtherPosition && (
             <Input

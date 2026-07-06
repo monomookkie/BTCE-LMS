@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, Search, Edit2, Trash2, Upload, Ban, CheckCircle } from 'lucide-react'
@@ -19,6 +19,7 @@ import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Input } from '../../components/ui/Input.js'
+import { Select } from '../../components/ui/Select.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
@@ -57,6 +58,7 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
 
   const {
     register,
+    control,
     handleSubmit,
     setValue,
     formState: { errors, isSubmitting },
@@ -136,17 +138,18 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
             </Button>
           </div>
         )}
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-slate-700">{t('user.role')}</label>
-          <select
-            className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-            {...register('role')}
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>{t(`user.roles.${r}`)}</option>
-            ))}
-          </select>
-        </div>
+        <Controller
+          name="role"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label={t('user.role')}
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              options={ROLES.map((r) => ({ value: r, label: t(`user.roles.${r}`) }))}
+            />
+          )}
+        />
         <Input label={t('userDirectory.position')} {...register('position')} />
 
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">

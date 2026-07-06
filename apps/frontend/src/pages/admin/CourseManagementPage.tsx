@@ -19,6 +19,7 @@ import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Input } from '../../components/ui/Input.js'
+import { Select } from '../../components/ui/Select.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
@@ -411,16 +412,17 @@ export default function CourseManagementPage() {
             className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
         </div>
-        <select
+        <Select
+          className="sm:w-auto"
           value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value as typeof statusFilter)}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:w-auto"
-        >
-          <option value="">{t('adminCourse.allStatus')}</option>
-          <option value="DRAFT">{t('course.status.DRAFT')}</option>
-          <option value="PUBLISHED">{t('course.status.PUBLISHED')}</option>
-          <option value="ARCHIVED">{t('course.status.ARCHIVED')}</option>
-        </select>
+          onChange={(v) => setStatusFilter(v as typeof statusFilter)}
+          options={[
+            { value: '', label: t('adminCourse.allStatus') },
+            { value: 'DRAFT', label: t('course.status.DRAFT') },
+            { value: 'PUBLISHED', label: t('course.status.PUBLISHED') },
+            { value: 'ARCHIVED', label: t('course.status.ARCHIVED') },
+          ]}
+        />
       </div>
 
       {/* Error state */}
