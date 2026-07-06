@@ -452,28 +452,28 @@ export default function UserDirectoryPage() {
             className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
         </div>
-        <select
+        <Select
+          className="sm:w-auto"
           value={positionFilter}
-          onChange={(e) => { setPositionFilter(e.target.value); setPage(1) }}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:w-auto"
-        >
-          <option value="">{t('userDirectory.allPositions')}</option>
-          {positionFilter && !positionOptions.includes(positionFilter) && (
-            <option value={positionFilter}>{positionFilter}</option>
-          )}
-          {positionOptions.map((position) => (
-            <option key={position} value={position}>{position}</option>
-          ))}
-        </select>
-        <select
+          onChange={(v) => { setPositionFilter(v); setPage(1) }}
+          options={[
+            { value: '', label: t('userDirectory.allPositions') },
+            ...(positionFilter && !positionOptions.includes(positionFilter)
+              ? [{ value: positionFilter, label: positionFilter }]
+              : []),
+            ...positionOptions.map((position) => ({ value: position, label: position })),
+          ]}
+        />
+        <Select
+          className="sm:w-auto"
           value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1) }}
-          className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100 sm:w-auto"
-        >
-          <option value="">{t('userDirectory.allStatus')}</option>
-          <option value="active">{t('status.user.active')}</option>
-          <option value="suspended">{t('status.user.suspended')}</option>
-        </select>
+          onChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1) }}
+          options={[
+            { value: '', label: t('userDirectory.allStatus') },
+            { value: 'active', label: t('status.user.active') },
+            { value: 'suspended', label: t('status.user.suspended') },
+          ]}
+        />
       </div>
 
       {isError && (

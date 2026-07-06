@@ -13,6 +13,7 @@ import { listAdminCourses } from '../../api/admin-courses.js'
 import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
+import { Select } from '../../components/ui/Select.js'
 import { Card } from '../../components/ui/Card.js'
 import { StatCard, StatCardSkeleton } from '../../components/ui/StatCard.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
@@ -122,27 +123,23 @@ export default function ReportsPage() {
       {/* Filters */}
       <Card>
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
-          <select
+          <Select
             value={courseFilter}
-            onChange={(e) => { setCourseFilter(e.target.value); setPage(1) }}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          >
-            <option value="">{t('reports.allCourses')}</option>
-            {courses?.data.map((c) => (
-              <option key={c.id} value={c.id}>{c.titleEn}</option>
-            ))}
-          </select>
+            onChange={(v) => { setCourseFilter(v); setPage(1) }}
+            options={[
+              { value: '', label: t('reports.allCourses') },
+              ...(courses?.data.map((c) => ({ value: c.id, label: c.titleEn })) ?? []),
+            ]}
+          />
 
-          <select
+          <Select
             value={statusFilter}
-            onChange={(e) => { setStatusFilter(e.target.value as typeof statusFilter); setPage(1) }}
-            className="rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
-          >
-            <option value="">{t('reports.allStatus')}</option>
-            {STATUSES.map((s) => (
-              <option key={s} value={s}>{t(`status.enrollment.${s}`)}</option>
-            ))}
-          </select>
+            onChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1) }}
+            options={[
+              { value: '', label: t('reports.allStatus') },
+              ...STATUSES.map((s) => ({ value: s, label: t(`status.enrollment.${s}`) })),
+            ]}
+          />
         </div>
       </Card>
 

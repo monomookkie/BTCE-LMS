@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, Edit2, Trash2, Globe, EyeOff } from 'lucide-react'
@@ -16,6 +16,7 @@ import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Input } from '../../components/ui/Input.js'
+import { Select } from '../../components/ui/Select.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
@@ -55,6 +56,7 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
 
   const {
     register,
+    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<AnnouncementFormValues>({
@@ -154,17 +156,18 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('adminAnnouncement.type')}</label>
-            <select
-              className="rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-700 focus:border-brand-400 focus:outline-none focus:ring-2 focus:ring-brand-100"
-              {...register('type')}
-            >
-              {TYPES.map((ty) => (
-                <option key={ty} value={ty}>{ty}</option>
-              ))}
-            </select>
-          </div>
+          <Controller
+            name="type"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label={t('adminAnnouncement.type')}
+                value={field.value}
+                onChange={field.onChange}
+                options={TYPES.map((ty) => ({ value: ty, label: ty }))}
+              />
+            )}
+          />
           <Input label={t('adminAnnouncement.link')} placeholder="https://..." {...register('link')} />
         </div>
 
