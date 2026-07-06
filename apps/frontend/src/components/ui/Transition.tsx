@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type CSSProperties, type ReactNode } from 'react'
 
 // คง element ไว้ในทรีจนกว่า exit animation จะเล่นจบ ก่อนค่อยถอดออกจริง
 // (React unmount ทันทีตาม show จะไม่มีทางเห็น exit animation เลย)
@@ -33,15 +33,21 @@ interface TransitionProps {
   show: boolean
   variant?: TransitionVariant
   className?: string
+  style?: CSSProperties
   children: ReactNode
 }
 
 // wrapper กลางสำหรับ popover/menu ที่ mount/unmount ตาม show — ใส่ origin-* เอง
 // ผ่าน className ตามตำแหน่ง anchor จริงของแต่ละจุด (เช่น origin-top-right)
-export function Transition({ show, variant = 'popover', className, children }: TransitionProps) {
+// style ไว้ใส่ตำแหน่ง/ขนาดที่คำนวณ dynamic (เช่น กัน panel ล้นขอบ viewport)
+export function Transition({ show, variant = 'popover', className, style, children }: TransitionProps) {
   const mounted = useDelayedUnmount(show, DURATIONS[variant])
   if (!mounted) return null
 
   const { enter, exit } = ANIMATION_CLASSES[variant]
-  return <div className={[className, show ? enter : exit].join(' ')}>{children}</div>
+  return (
+    <div className={[className, show ? enter : exit].join(' ')} style={style}>
+      {children}
+    </div>
+  )
 }

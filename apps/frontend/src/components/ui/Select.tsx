@@ -1,6 +1,19 @@
-import { useEffect, useId, useRef, useState } from 'react'
+import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { Transition } from './Transition.js'
+
+const VIEWPORT_MARGIN = 8
+const TRIGGER_GAP = 4
+const PANEL_MAX_HEIGHT = 280
+const PANEL_MAX_WIDTH = 320
+
+interface Placement {
+  vertical: 'bottom' | 'top'
+  horizontal: 'left' | 'right'
+  maxHeight: number
+  maxWidth: number
+  minWidth: number
+}
 
 export interface SelectOption {
   value: string
@@ -36,6 +49,13 @@ export function Select({
 }: SelectProps) {
   const [open, setOpen] = useState(false)
   const [activeIndex, setActiveIndex] = useState(0)
+  const [placement, setPlacement] = useState<Placement>({
+    vertical: 'bottom',
+    horizontal: 'left',
+    maxHeight: PANEL_MAX_HEIGHT,
+    maxWidth: PANEL_MAX_WIDTH,
+    minWidth: 0,
+  })
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
@@ -65,6 +85,34 @@ export function Select({
     const activeEl = listRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)
     activeEl?.scrollIntoView({ block: 'nearest' })
   }, [open, activeIndex])
+
+  // กัน panel ล้นขอบ viewport — เช็คพื้นที่รอบ trigger แล้วเลือกทิศเปิด (flip) + จำกัดความสูง/กว้าง
+  useLayoutEffect(() => {
+    if (!open || !triggerRef.current) return
+
+    const computePlacement = () => {
+      const rect = triggerRef.current!.getBoundingClientRect()
+      const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN - TRIGGER_GAP
+      const spaceAbove = rect.top - VIEWPORT_MARGIN - TRIGGER_GAP
+      const vertical: Placement['vertical'] =
+        spaceBelow >= PANEL_MAX_HEIGHT || spaceBelow >= spaceAbove ? 'bottom' : 'top'
+      const maxHeight = Math.max(120, Math.min(PANEL_MAX_HEIGHT, vertical === 'bottom' ? spaceBelow : spaceAbove))
+
+      const maxWidth = Math.min(PANEL_MAX_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2)
+      const spaceRight = window.innerWidth - rect.left - VIEWPORT_MARGIN
+      const horizontal: Placement['horizontal'] = spaceRight >= maxWidth ? 'left' : 'right'
+
+      setPlacement({ vertical, horizontal, maxHeight, maxWidth, minWidth: rect.width })
+    }
+
+    computePlacement()
+    window.addEventListener('resize', computePlacement)
+    window.addEventListener('scroll', computePlacement, true)
+    return () => {
+      window.removeEventListener('resize', computePlacement)
+      window.removeEventListener('scroll', computePlacement, true)
+    }
+  }, [open])
 
   const openList = () => {
     if (disabled) return
@@ -170,7 +218,7 @@ export function Select({
             .filter(Boolean)
             .join(' ')}
         >
-          <span className={selected ? '' : 'text-slate-400'}>
+          <span className={['min-w-0 flex-1 truncate', selected ? '' : 'text-slate-400'].join(' ')}>
             {selected ? selected.label : (placeholder ?? '')}
           </span>
           <ChevronDown size={15} className="shrink-0 text-slate-400" />
@@ -179,14 +227,20 @@ export function Select({
         <Transition
           show={open}
           variant="popover"
-          className="absolute left-0 z-20 mt-1 w-full min-w-max origin-top-left rounded-md border border-slate-100 bg-white shadow-lg"
+          className={[
+            'absolute z-20 origin-top-left rounded-md border border-slate-100 bg-white shadow-lg',
+            placement.vertical === 'bottom' ? 'top-full mt-1' : 'bottom-full mb-1',
+            placement.horizontal === 'left' ? 'left-0' : 'right-0',
+          ].join(' ')}
+          style={{ maxWidth: placement.maxWidth, minWidth: placement.minWidth }}
         >
           <ul
             ref={listRef}
             id={listboxId}
             role="listbox"
             aria-activedescendant={open ? `${listboxId}-option-${activeIndex}` : undefined}
-            className="max-h-64 overflow-y-auto py-1"
+            className="overflow-y-auto py-1"
+            style={{ maxHeight: placement.maxHeight }}
           >
             {options.map((option, index) => (
               <li
@@ -198,10 +252,11 @@ export function Select({
                 onMouseEnter={() => setActiveIndex(index)}
                 onClick={() => { onChange(option.value); closeList() }}
                 className={[
-                  'cursor-pointer px-3 py-1.5 text-sm',
+                  'cursor-pointer truncate px-3 py-1.5 text-sm',
                   index === activeIndex ? 'bg-brand-50 text-brand-700' : 'text-slate-700',
                   option.value === value ? 'font-medium' : '',
                 ].join(' ')}
+                title={option.label}
               >
                 {option.label}
               </li>
