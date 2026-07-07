@@ -25,11 +25,12 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
+import { PAGE_SIZE } from '../../lib/constants.js'
 
 // ─── Query keys ──────────────────────────────────────────────────────────────
 
-const courseListKey = (status: string, search: string) =>
-  ['admin', 'courses', status, search] as const
+const courseListKey = (status: string, search: string, page: number) =>
+  ['admin', 'courses', status, search, page] as const
 
 // ─── Form schema ──────────────────────────────────────────────────────────────
 
@@ -250,17 +251,19 @@ export default function CourseManagementPage() {
 
   const [search, setSearch]           = useState('')
   const [statusFilter, setStatusFilter] = useState<'' | 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'>('')
+  const [page, setPage]               = useState(1)
   const [formModal, setFormModal]     = useState<{ open: boolean; course?: CourseAdminResponse }>({ open: false })
   const [deleteTarget, setDeleteTarget] = useState<CourseAdminResponse | null>(null)
   const [statusTarget, setStatusTarget] = useState<{ course: CourseAdminResponse; next: 'PUBLISHED' | 'ARCHIVED' } | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: courseListKey(statusFilter, search),
+    queryKey: courseListKey(statusFilter, search, page),
     queryFn: () =>
       listAdminCourses({
         ...(statusFilter ? { status: statusFilter } : {}),
         ...(search ? { search } : {}),
-        limit: 50,
+        page,
+        limit: PAGE_SIZE,
       }),
   })
 
@@ -407,7 +410,7 @@ export default function CourseManagementPage() {
           <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
           <input
             value={search}
-            onChange={(e) => setSearch(e.target.value)}
+            onChange={(e) => { setSearch(e.target.value); setPage(1) }}
             placeholder={t('adminCourse.search')}
             className="w-full rounded-xl border border-slate-200 bg-white py-2.5 pl-9 pr-4 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
           />
@@ -415,7 +418,7 @@ export default function CourseManagementPage() {
         <Select
           className="sm:w-auto"
           value={statusFilter}
-          onChange={(v) => setStatusFilter(v as typeof statusFilter)}
+          onChange={(v) => { setStatusFilter(v as typeof statusFilter); setPage(1) }}
           options={[
             { value: '', label: t('adminCourse.allStatus') },
             { value: 'DRAFT', label: t('course.status.DRAFT') },
@@ -442,6 +445,12 @@ export default function CourseManagementPage() {
         keyField="id"
         isLoading={isLoading}
         emptyMessage={t('adminCourse.noCourses')}
+        pagination={{
+          page,
+          pageSize: PAGE_SIZE,
+          total: data?.total ?? 0,
+          onPageChange: setPage,
+        }}
       />
 
       {/* Course form modal — key forces remount so defaultValues are fresh on each open */}

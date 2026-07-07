@@ -22,8 +22,8 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
+import { PAGE_SIZE } from '../../lib/constants.js'
 
-const PAGE_SIZE = 20
 const TYPES: AnnouncementType[] = ['INFO', 'WARNING', 'URGENT']
 const ALLOWED_FILE_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
 

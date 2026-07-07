@@ -19,9 +19,9 @@ import { StatCard, StatCardSkeleton } from '../../components/ui/StatCard.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
+import { PAGE_SIZE } from '../../lib/constants.js'
 
 const STATUSES: EnrollmentStatus[] = ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED']
-const PAGE_SIZE = 20
 
 export default function ReportsPage() {
   const { t } = useTranslation()

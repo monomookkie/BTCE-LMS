@@ -20,9 +20,9 @@ import { Modal } from '../../components/ui/Modal.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
+import { PAGE_SIZE } from '../../lib/constants.js'
 
 const STATUSES: CertStatus[] = ['valid', 'expiring-soon', 'expired', 'revoked']
-const PAGE_SIZE = 20
 
 // ─── Revoke modal — reason textarea + confirm (ADMIN only) ────────────────────
 

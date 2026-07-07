@@ -26,9 +26,9 @@ import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import { Badge } from '../../components/ui/Badge.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
+import { PAGE_SIZE } from '../../lib/constants.js'
 
 const ROLES: Role[] = ['ADMIN', 'USER']
-const PAGE_SIZE = 20
 
 function randomPassword(): string {
   return Math.random().toString(36).slice(-6) + Math.random().toString(36).slice(-6).toUpperCase()
