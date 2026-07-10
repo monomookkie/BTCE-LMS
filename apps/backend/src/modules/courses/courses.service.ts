@@ -11,6 +11,7 @@ import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
 import { serializeByRole } from '../../lib/roleResponse.js'
+import { getActiveQuiz } from '../quizzes/quizzes.service.js'
 import type { CourseListQuery } from './courses.schema.js'
 
 const COURSE_SELECT = {
@@ -22,9 +23,9 @@ const COURSE_SELECT = {
   descriptionEn: true,
   descriptionTh: true,
   status: true,
-  durationMin: true,
-  passScore: true,
   expiryMonths: true,
+  enrollmentCloseAt: true,
+  paperSavingSheets: true,
   allowSelfEnroll: true,
   createdById: true,
   version: true,
@@ -41,9 +42,9 @@ type CourseRecord = {
   descriptionEn: string | null
   descriptionTh: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
-  durationMin: number | null
-  passScore: number
   expiryMonths: number | null
+  enrollmentCloseAt: Date | null
+  paperSavingSheets: number | null
   allowSelfEnroll: boolean
   createdById: string | null
   version: number
@@ -65,9 +66,9 @@ function toCourseAdminShape(course: CourseRecord, locale: Locale): CourseAdminRe
     descriptionEn: course.descriptionEn ?? null,
     descriptionTh: course.descriptionTh ?? null,
     status: course.status,
-    durationMin: course.durationMin,
-    passScore: course.passScore,
     expiryMonths: course.expiryMonths,
+    enrollmentCloseAt: course.enrollmentCloseAt?.toISOString() ?? null,
+    paperSavingSheets: course.paperSavingSheets,
     allowSelfEnroll: course.allowSelfEnroll,
     createdById: course.createdById,
     version: course.version,
@@ -182,9 +183,9 @@ export async function createCourse(
       categoryTh: input.categoryTh ?? null,
       descriptionEn: input.descriptionEn ?? null,
       descriptionTh: input.descriptionTh ?? null,
-      ...(input.durationMin != null && { durationMin: input.durationMin }),
-      passScore: input.passScore,
       ...(input.expiryMonths != null && { expiryMonths: input.expiryMonths }),
+      ...(input.enrollmentCloseAt != null && { enrollmentCloseAt: new Date(input.enrollmentCloseAt) }),
+      ...(input.paperSavingSheets != null && { paperSavingSheets: input.paperSavingSheets }),
       allowSelfEnroll: input.allowSelfEnroll,
       createdById: actorId,
     },
@@ -224,9 +225,11 @@ export async function updateCourse(
       ...('categoryTh' in input && { categoryTh: input.categoryTh ?? null }),
       ...('descriptionEn' in input && { descriptionEn: input.descriptionEn ?? null }),
       ...('descriptionTh' in input && { descriptionTh: input.descriptionTh ?? null }),
-      ...('durationMin' in input && { durationMin: input.durationMin ?? null }),
-      ...(input.passScore != null && { passScore: input.passScore }),
       ...('expiryMonths' in input && { expiryMonths: input.expiryMonths ?? null }),
+      ...('enrollmentCloseAt' in input && {
+        enrollmentCloseAt: input.enrollmentCloseAt != null ? new Date(input.enrollmentCloseAt) : null,
+      }),
+      ...('paperSavingSheets' in input && { paperSavingSheets: input.paperSavingSheets ?? null }),
       ...(input.allowSelfEnroll != null && { allowSelfEnroll: input.allowSelfEnroll }),
       version: { increment: 1 },
     },
@@ -258,6 +261,17 @@ export async function updateCourseStatus(
 
   if (existing.status === 'ARCHIVED') {
     throw badRequest(t('error.course.archivedCannotChange', undefined, locale))
+  }
+
+  // ทุกหลักสูตรที่ publish ต้องมี quiz อย่างน้อย 1 ข้อ — กัน dead-end course ที่จบไม่ได้ (2A)
+  if (input.status === 'PUBLISHED') {
+    const quiz = await getActiveQuiz(prisma, id)
+    const questionCount = quiz
+      ? await prisma.question.count({ where: { quizId: quiz.id, deletedAt: null } })
+      : 0
+    if (!quiz || questionCount === 0) {
+      throw badRequest(t('error.course.quizRequiredToPublish', undefined, locale))
+    }
   }
 
   const course = await prisma.course.update({

@@ -23,7 +23,7 @@ describe('Materials module', () => {
       method: 'POST',
       url: '/courses',
       headers: { cookie: cookies },
-      payload: { titleEn: 'Test Course', categoryEn: 'Safety', passScore: 80 },
+      payload: { titleEn: 'Test Course', categoryEn: 'Safety' },
     })
     return { admin, cookies, course: courseRes.json<CourseAdminResponse>() }
   }
@@ -304,6 +304,26 @@ describe('Materials module', () => {
   describe('Role-based material response schema', () => {
     it('enrolled USER GET /materials → response has NO raw titleEn/titleTh', async () => {
       const { cookies: adminCookies, course } = await setupAdminAndCourse()
+
+      // ต้องมี quiz ≥1 คำถามก่อน publish (2A)
+      await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: adminCookies },
+        payload: { titleEn: 'Test Quiz', passScore: 80 },
+      })
+      await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/quiz/questions`,
+        headers: { cookie: adminCookies },
+        payload: {
+          textEn: 'Sample question?',
+          options: [
+            { textEn: 'Correct', isCorrect: true },
+            { textEn: 'Wrong', isCorrect: false },
+          ],
+        },
+      })
 
       // publish course เพื่อให้ user enroll ได้
       await app.inject({

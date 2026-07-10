@@ -35,16 +35,16 @@ const courseListKey = (status: string, search: string, page: number) =>
 // ─── Form schema ──────────────────────────────────────────────────────────────
 
 const courseFormSchema = z.object({
-  titleEn:         z.string().min(1).max(200),
-  titleTh:         z.string().max(200).optional(),
-  categoryEn:      z.string().min(1).max(100),
-  categoryTh:      z.string().max(100).optional(),
-  descriptionEn:   z.string().max(5000).optional(),
-  descriptionTh:   z.string().max(5000).optional(),
-  passScore:       z.coerce.number().int().min(0).max(100),
-  expiryMonthsRaw: z.string().optional(),
-  durationMinRaw:  z.string().optional(),
-  allowSelfEnroll: z.boolean(),
+  titleEn:              z.string().min(1).max(200),
+  titleTh:              z.string().max(200).optional(),
+  categoryEn:           z.string().min(1).max(100),
+  categoryTh:           z.string().max(100).optional(),
+  descriptionEn:        z.string().max(5000).optional(),
+  descriptionTh:        z.string().max(5000).optional(),
+  expiryMonthsRaw:      z.string().optional(),
+  enrollmentCloseAtRaw: z.string().optional(),
+  paperSavingSheetsRaw: z.string().optional(),
+  allowSelfEnroll:      z.boolean(),
 })
 type CourseFormValues = z.infer<typeof courseFormSchema>
 
@@ -69,20 +69,20 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
     resolver: zodResolver(courseFormSchema),
     // defaultValues are set at mount time — parent uses key= to remount on course change
     defaultValues: editCourse ? {
-      titleEn:         editCourse.titleEn,
-      titleTh:         editCourse.titleTh ?? '',
-      categoryEn:      editCourse.categoryEn,
-      categoryTh:      editCourse.categoryTh ?? '',
-      descriptionEn:   editCourse.descriptionEn ?? '',
-      descriptionTh:   editCourse.descriptionTh ?? '',
-      passScore:       editCourse.passScore,
-      expiryMonthsRaw: editCourse.expiryMonths != null ? String(editCourse.expiryMonths) : '',
-      durationMinRaw:  editCourse.durationMin != null ? String(editCourse.durationMin) : '',
-      allowSelfEnroll: editCourse.allowSelfEnroll,
+      titleEn:              editCourse.titleEn,
+      titleTh:              editCourse.titleTh ?? '',
+      categoryEn:           editCourse.categoryEn,
+      categoryTh:           editCourse.categoryTh ?? '',
+      descriptionEn:        editCourse.descriptionEn ?? '',
+      descriptionTh:        editCourse.descriptionTh ?? '',
+      expiryMonthsRaw:      editCourse.expiryMonths != null ? String(editCourse.expiryMonths) : '',
+      enrollmentCloseAtRaw: editCourse.enrollmentCloseAt != null ? editCourse.enrollmentCloseAt.slice(0, 10) : '',
+      paperSavingSheetsRaw: editCourse.paperSavingSheets != null ? String(editCourse.paperSavingSheets) : '',
+      allowSelfEnroll:      editCourse.allowSelfEnroll,
     } : {
       titleEn: '', titleTh: '', categoryEn: '', categoryTh: '',
       descriptionEn: '', descriptionTh: '',
-      passScore: 80, expiryMonthsRaw: '', durationMinRaw: '',
+      expiryMonthsRaw: '', enrollmentCloseAtRaw: '', paperSavingSheetsRaw: '',
       allowSelfEnroll: false,
     },
   })
@@ -94,9 +94,11 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
     ...(values.categoryTh?.trim() ? { categoryTh: values.categoryTh.trim() } : {}),
     ...(values.descriptionEn?.trim() ? { descriptionEn: values.descriptionEn.trim() } : {}),
     ...(values.descriptionTh?.trim() ? { descriptionTh: values.descriptionTh.trim() } : {}),
-    passScore: values.passScore,
     expiryMonths: values.expiryMonthsRaw ? parseInt(values.expiryMonthsRaw) : null,
-    durationMin: values.durationMinRaw ? parseInt(values.durationMinRaw) : undefined,
+    enrollmentCloseAt: values.enrollmentCloseAtRaw
+      ? new Date(`${values.enrollmentCloseAtRaw}T23:59:59`).toISOString()
+      : null,
+    paperSavingSheets: values.paperSavingSheetsRaw ? parseInt(values.paperSavingSheetsRaw) : null,
     allowSelfEnroll: values.allowSelfEnroll,
   })
 
@@ -179,17 +181,8 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
           </div>
         </div>
 
-        {/* Numeric fields */}
+        {/* Numeric + date fields */}
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Input
-            label={`${t('adminCourse.passScore')} (%)`}
-            type="number"
-            min={0}
-            max={100}
-            error={errors.passScore?.message}
-            disabled={isArchived}
-            {...register('passScore')}
-          />
           <Input
             label={t('adminCourse.expiryMonths')}
             type="number"
@@ -199,12 +192,18 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
             {...register('expiryMonthsRaw')}
           />
           <Input
-            label={t('adminCourse.durationMin')}
+            label={t('adminCourse.enrollmentCloseAt')}
+            type="date"
+            disabled={isArchived}
+            {...register('enrollmentCloseAtRaw')}
+          />
+          <Input
+            label={t('adminCourse.paperSavingSheets')}
             type="number"
             min={1}
             placeholder="—"
             disabled={isArchived}
-            {...register('durationMinRaw')}
+            {...register('paperSavingSheetsRaw')}
           />
         </div>
 
@@ -321,8 +320,8 @@ export default function CourseManagementPage() {
       },
       { key: 'status',    header: t('adminCourse.status'), width: '12%', skeleton: 'pill',
         render: (c) => <StatusBadge type="course" status={c.status} /> },
-      { key: 'passScore', header: t('adminCourse.passScore'), width: '9%', align: 'right', skeleton: 'text',
-        render: (c) => `${c.passScore}%` },
+      { key: 'enrollmentCloseAt', header: t('adminCourse.enrollmentCloseAt'), width: '13%', skeleton: 'text',
+        render: (c) => c.enrollmentCloseAt ? new Date(c.enrollmentCloseAt).toLocaleDateString() : '—' },
       {
         key: 'actions',
         header: '',

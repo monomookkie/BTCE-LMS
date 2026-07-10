@@ -515,9 +515,11 @@ export default function CourseDetailAdminPage() {
               {course.titleTh && <p className="text-sm text-slate-400">{course.titleTh}</p>}
               <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
                 <span>{t('adminCourse.categoryEn')}: <strong className="text-slate-700">{course.categoryEn}</strong></span>
-                <span>{t('adminCourse.passScore')}: <strong className="text-slate-700">{course.passScore}%</strong></span>
                 {course.expiryMonths != null && (
                   <span>{t('adminCourse.expiryMonths')}: <strong className="text-slate-700">{course.expiryMonths} mo</strong></span>
+                )}
+                {course.enrollmentCloseAt != null && (
+                  <span>{t('adminCourse.enrollmentCloseAt')}: <strong className="text-slate-700">{new Date(course.enrollmentCloseAt).toLocaleDateString()}</strong></span>
                 )}
               </div>
             </div>

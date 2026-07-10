@@ -151,41 +151,57 @@ export default function BrowseCoursesPage() {
                 </div>
 
                 <div className="mt-auto space-y-1 text-xs text-slate-500">
-                  {course.durationMin != null && (
-                    <p>{t('browse.durationMin', { count: course.durationMin })}</p>
-                  )}
-                  <p>
-                    {t('browse.minScore')}: {course.passScore}%
-                  </p>
                   {course.expiryMonths != null && (
                     <p>
                       {t('course.expiryMonths')}: {course.expiryMonths} {t('course.months')}
                     </p>
                   )}
+                  {course.paperSavingSheets != null && (
+                    <p className="text-emerald-600">
+                      {t('course.paperSaving', { count: course.paperSavingSheets })}
+                    </p>
+                  )}
                 </div>
 
                 <div className="mt-3">
-                  {isEnrolled ? (
-                    <Link
-                      to={`/courses/${course.id}`}
-                      className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
-                    >
-                      {t('browse.continueLearning')}
-                    </Link>
-                  ) : course.allowSelfEnroll ? (
-                    <Button
-                      size="sm"
-                      isLoading={isEnrolling}
-                      disabled={enrollMutation.isPending}
-                      onClick={() => enrollMutation.mutate(course.id)}
-                    >
-                      {isEnrolling ? t('browse.enrolling') : t('course.enroll')}
-                    </Button>
-                  ) : (
-                    <span className="text-xs text-slate-400">
-                      {t('browse.selfEnrollDisabled')}
-                    </span>
-                  )}
+                  {(() => {
+                    const isClosed =
+                      course.enrollmentCloseAt != null && new Date(course.enrollmentCloseAt) < new Date()
+                    if (isEnrolled) {
+                      return (
+                        <Link
+                          to={`/courses/${course.id}`}
+                          className="inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-medium text-emerald-700 transition-colors hover:bg-emerald-100"
+                        >
+                          {t('browse.continueLearning')}
+                        </Link>
+                      )
+                    }
+                    if (isClosed) {
+                      return (
+                        <span className="text-xs text-slate-400">
+                          {t('browse.enrollmentClosed')}
+                        </span>
+                      )
+                    }
+                    if (course.allowSelfEnroll) {
+                      return (
+                        <Button
+                          size="sm"
+                          isLoading={isEnrolling}
+                          disabled={enrollMutation.isPending}
+                          onClick={() => enrollMutation.mutate(course.id)}
+                        >
+                          {isEnrolling ? t('browse.enrolling') : t('course.enroll')}
+                        </Button>
+                      )
+                    }
+                    return (
+                      <span className="text-xs text-slate-400">
+                        {t('browse.selfEnrollDisabled')}
+                      </span>
+                    )
+                  })()}
                 </div>
               </Card>
             )

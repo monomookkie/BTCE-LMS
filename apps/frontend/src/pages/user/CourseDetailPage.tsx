@@ -450,21 +450,19 @@ export default function CourseDetailPage() {
           )}
 
           <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-            <span>
-              {t('course.passScore')}: <strong className="text-slate-700">{course.passScore}%</strong>
-            </span>
             {course.expiryMonths != null && (
               <span>
                 {t('course.expiryMonths')}:{' '}
                 <strong className="text-slate-700">{course.expiryMonths} {t('course.months')}</strong>
               </span>
             )}
-            {course.durationMin != null && (
-              <span>
-                {t('browse.durationMin', { count: course.durationMin })}
-              </span>
-            )}
           </div>
+
+          {course.paperSavingSheets != null && (
+            <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
+              {t('course.paperSaving', { count: course.paperSavingSheets })}
+            </p>
+          )}
 
           {enrollment != null && (
             <div className="space-y-2">
@@ -648,7 +646,7 @@ export default function CourseDetailPage() {
                   courseId={id}
                   quiz={quiz}
                   attemptsUsed={attempts.length}
-                  passScore={course.passScore}
+                  passScore={quiz.passScore}
                 />
               </div>
             </div>

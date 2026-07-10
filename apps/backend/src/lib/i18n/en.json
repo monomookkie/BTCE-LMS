@@ -22,6 +22,8 @@
   "error.course.notPublished": "This course is not available",
   "error.course.archivedCannotChange": "Archived courses cannot change status",
   "error.course.invalidStatusTransition": "Invalid status transition",
+  "error.course.quizRequiredToPublish": "This course needs a quiz with at least one question before it can be published",
+  "error.course.enrollmentClosed": "This course is no longer accepting new enrollments",
 
   "error.material.notFound": "Material not found",
   "error.material.uploadFailed": "File upload failed",
@@ -43,6 +45,7 @@
   "error.quiz.alreadyExists": "This course already has a quiz",
   "error.quiz.maxAttemptsReached": "Maximum attempts ({{count}}) reached for this quiz",
   "error.quiz.attemptsNotFound": "Attempts not found",
+  "error.quiz.cannotRemoveFromPublished": "Cannot remove: a published course must keep a quiz with at least one question",
 
   "error.question.notFound": "Question not found",
   "error.option.notFound": "Option not found",

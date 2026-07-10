@@ -44,6 +44,7 @@ export const quizAdminResponseSchema = z.object({
   title: z.string(),       // localized
   titleEn: z.string(),     // raw
   titleTh: z.string().nullable(),
+  passScore: z.number().int(),
   maxAttempts: z.number().int().nullable(),
   shuffle: z.boolean(),
   questions: z.array(questionAdminSchema),
@@ -54,6 +55,7 @@ export const quizForUserResponseSchema = z.object({
   id: z.string().cuid(),
   courseId: z.string().cuid(),
   title: z.string(),
+  passScore: z.number().int(),
   maxAttempts: z.number().int().nullable(),
   questions: z.array(questionForUserSchema),
 })
@@ -63,6 +65,7 @@ export const quizForUserResponseSchema = z.object({
 export const createQuizInputSchema = z.object({
   titleEn: z.string().min(1).max(200),
   titleTh: z.string().max(200).optional(),
+  passScore: z.number().int().min(0).max(100).default(80),
   maxAttempts: z.number().int().positive().nullable().optional(),
   shuffle: z.boolean().default(true),
 })
@@ -70,6 +73,7 @@ export const createQuizInputSchema = z.object({
 export const updateQuizInputSchema = z.object({
   titleEn: z.string().min(1).max(200).optional(),
   titleTh: z.string().max(200).nullable().optional(),
+  passScore: z.number().int().min(0).max(100).optional(),
   maxAttempts: z.number().int().positive().nullable().optional(),
   shuffle: z.boolean().optional(),
 })

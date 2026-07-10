@@ -11,9 +11,9 @@ const courseBaseFields = {
   category: z.string(),
   description: z.string().nullable(),
   status: courseStatusSchema,
-  durationMin: z.number().int().nullable(),
-  passScore: z.number().int(),
   expiryMonths: z.number().int().nullable(),
+  enrollmentCloseAt: z.string().datetime().nullable(),
+  paperSavingSheets: z.number().int().nullable(),
   allowSelfEnroll: z.boolean(),
   createdById: z.string().nullable(),
   version: z.number().int(),
@@ -44,9 +44,9 @@ export const createCourseInputSchema = z.object({
   categoryTh: z.string().max(100).optional(),
   descriptionEn: z.string().max(5000).optional(),
   descriptionTh: z.string().max(5000).optional(),
-  durationMin: z.number().int().positive().optional(),
-  passScore: z.number().int().min(0).max(100).default(80),
   expiryMonths: z.number().int().positive().nullable().optional(),
+  enrollmentCloseAt: z.string().datetime().nullable().optional(),
+  paperSavingSheets: z.number().int().positive().nullable().optional(),
   allowSelfEnroll: z.boolean().default(false),
 })
 
@@ -57,9 +57,9 @@ export const updateCourseInputSchema = z.object({
   categoryTh: z.string().max(100).nullable().optional(),
   descriptionEn: z.string().max(5000).nullable().optional(),
   descriptionTh: z.string().max(5000).nullable().optional(),
-  durationMin: z.number().int().positive().nullable().optional(),
-  passScore: z.number().int().min(0).max(100).optional(),
   expiryMonths: z.number().int().positive().nullable().optional(),
+  enrollmentCloseAt: z.string().datetime().nullable().optional(),
+  paperSavingSheets: z.number().int().positive().nullable().optional(),
   allowSelfEnroll: z.boolean().optional(),
 })
 

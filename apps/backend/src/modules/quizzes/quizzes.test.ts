@@ -16,36 +16,34 @@ async function setup(role: 'ADMIN' | 'USER' = 'USER'): Promise<Actor> {
   return { cookies, userId: user.id }
 }
 
-async function createCourse(adminCookies: string, passScore = 80): Promise<{ id: string }> {
+async function createCourse(adminCookies: string): Promise<{ id: string }> {
   const res = await app.inject({
     method: 'POST',
     url: '/courses',
     headers: { cookie: adminCookies },
-    payload: { titleEn: 'Test Course', categoryEn: 'Safety', passScore },
+    payload: { titleEn: 'Test Course', categoryEn: 'Safety' },
   })
   expect(res.statusCode).toBe(201)
-  const course = res.json()
-
-  await app.inject({
-    method: 'PATCH',
-    url: `/courses/${course.id}/status`,
-    headers: { cookie: adminCookies },
-    payload: { status: 'PUBLISHED' },
-  })
-  return course
+  return res.json()
 }
 
+// สร้าง quiz + 2 คำถาม แล้ว publish course ท้ายสุด (2A: publish ต้องมี quiz ≥1 คำถามก่อน)
 async function createQuizWithQuestions(
   adminCookies: string,
   courseId: string,
-  opts: { maxAttempts?: number | null; shuffle?: boolean } = {},
+  opts: { maxAttempts?: number | null; shuffle?: boolean; passScore?: number; publish?: boolean } = {},
 ) {
   // create quiz
   const quizRes = await app.inject({
     method: 'POST',
     url: `/courses/${courseId}/quiz`,
     headers: { cookie: adminCookies },
-    payload: { titleEn: 'Test Quiz', maxAttempts: opts.maxAttempts ?? null, shuffle: opts.shuffle ?? false },
+    payload: {
+      titleEn: 'Test Quiz',
+      passScore: opts.passScore ?? 80,
+      maxAttempts: opts.maxAttempts ?? null,
+      shuffle: opts.shuffle ?? false,
+    },
   })
   expect(quizRes.statusCode).toBe(201)
 
@@ -79,6 +77,15 @@ async function createQuizWithQuestions(
   })
   expect(q2Res.statusCode).toBe(201)
   const updatedQuiz = q2Res.json()
+
+  if (opts.publish !== false) {
+    await app.inject({
+      method: 'PATCH',
+      url: `/courses/${courseId}/status`,
+      headers: { cookie: adminCookies },
+      payload: { status: 'PUBLISHED' },
+    })
+  }
 
   const q1 = updatedQuiz.questions.find((q: ApiQuestion) => q.text === 'Question 1')!
   const q2 = updatedQuiz.questions.find((q: ApiQuestion) => q.text === 'Question 2')!
@@ -259,7 +266,8 @@ describe('Quizzes module', () => {
     it('soft-deletes quiz → 404 on subsequent GET', async () => {
       const admin = await setup('ADMIN')
       const course = await createCourse(admin.cookies)
-      await createQuizWithQuestions(admin.cookies, course.id)
+      // DRAFT course — deleting a quiz from a PUBLISHED course is now blocked (2A), tested separately below
+      await createQuizWithQuestions(admin.cookies, course.id, { publish: false })
 
       await app.inject({
         method: 'DELETE',
@@ -295,6 +303,56 @@ describe('Quizzes module', () => {
       ).json()
       expect(quiz.questions.find((q: ApiQuestion) => q.id === q1Id)).toBeUndefined()
       expect(quiz.questions).toHaveLength(1) // Q2 ยังอยู่
+    })
+
+    // ── 2A: published course ต้องมี quiz ≥1 คำถามเสมอ — กัน dead-end ผ่านการลบ ──
+
+    it('DELETE quiz on a PUBLISHED course → 400 (would leave course with no quiz)', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      await createQuizWithQuestions(admin.cookies, course.id) // publishes by default
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('DELETE the last remaining question on a PUBLISHED course → 400', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      const { q1Id, q2Id } = await createQuizWithQuestions(admin.cookies, course.id) // publishes by default
+
+      // ลบ q1 ก่อน — เหลือ q2 อีก 1 ข้อ ต้องผ่าน
+      const firstDel = await app.inject({
+        method: 'DELETE',
+        url: `/courses/${course.id}/quiz/questions/${q1Id}`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(firstDel.statusCode).toBe(200)
+
+      // ลบ q2 (คำถามสุดท้าย) → ต้องถูกบล็อก
+      const secondDel = await app.inject({
+        method: 'DELETE',
+        url: `/courses/${course.id}/quiz/questions/${q2Id}`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(secondDel.statusCode).toBe(400)
+    })
+
+    it('DELETE quiz/question on a DRAFT course → still allowed (gate only applies to PUBLISHED)', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      await createQuizWithQuestions(admin.cookies, course.id, { publish: false })
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(res.statusCode).toBe(200)
     })
 
     it('updates question text → 200', async () => {
@@ -440,7 +498,7 @@ describe('Quizzes module', () => {
     it('all correct → score=100, passed=true (passScore=80)', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2CorrectOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       await enroll(admin.cookies, user.userId, course.id)
@@ -457,7 +515,7 @@ describe('Quizzes module', () => {
     it('half correct, passScore=80 → score=50, passed=false', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       await enroll(admin.cookies, user.userId, course.id)
@@ -474,9 +532,9 @@ describe('Quizzes module', () => {
     it('half correct, passScore=50 → score=50, passed=true (boundary >=)', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 50)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
-        await createQuizWithQuestions(admin.cookies, course.id)
+        await createQuizWithQuestions(admin.cookies, course.id, { passScore: 50 })
       await enroll(admin.cookies, user.userId, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
@@ -488,10 +546,28 @@ describe('Quizzes module', () => {
       expect(res.json().passed).toBe(true) // score (50) >= passScore (50)
     })
 
+    it('score = quiz.passScore - 1 exactly → passed=false (precise off-by-one boundary)', async () => {
+      const admin = await setup('ADMIN')
+      const user = await setup('USER')
+      const course = await createCourse(admin.cookies)
+      // passScore=51: score=50 (1 of 2 correct) is exactly passScore-1
+      const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
+        await createQuizWithQuestions(admin.cookies, course.id, { passScore: 51 })
+      await enroll(admin.cookies, user.userId, course.id)
+
+      const res = await submitQuiz(user.cookies, course.id, {
+        [q1Id]: q1CorrectOptionId,
+        [q2Id]: q2WrongOptionId,
+      })
+      expect(res.statusCode).toBe(201)
+      expect(res.json().score).toBe(50)
+      expect(res.json().passed).toBe(false) // score (50) = passScore (51) - 1 → strictly below
+    })
+
     it('all wrong → score=0, passed=false', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       await enroll(admin.cookies, user.userId, course.id)
@@ -508,7 +584,7 @@ describe('Quizzes module', () => {
     it('unanswered question counts as wrong (answer only Q1, skip Q2)', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId } = await createQuizWithQuestions(admin.cookies, course.id)
       await enroll(admin.cookies, user.userId, course.id)
 
@@ -521,7 +597,7 @@ describe('Quizzes module', () => {
     it('client-injected score field is stripped by Zod — server score is authoritative', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       await enroll(admin.cookies, user.userId, course.id)
@@ -576,7 +652,7 @@ describe('Quizzes module', () => {
     it('first attempt succeeds (attempts < maxAttempts)', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id, { maxAttempts: 2 })
       await enroll(admin.cookies, user.userId, course.id)
@@ -591,7 +667,7 @@ describe('Quizzes module', () => {
     it('attempt when maxAttempts exhausted → 400 with message', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id, { maxAttempts: 1 })
       await enroll(admin.cookies, user.userId, course.id)
@@ -611,7 +687,7 @@ describe('Quizzes module', () => {
     it('progress=100 + passed → enrollment becomes COMPLETED', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2CorrectOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       const enrollment = await enroll(admin.cookies, user.userId, course.id)
@@ -640,7 +716,7 @@ describe('Quizzes module', () => {
     it('progress=100 + failed → enrollment stays IN_PROGRESS', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       const enrollment = await enroll(admin.cookies, user.userId, course.id)
@@ -664,9 +740,9 @@ describe('Quizzes module', () => {
     it('passed but progress < 100 → enrollment stays not COMPLETED', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 50)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
-        await createQuizWithQuestions(admin.cookies, course.id)
+        await createQuizWithQuestions(admin.cookies, course.id, { passScore: 50 })
       const enrollment = await enroll(admin.cookies, user.userId, course.id)
 
       // progress stays at default 0
@@ -691,7 +767,7 @@ describe('Quizzes module', () => {
     it('USER gets own attempts → 200, list contains only own', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       await enroll(admin.cookies, user.userId, course.id)
@@ -732,7 +808,7 @@ describe('Quizzes module', () => {
       const admin = await setup('ADMIN')
       const user1 = await setup('USER')
       const user2 = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       await enroll(admin.cookies, user1.userId, course.id)
@@ -755,7 +831,7 @@ describe('Quizzes module', () => {
       const admin = await setup('ADMIN')
       const user1 = await setup('USER')
       const user2 = await setup('USER')
-      const course = await createCourse(admin.cookies, 80)
+      const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
       await enroll(admin.cookies, user1.userId, course.id)

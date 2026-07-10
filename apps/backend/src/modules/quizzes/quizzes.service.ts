@@ -43,6 +43,7 @@ const QUIZ_USER_SELECT = {
   courseId: true,
   titleEn: true,
   titleTh: true,
+  passScore: true,
   maxAttempts: true,
   shuffle: true,
   questions: {
@@ -70,6 +71,7 @@ type QuizWithQuestionsAdmin = {
   courseId: string
   titleEn: string
   titleTh: string | null
+  passScore: number
   maxAttempts: number | null
   shuffle: boolean
   questions: Array<{
@@ -86,6 +88,7 @@ type QuizWithQuestionsUser = {
   courseId: string
   titleEn: string
   titleTh: string | null
+  passScore: number
   maxAttempts: number | null
   shuffle: boolean
   questions: Array<{
@@ -105,6 +108,7 @@ function toQuizAdminResponse(quiz: QuizWithQuestionsAdmin, locale: Locale): Quiz
     title: localizeField(quiz.titleEn, quiz.titleTh, locale),
     titleEn: quiz.titleEn,
     titleTh: quiz.titleTh ?? null,
+    passScore: quiz.passScore,
     maxAttempts: quiz.maxAttempts,
     shuffle: quiz.shuffle,
     questions: quiz.questions.map((q) => ({
@@ -140,6 +144,7 @@ function toQuizForUserResponse(quiz: QuizWithQuestionsUser, locale: Locale): Qui
     id: quiz.id,
     courseId: quiz.courseId,
     title: localizeField(quiz.titleEn, quiz.titleTh, locale),
+    passScore: quiz.passScore,
     maxAttempts: quiz.maxAttempts,
     questions,
   }
@@ -167,7 +172,7 @@ function toAttemptResponse(a: {
 
 // ─── Internal: ดึง active quiz + ตรวจ course ───────────────────────────────
 
-async function getActiveQuiz(prisma: PrismaClient, courseId: string) {
+export async function getActiveQuiz(prisma: PrismaClient, courseId: string) {
   const quiz = await prisma.quiz.findFirst({
     where: { courseId, deletedAt: null },
   })
@@ -204,6 +209,7 @@ export async function createQuiz(
       courseId,
       titleEn: input.titleEn,
       titleTh: input.titleTh ?? null,
+      passScore: input.passScore,
       maxAttempts: input.maxAttempts ?? null,
       shuffle: input.shuffle,
     },
@@ -250,6 +256,7 @@ export async function updateQuiz(
     data: {
       ...(input.titleEn != null && { titleEn: input.titleEn }),
       ...('titleTh' in input && { titleTh: input.titleTh ?? null }),
+      ...(input.passScore != null && { passScore: input.passScore }),
       ...('maxAttempts' in input && { maxAttempts: input.maxAttempts ?? null }),
       ...(input.shuffle != null && { shuffle: input.shuffle }),
     },
@@ -276,6 +283,13 @@ export async function deleteQuiz(
   ip?: string,
 ): Promise<void> {
   const quiz = await requireActiveQuiz(prisma, courseId, locale)
+
+  // published course ต้องมี quiz เสมอ (2A invariant) — กันกลับไปเป็น dead-end course
+  const course = await prisma.course.findFirst({ where: { id: courseId }, select: { status: true } })
+  if (course?.status === 'PUBLISHED') {
+    throw badRequest(t('error.quiz.cannotRemoveFromPublished', undefined, locale))
+  }
+
   const now = new Date()
 
   // cascade soft delete questions ด้วย (options ยังอยู่ใน DB แต่ไม่ถูกแสดง)
@@ -392,6 +406,17 @@ export async function deleteQuestion(
     select: { id: true },
   })
   if (!question) throw notFound(t('error.question.notFound', undefined, locale))
+
+  // published course ต้องมี quiz ≥1 คำถามเสมอ (2A invariant) — กันลบคำถามสุดท้าย
+  const course = await prisma.course.findFirst({ where: { id: courseId }, select: { status: true } })
+  if (course?.status === 'PUBLISHED') {
+    const remaining = await prisma.question.count({
+      where: { quizId: quiz.id, deletedAt: null, id: { not: questionId } },
+    })
+    if (remaining === 0) {
+      throw badRequest(t('error.quiz.cannotRemoveFromPublished', undefined, locale))
+    }
+  }
 
   // soft delete เท่านั้น — ไม่แตะ options (สอดคล้องกับ quiz soft delete)
   await prisma.question.update({
@@ -564,13 +589,13 @@ export async function submitQuiz(
   })
   if (!enrollment) throw forbidden(t('error.enrollment.notEnrolled', undefined, locale))
 
-  // 2. ดึง quiz + course.passScore
+  // 2. ดึง quiz + quiz.passScore (ย้ายมาจาก course.passScore — 2A)
   const quizWithCourse = await prisma.quiz.findFirst({
     where: { courseId, deletedAt: null },
     select: {
       id: true,
       maxAttempts: true,
-      course: { select: { passScore: true } },
+      passScore: true,
       questions: {
         where: { deletedAt: null },
         select: {
@@ -624,7 +649,7 @@ export async function submitQuiz(
 
   const total = questionMap.size
   const score = total === 0 ? 0 : Math.round((correct / total) * 100)
-  const passScore = quizWithCourse.course.passScore
+  const passScore = quizWithCourse.passScore
   const passed = score >= passScore
 
   // 7. บันทึก attempt

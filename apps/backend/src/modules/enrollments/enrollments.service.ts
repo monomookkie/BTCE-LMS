@@ -337,9 +337,12 @@ export async function assignEnrollment(
 ): Promise<EnrollmentResponse> {
   const course = await prisma.course.findFirst({
     where: { id: input.courseId, deletedAt: null, status: 'PUBLISHED' },
-    select: { id: true },
+    select: { id: true, enrollmentCloseAt: true },
   })
   if (!course) throw notFound(t('error.course.notFound', undefined, locale))
+  if (course.enrollmentCloseAt != null && course.enrollmentCloseAt < new Date()) {
+    throw badRequest(t('error.course.enrollmentClosed', undefined, locale))
+  }
 
   const user = await prisma.user.findFirst({
     where: { id: input.userId, deletedAt: null },
@@ -382,10 +385,13 @@ export async function selfEnroll(
 ): Promise<EnrollmentResponse> {
   const course = await prisma.course.findFirst({
     where: { id: input.courseId, deletedAt: null, status: 'PUBLISHED' },
-    select: { id: true, allowSelfEnroll: true },
+    select: { id: true, allowSelfEnroll: true, enrollmentCloseAt: true },
   })
   if (!course) throw notFound(t('error.course.notFound', undefined, locale))
   if (!course.allowSelfEnroll) throw forbidden(t('error.enrollment.selfEnrollNotAllowed', undefined, locale))
+  if (course.enrollmentCloseAt != null && course.enrollmentCloseAt < new Date()) {
+    throw badRequest(t('error.course.enrollmentClosed', undefined, locale))
+  }
 
   const existing = await findActiveEnrollment(prisma, userId, input.courseId)
   if (existing) throw badRequest(t('error.enrollment.alreadyEnrolled', undefined, locale))

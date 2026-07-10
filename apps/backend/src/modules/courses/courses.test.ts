@@ -24,10 +24,44 @@ describe('Courses module', () => {
       payload: {
         titleEn: 'Test Course',
         categoryEn: 'Safety',
-        passScore: 80,
         ...overrides,
       },
     })
+  }
+
+  /** เพิ่ม quiz + 1 คำถามให้ course — จำเป็นก่อน publish เสมอ (2A invariant) */
+  async function addQuizWithQuestion(cookies: string, courseId: string) {
+    await app.inject({
+      method: 'POST',
+      url: `/courses/${courseId}/quiz`,
+      headers: { cookie: cookies },
+      payload: { titleEn: 'Test Quiz', passScore: 80 },
+    })
+    await app.inject({
+      method: 'POST',
+      url: `/courses/${courseId}/quiz/questions`,
+      headers: { cookie: cookies },
+      payload: {
+        textEn: 'Sample question?',
+        options: [
+          { textEn: 'Correct', isCorrect: true },
+          { textEn: 'Wrong', isCorrect: false },
+        ],
+      },
+    })
+  }
+
+  /** สร้าง course + quiz + publish — helper รวมสำหรับ test ที่ต้องการ PUBLISHED course */
+  async function createPublishedCourseAs(cookies: string, overrides: Record<string, unknown> = {}) {
+    const created = (await createCourseAs(cookies, overrides)).json<CourseAdminResponse>()
+    await addQuizWithQuestion(cookies, created.id)
+    await app.inject({
+      method: 'PATCH',
+      url: `/courses/${created.id}/status`,
+      headers: { cookie: cookies },
+      payload: { status: 'PUBLISHED' },
+    })
+    return created
   }
 
   // ─── RBAC ─────────────────────────────────────────────────────────────────
@@ -118,12 +152,12 @@ describe('Courses module', () => {
         method: 'PATCH',
         url: `/courses/${created.id}`,
         headers: { cookie: cookies },
-        payload: { titleEn: 'Updated Title', passScore: 90 },
+        payload: { titleEn: 'Updated Title', expiryMonths: 6 },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json<CourseAdminResponse>()
       expect(body.title).toBe('Updated Title') // localized field
-      expect(body.passScore).toBe(90)
+      expect(body.expiryMonths).toBe(6)
       expect(body.version).toBe(created.version + 1)
 
       const log = await prisma.auditLog.findFirst({
@@ -140,6 +174,7 @@ describe('Courses module', () => {
       const { user, plainPassword } = await createUser({ role: 'ADMIN' })
       const { cookies } = await loginAs(app, user.email, plainPassword)
       const created = (await createCourseAs(cookies)).json<CourseAdminResponse>()
+      await addQuizWithQuestion(cookies, created.id)
 
       const res = await app.inject({
         method: 'PATCH',
@@ -154,6 +189,54 @@ describe('Courses module', () => {
         where: { action: 'COURSE_PUBLISH', targetId: created.id },
       })
       expect(log).not.toBeNull()
+    })
+
+    it('publish without a quiz → 400 (2A: every published course must have a quiz)', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies)).json<CourseAdminResponse>()
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}/status`,
+        headers: { cookie: cookies },
+        payload: { status: 'PUBLISHED' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('publish with a quiz that has 0 questions → 400', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies)).json<CourseAdminResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/courses/${created.id}/quiz`,
+        headers: { cookie: cookies },
+        payload: { titleEn: 'Empty Quiz', passScore: 80 },
+      })
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}/status`,
+        headers: { cookie: cookies },
+        payload: { status: 'PUBLISHED' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('publish with a quiz that has >=1 question → 200', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = await createPublishedCourseAs(cookies)
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/courses/${created.id}`,
+        headers: { cookie: cookies },
+      })
+      expect(res.json<CourseAdminResponse>().status).toBe('PUBLISHED')
     })
 
     it('cannot change status of ARCHIVED course → 400', async () => {
@@ -192,6 +275,7 @@ describe('Courses module', () => {
       const published = (await createCourseAs(adminCookies, { titleEn: 'Published Course' })).json<CourseAdminResponse>()
       const archived = (await createCourseAs(adminCookies, { titleEn: 'Archived Course' })).json<CourseAdminResponse>()
 
+      await addQuizWithQuestion(adminCookies, published.id)
       await app.inject({
         method: 'PATCH',
         url: `/courses/${published.id}/status`,
@@ -293,7 +377,7 @@ describe('Courses module', () => {
         method: 'POST',
         url: '/courses',
         headers: { cookie: cookies },
-        payload: { categoryEn: 'Safety', passScore: 80 }, // titleEn missing
+        payload: { categoryEn: 'Safety' }, // titleEn missing
       })
       expect(res.statusCode).toBe(400)
     })
@@ -376,6 +460,7 @@ describe('Courses module', () => {
         titleTh: 'หลักสูตรสาธารณะ',
         categoryEn: 'Training',
       })).json<CourseAdminResponse>()
+      await addQuizWithQuestion(adminCookies, created.id)
       await app.inject({
         method: 'PATCH',
         url: `/courses/${created.id}/status`,
@@ -413,6 +498,7 @@ describe('Courses module', () => {
         titleEn: 'Detail Course',
         categoryEn: 'Training',
       })).json<CourseAdminResponse>()
+      await addQuizWithQuestion(adminCookies, created.id)
       await app.inject({
         method: 'PATCH',
         url: `/courses/${created.id}/status`,

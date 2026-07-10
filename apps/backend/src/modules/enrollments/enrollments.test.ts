@@ -28,7 +28,7 @@ describe('Enrollments module', () => {
     return { user, cookies }
   }
 
-  /** สร้าง PUBLISHED course และ return id */
+  /** สร้าง PUBLISHED course และ return id — ต้องมี quiz ≥1 คำถามก่อน publish (2A) */
   async function createPublishedCourse(adminCookies: string, selfEnroll = false): Promise<string> {
     const res = await app.inject({
       method: 'POST',
@@ -37,11 +37,29 @@ describe('Enrollments module', () => {
       payload: {
         titleEn: 'Test Course',
         categoryEn: 'Safety',
-        passScore: 80,
         allowSelfEnroll: selfEnroll,
       },
     })
     const course = res.json<CourseAdminResponse>()
+
+    await app.inject({
+      method: 'POST',
+      url: `/courses/${course.id}/quiz`,
+      headers: { cookie: adminCookies },
+      payload: { titleEn: 'Test Quiz', passScore: 80 },
+    })
+    await app.inject({
+      method: 'POST',
+      url: `/courses/${course.id}/quiz/questions`,
+      headers: { cookie: adminCookies },
+      payload: {
+        textEn: 'Sample question?',
+        options: [
+          { textEn: 'Correct', isCorrect: true },
+          { textEn: 'Wrong', isCorrect: false },
+        ],
+      },
+    })
 
     await app.inject({
       method: 'PATCH',
@@ -128,6 +146,83 @@ describe('Enrollments module', () => {
       })
       expect(log).not.toBeNull()
       expect(log!.actorId).toBe(admin.id)
+    })
+  })
+
+  // ─── Enrollment cutoff (2A: enrollmentCloseAt ปิดรับ enroll ใหม่) ──────────
+
+  describe('Enrollment cutoff (enrollmentCloseAt)', () => {
+    async function setEnrollmentCloseAt(adminCookies: string, courseId: string, isoDate: string) {
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${courseId}`,
+        headers: { cookie: adminCookies },
+        payload: { enrollmentCloseAt: isoDate },
+      })
+      expect(res.statusCode).toBe(200)
+    }
+
+    it('assignEnrollment: cutoff in the past → 400, enrollmentClosed message', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      await setEnrollmentCloseAt(adminCookies, courseId, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+
+      const res = await assign(adminCookies, user.id, courseId)
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('assignEnrollment: cutoff in the future → still allowed', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      await setEnrollmentCloseAt(adminCookies, courseId, new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())
+
+      const res = await assign(adminCookies, user.id, courseId)
+      expect(res.statusCode).toBe(201)
+    })
+
+    it('selfEnroll: cutoff in the past → 400', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies, true) // allowSelfEnroll
+      await setEnrollmentCloseAt(adminCookies, courseId, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/enrollments/self',
+        headers: { cookie: userCookies },
+        payload: { courseId },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('already-enrolled user unaffected by a cutoff set after they enrolled', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+
+      // enroll ก่อนตั้ง cutoff
+      const assignRes = await assign(adminCookies, user.id, courseId)
+      expect(assignRes.statusCode).toBe(201)
+
+      // ตั้ง cutoff ย้อนหลังทีหลัง
+      await setEnrollmentCloseAt(adminCookies, courseId, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
+
+      // enrollment เดิมยังอยู่ + ดึงรายการ enrollment ของตัวเองได้ปกติ
+      const meRes = await app.inject({
+        method: 'GET',
+        url: '/enrollments/me',
+        headers: { cookie: userCookies },
+      })
+      expect(meRes.statusCode).toBe(200)
+      const ids = meRes.json<{ data: EnrollmentResponse[] }>().data.map((e) => e.id)
+      expect(ids).toContain(assignRes.json<EnrollmentResponse>().id)
+
+      // แต่ user คนใหม่ enroll เพิ่มไม่ได้แล้ว
+      const { user: otherUser } = await setupUser()
+      const secondAssign = await assign(adminCookies, otherUser.id, courseId)
+      expect(secondAssign.statusCode).toBe(400)
     })
   })
 
@@ -353,7 +448,7 @@ describe('Enrollments module', () => {
       expect(body.completedMaterials).toContain(matId)
     })
 
-    it('course no quiz + all materials done → status COMPLETED (no cert issuance, no error — system cert issuance removed)', async () => {
+    it('all materials done, quiz not yet passed → progress 100% but stays IN_PROGRESS (2A: every published course has a quiz gate)', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { user, cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
@@ -368,7 +463,9 @@ describe('Enrollments module', () => {
         headers: { cookie: userCookies },
       })
       expect(res.statusCode).toBe(200)
-      expect(res.json<EnrollmentResponse>().status).toBe('COMPLETED')
+      const body = res.json<EnrollmentResponse>()
+      expect(body.progress).toBe(100)
+      expect(body.status).not.toBe('COMPLETED') // quiz (added by createPublishedCourse) not yet passed
     })
 
     it('deleted material excluded from total → progress can still reach 100%', async () => {
@@ -409,7 +506,8 @@ describe('Enrollments module', () => {
       expect(res2.statusCode).toBe(200)
       // mat2 ถูกลบ → total = 1, completed = 1 → progress = 100
       expect(res2.json<EnrollmentResponse>().progress).toBe(100)
-      expect(res2.json<EnrollmentResponse>().status).toBe('COMPLETED')
+      // quiz (added by createPublishedCourse) not yet passed → not COMPLETED yet
+      expect(res2.json<EnrollmentResponse>().status).not.toBe('COMPLETED')
     })
 
     it('IDOR: USER complete-material ของ enrollment คนอื่น → 404', async () => {

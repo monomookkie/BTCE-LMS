@@ -22,6 +22,8 @@
   "error.course.notPublished": "หลักสูตรนี้ยังไม่เปิดให้เรียน",
   "error.course.archivedCannotChange": "หลักสูตรที่เก็บถาวรแล้วไม่สามารถเปลี่ยนสถานะได้",
   "error.course.invalidStatusTransition": "ไม่สามารถเปลี่ยนสถานะนี้ได้",
+  "error.course.quizRequiredToPublish": "หลักสูตรนี้ต้องมีแบบทดสอบอย่างน้อย 1 ข้อก่อนจึงจะเผยแพร่ได้",
+  "error.course.enrollmentClosed": "หลักสูตรนี้ปิดรับลงทะเบียนแล้ว",
 
   "error.material.notFound": "ไม่พบสื่อการเรียน",
   "error.material.uploadFailed": "อัปโหลดไฟล์ไม่สำเร็จ",
@@ -43,6 +45,7 @@
   "error.quiz.alreadyExists": "หลักสูตรนี้มีแบบทดสอบอยู่แล้ว",
   "error.quiz.maxAttemptsReached": "ทำแบบทดสอบครบจำนวนครั้งสูงสุด ({{count}} ครั้ง) แล้ว",
   "error.quiz.attemptsNotFound": "ไม่พบประวัติการทำแบบทดสอบ",
+  "error.quiz.cannotRemoveFromPublished": "ไม่สามารถลบได้ — หลักสูตรที่เผยแพร่แล้วต้องมีแบบทดสอบอย่างน้อย 1 ข้อเสมอ",
 
   "error.question.notFound": "ไม่พบคำถาม",
   "error.option.notFound": "ไม่พบตัวเลือก",

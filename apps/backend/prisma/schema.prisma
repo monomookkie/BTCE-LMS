@@ -69,9 +69,9 @@ model Course {
   descriptionEn String?      @db.Text
   descriptionTh String?      @db.Text
   status        CourseStatus @default(DRAFT)
-  durationMin  Int?
-  passScore    Int          @default(80)
   expiryMonths    Int? // ต้องต่ออายุทุกกี่เดือน (null = ไม่หมดอายุ)
+  enrollmentCloseAt DateTime? // ปิดรับลงทะเบียนใหม่หลังวันนี้ (null = ไม่มีกำหนด) — ผู้ที่ลงแล้วเรียนต่อได้ตามปกติ
+  paperSavingSheets Int? // จำนวนกระดาษที่ประหยัดได้ต่อผู้เรียน 1 คน (null = ไม่แสดงข้อความ)
   allowSelfEnroll Boolean  @default(false) // อนุญาตให้ USER ลงทะเบียนเอง
   createdById     String?
   version      Int          @default(1)
@@ -127,6 +127,7 @@ model Quiz {
   courseId    String    @unique
   titleEn     String
   titleTh     String?
+  passScore   Int       @default(80) // เกณฑ์คะแนนผ่าน (%) — ย้ายมาจาก Course (2A)
   maxAttempts Int? // null = ไม่จำกัด
   shuffle     Boolean   @default(true)
   deletedAt   DateTime?

@@ -35,6 +35,7 @@ type QuizOption = QuizQuestion['options'][number]
 const quizSettingsSchema = z.object({
   titleEn: z.string().min(1).max(200),
   titleTh: z.string().max(200).optional(),
+  passScore: z.coerce.number().int().min(0).max(100),
   maxAttemptsRaw: z.string(),
   shuffle: z.boolean(),
 })
@@ -59,10 +60,11 @@ function QuizSettingsModal({ isOpen, onClose, courseId, quiz }: QuizSettingsModa
         ? {
             titleEn: quiz.titleEn,
             titleTh: quiz.titleTh ?? '',
+            passScore: quiz.passScore,
             maxAttemptsRaw: quiz.maxAttempts != null ? String(quiz.maxAttempts) : '',
             shuffle: quiz.shuffle,
           }
-        : { titleEn: '', titleTh: '', maxAttemptsRaw: '', shuffle: true },
+        : { titleEn: '', titleTh: '', passScore: 80, maxAttemptsRaw: '', shuffle: true },
     })
 
   const onSubmit = async (values: QuizSettingsValues) => {
@@ -70,6 +72,7 @@ function QuizSettingsModal({ isOpen, onClose, courseId, quiz }: QuizSettingsModa
     const body = {
       titleEn: values.titleEn,
       ...(values.titleTh?.trim() ? { titleTh: values.titleTh.trim() } : {}),
+      passScore: values.passScore,
       maxAttempts,
       shuffle: values.shuffle,
     }
@@ -90,6 +93,14 @@ function QuizSettingsModal({ isOpen, onClose, courseId, quiz }: QuizSettingsModa
           <Input label={`${t('quizEditor.quizTitleEn')} *`} error={errors.titleEn?.message} {...register('titleEn')} />
           <Input label={t('quizEditor.quizTitleTh')} {...register('titleTh')} />
         </div>
+        <Input
+          label={`${t('quizEditor.passScore')} (%)`}
+          type="number"
+          min={0}
+          max={100}
+          error={errors.passScore?.message}
+          {...register('passScore')}
+        />
         <Input
           label={t('quizEditor.maxAttempts')}
           type="number"
@@ -693,6 +704,7 @@ export default function QuizEditorTab({ courseId, isArchived }: QuizEditorTabPro
             <h3 className="font-semibold text-slate-800">{quiz.titleEn}</h3>
             {quiz.titleTh && <p className="text-sm text-slate-400">{quiz.titleTh}</p>}
             <div className="mt-2 flex gap-4 text-xs text-slate-500">
+              <span>{t('quizEditor.passScore')}: <strong className="text-slate-700">{quiz.passScore}%</strong></span>
               <span>{t('quizEditor.maxAttempts')}: <strong className="text-slate-700">{quiz.maxAttempts ?? '∞'}</strong></span>
               <span>{t('quizEditor.shuffle')}: <strong className="text-slate-700">{quiz.shuffle ? t('common.yes') : t('common.no')}</strong></span>
             </div>
