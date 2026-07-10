@@ -19,7 +19,6 @@ const ROUTE_TITLES: Record<string, string> = {
   '/profile':              'nav.profile',
   '/admin/dashboard':      'nav.adminDashboard',
   '/admin/courses':        'nav.courseManagement',
-  '/admin/certificates':   'nav.certEngine',
   '/admin/reports':        'nav.reports',
   '/admin/announcements':  'nav.announcements',
   '/admin/users':          'nav.users',

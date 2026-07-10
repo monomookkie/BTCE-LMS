@@ -19,9 +19,7 @@ const CourseManagementPage  = lazy(() => import('./pages/admin/CourseManagementP
 const CourseDetailAdminPage = lazy(() => import('./pages/admin/CourseDetailAdminPage.js'))
 const UserDirectoryPage     = lazy(() => import('./pages/admin/UserDirectoryPage.js'))
 const ReportsPage           = lazy(() => import('./pages/admin/ReportsPage.js'))
-const CertificateEnginePage = lazy(() => import('./pages/admin/CertificateEnginePage.js'))
 const AnnouncementsPage     = lazy(() => import('./pages/admin/AnnouncementsPage.js'))
-const CertVerifyPage        = lazy(() => import('./pages/public/CertVerifyPage.js'))
 const NotFoundPage          = lazy(() => import('./pages/NotFoundPage.js'))
 
 function RootRedirect() {
@@ -38,14 +36,6 @@ export default function App() {
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
-      <Route
-        path="/verify/:hash"
-        element={
-          <Suspense fallback={<PageSkeleton variant="auth" />}>
-            <CertVerifyPage />
-          </Suspense>
-        }
-      />
 
       {/* Authenticated (any role) — wrapped in AppLayout */}
       <Route element={<RequireAuth />}>
@@ -122,14 +112,6 @@ export default function App() {
               element={
                 <Suspense fallback={<PageSkeleton />}>
                   <CourseDetailAdminPage />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/admin/certificates"
-              element={
-                <Suspense fallback={<PageSkeleton variant="table" />}>
-                  <CertificateEnginePage />
                 </Suspense>
               }
             />

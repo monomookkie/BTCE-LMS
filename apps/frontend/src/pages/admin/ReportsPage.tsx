@@ -1,7 +1,7 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Users, BookOpen, Award, AlertTriangle, Download } from 'lucide-react'
+import { Users, BookOpen, Download } from 'lucide-react'
 import type { ComplianceRow } from '@btec-lms/shared'
 import {
   getDashboardSummary,
@@ -68,12 +68,6 @@ export default function ReportsPage() {
         render: (r) => <StatusBadge type="enrollment" status={r.enrollmentStatus} /> },
       { key: 'progress', header: t('enrollment.progress'), width: '11%', align: 'right', skeleton: 'text',
         render: (r) => `${r.progress}%` },
-      { key: 'certStatus', header: t('certificate.label'), width: '14%', skeleton: 'pill',
-        render: (r) => r.certStatus
-          ? <StatusBadge type="cert" status={r.certStatus} />
-          : <span className="text-slate-400">—</span> },
-      { key: 'certExpiresAt', header: t('certificate.expires'), width: '14%', skeleton: 'text',
-        render: (r) => r.certExpiresAt ? new Date(r.certExpiresAt).toLocaleDateString() : '—' },
     ],
     [t],
   )
@@ -101,20 +95,13 @@ export default function ReportsPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4">
           {summaryLoading ? (
-            Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+            Array.from({ length: 2 }).map((_, i) => <StatCardSkeleton key={i} />)
           ) : (
             <>
               <StatCard label={t('adminDash.staffCount')} value={summary?.totalUsers ?? 0} icon={<Users size={20} />} />
               <StatCard label={t('adminDash.publishedCourses')} value={summary?.totalCourses ?? 0} icon={<BookOpen size={20} />} />
-              <StatCard label={t('adminDash.certsIssued')} value={summary?.certsIssued ?? 0} icon={<Award size={20} />} />
-              <StatCard
-                label={t('adminDash.expiringSoon')}
-                value={summary?.certsExpiringSoon ?? 0}
-                icon={<AlertTriangle size={20} />}
-                className={summary?.certsExpiringSoon ? 'border-amber-200' : undefined}
-              />
             </>
           )}
         </div>

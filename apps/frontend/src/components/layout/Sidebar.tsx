@@ -30,7 +30,6 @@ const userNav: NavItem[] = [
 const adminNav: NavItem[] = [
   { path: '/admin/dashboard',     labelKey: 'nav.adminDashboard',   Icon: LayoutDashboard },
   { path: '/admin/courses',       labelKey: 'nav.courseManagement', Icon: BookOpen },
-  { path: '/admin/certificates',  labelKey: 'nav.certEngine',       Icon: Award },
   { path: '/admin/reports',       labelKey: 'nav.reports',          Icon: BarChart3 },
   { path: '/admin/announcements', labelKey: 'nav.announcements',    Icon: Megaphone },
   { path: '/admin/users',         labelKey: 'nav.users',            Icon: Users },

@@ -2,7 +2,7 @@ import { useQuery } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import {
-  Users, BookOpen, Award, AlertTriangle,
+  Users, BookOpen,
   CheckCircle2, Clock, ChevronRight,
 } from 'lucide-react'
 import type { ComplianceRow } from '@btec-lms/shared'
@@ -29,12 +29,8 @@ function useComplianceColumns(): Column<ComplianceRow>[] {
     { key: 'courseTitle',      header: t('course.label'),         width: '28%', skeleton: 'text' },
     { key: 'progress',         header: t('enrollment.progress'),  width: '11%', align: 'right', skeleton: 'text',
       render: (r) => `${r.progress}%` },
-    { key: 'enrollmentStatus', header: t('enrollment.label'),     width: '16%', skeleton: 'pill',
+    { key: 'enrollmentStatus', header: t('enrollment.label'),     width: '17%', skeleton: 'pill',
       render: (r) => <StatusBadge type="enrollment" status={r.enrollmentStatus} /> },
-    { key: 'certStatus',       header: t('certificate.label'),    width: '17%', skeleton: 'pill',
-      render: (r) => r.certStatus
-        ? <StatusBadge type="cert" status={r.certStatus} />
-        : <span className="text-slate-400">—</span> },
   ]
 }
 
@@ -90,9 +86,9 @@ export default function AdminDashboardPage() {
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-4">
           {summaryLoading ? (
-            Array.from({ length: 4 }).map((_, i) => <StatCardSkeleton key={i} />)
+            Array.from({ length: 2 }).map((_, i) => <StatCardSkeleton key={i} />)
           ) : (
             <>
               <StatCard
@@ -104,17 +100,6 @@ export default function AdminDashboardPage() {
                 label={t('adminDash.publishedCourses')}
                 value={summary?.totalCourses ?? 0}
                 icon={<BookOpen size={20} />}
-              />
-              <StatCard
-                label={t('adminDash.certsIssued')}
-                value={summary?.certsIssued ?? 0}
-                icon={<Award size={20} />}
-              />
-              <StatCard
-                label={t('adminDash.expiringSoon')}
-                value={summary?.certsExpiringSoon ?? 0}
-                icon={<AlertTriangle size={20} />}
-                className={summary?.certsExpiringSoon ? 'border-amber-200' : undefined}
               />
             </>
           )}
@@ -165,29 +150,6 @@ export default function AdminDashboardPage() {
 
         {/* Right column — 1/3 width */}
         <div className="flex flex-col gap-4">
-
-          {/* Navy recertification card */}
-          <div className="rounded-xl bg-brand-800 p-5 text-white shadow-sm">
-            <div className="mb-1 flex items-center gap-2 text-sm font-medium text-brand-200">
-              <AlertTriangle size={15} />
-              {t('adminDash.recertTitle')}
-            </div>
-            {summaryLoading ? (
-              <Skeleton className="my-1 h-12 w-16 bg-white/20" />
-            ) : (
-              <p className="my-1 text-5xl font-bold">
-                {summary?.certsExpiringSoon ?? 0}
-              </p>
-            )}
-            <p className="text-sm text-brand-300">{t('adminDash.recertSubtext')}</p>
-            <Link
-              to="/admin/reports"
-              className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-brand-200 hover:text-white"
-            >
-              {t('adminDash.viewFullReport')}
-              <ChevronRight size={12} />
-            </Link>
-          </div>
 
           {/* Learning progress */}
           <Card header={<h2 className="font-semibold text-slate-700">{t('adminDash.progressTitle')}</h2>}>
