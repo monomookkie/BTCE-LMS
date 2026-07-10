@@ -209,11 +209,26 @@ describe('Users module', () => {
         method: 'PATCH',
         url: '/users/me',
         headers: { cookie: cookies },
-        payload: { name: 'Updated Name', position: 'Senior Dev' },
+        payload: { name: 'Updated Name' },
       })
       expect(res.statusCode).toBe(200)
-      expect(res.json<{ name: string; position: string }>().name).toBe('Updated Name')
-      expect(res.json<{ name: string; position: string }>().position).toBe('Senior Dev')
+      expect(res.json<{ name: string }>().name).toBe('Updated Name')
+    })
+
+    it('PATCH /users/me ignores a user-submitted position (admin-only field)', async () => {
+      const { user, plainPassword } = await createUser({ email: 'profile-position@test.com' })
+      await prisma.user.update({ where: { id: user.id }, data: { position: 'Original Position' } })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: '/users/me',
+        headers: { cookie: cookies },
+        payload: { name: 'Name Changed', position: 'Hacked Position' },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json<{ name: string; position: string | null }>().name).toBe('Name Changed')
+      expect(res.json<{ name: string; position: string | null }>().position).toBe('Original Position')
     })
 
     it('PATCH /users/me writes USER_UPDATE_PROFILE audit log', async () => {

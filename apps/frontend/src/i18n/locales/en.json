@@ -302,6 +302,7 @@
     "info": "Personal Information",
     "saved": "Profile updated",
     "position": "Position",
+    "positionReadOnly": "Position (cannot be changed)",
     "emailReadOnly": "Email (cannot be changed)",
     "languagePref": "Language Preference",
     "passwordSection": "Change Password",

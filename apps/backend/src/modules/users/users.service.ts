@@ -335,7 +335,6 @@ export async function updateProfile(
     where: { id: userId },
     data: {
       ...(input.name != null && { name: input.name }),
-      ...(input.position != null && { position: input.position }),
       ...(input.language != null && { language: input.language }),
     },
     select: USER_SELECT,

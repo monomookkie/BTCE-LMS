@@ -25,7 +25,6 @@ type TFn = ReturnType<typeof useTranslation>['t']
 function buildProfileSchema(t: TFn) {
   return z.object({
     name: z.string().min(1, t('common.required')).max(100),
-    position: z.string().max(100).optional(),
   })
 }
 
@@ -96,7 +95,6 @@ export default function ProfilePage() {
     resolver: zodResolver(profileSchema),
     defaultValues: {
       name: user?.name ?? '',
-      position: user?.position ?? '',
     },
   })
 
@@ -104,7 +102,6 @@ export default function ProfilePage() {
     try {
       const updated = await patchProfile({
         name: data.name,
-        ...(data.position !== undefined ? { position: data.position } : {}),
       })
       // sync cache so Sidebar name updates immediately without refetch
       qc.setQueryData(AUTH_QUERY_KEY, (prev: typeof user) =>
@@ -167,9 +164,10 @@ export default function ProfilePage() {
             {...profileForm.register('name')}
           />
           <Input
-            label={t('profile.position')}
-            error={profileForm.formState.errors.position?.message}
-            {...profileForm.register('position')}
+            label={t('profile.positionReadOnly')}
+            value={user?.position ?? ''}
+            readOnly
+            disabled
           />
 
           {profileForm.formState.errors.root && (
