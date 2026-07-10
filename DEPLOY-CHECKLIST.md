@@ -56,22 +56,42 @@ list — only pre-deploy blockers and cross-phase follow-ups land here.
 
 ## Deferred — fix in a later phase
 
-### 3. Cert-expiry notification links to a route that doesn't exist for USER
+### 3. ~~Cert-expiry notification links to a route that doesn't exist for USER~~ — OBSOLETE
 
 - **Found:** FE-5a verification pass (2026-07-02), while testing notification
   click-through.
-- **Symptom:** notifications created by the cert-expiry cron
-  (`apps/backend/src/jobs/certExpiryReminder.ts`) set
-  `link: /certificates/${cert.id}`, but the frontend has no
-  `/certificates/:id` route for role USER — only `/certs` (list) and
-  `/admin/certificates` (admin). Clicking the notification falls through
-  the wildcard route and bounces to the dashboard instead of the cert.
-- **Options:**
-  - Add a `/certificates/:id` USER-facing single-certificate view (leaning
-    toward this — more useful than just redirecting to the list).
-  - Or change the cron to link to `/certs` instead.
-- **Decision:** add the USER `/certificates/:id` route. Scope for a later
-  phase, tracked here so it isn't lost.
+- **Resolved by removal:** CERT-REMOVE-1 (2026-07-10) deleted the self-issued
+  Certificate system entirely, including `apps/backend/src/jobs/certExpiryReminder.ts`
+  and the cron that created these notifications. There is no longer a
+  cert-expiry notification to link anywhere. Left here for history only —
+  no action needed.
+
+---
+
+### 6. Backend dead dependencies removed from `package.json`, `pnpm install` not yet run
+
+- **Found:** CERT-REMOVE-1 (2026-07-10), after deleting `apps/backend/src/lib/pdf.tsx`
+  (system-certificate PDF generation, the only consumer of these packages).
+- **What's done:** `@react-pdf/renderer`, `qrcode`, `react`, `react-dom` and their
+  `@types/*` dev counterparts were removed from `apps/backend/package.json`.
+  Backend `tsc --noEmit` and the full `vitest` suite (217/217) pass — the
+  packages are still physically present in `node_modules` on disk, just no
+  longer declared.
+- **Why deferred:** running `pnpm install` right now wants to fully wipe and
+  reinstall the monorepo's `node_modules` from scratch, because
+  `pnpm-workspace.yaml` has an unfilled `allowBuilds` placeholder (separate
+  known issue — see that file). A full reinstall mid-way through concurrent
+  work (CERT-REMOVE, course form, survey work) risks breaking other
+  dependencies and burning time debugging an unrelated toolchain issue.
+- **`pnpm-lock.yaml` is currently stale relative to `package.json`** — this is
+  acceptable short-term since `node_modules` already on disk still satisfies
+  both dev and CI (nothing was physically removed), but must not ship to
+  production in this state.
+- **Before deploy:** fix the `pnpm-workspace.yaml` `allowBuilds` placeholder,
+  then run `pnpm install` (full reinstall) as part of a pre-deploy cleanup
+  batch, together with any other accumulated dependency changes. After
+  reinstall, re-verify backend `tsc --noEmit` + `vitest run` still pass
+  against the fresh `node_modules`.
 
 ---
 

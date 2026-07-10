@@ -8,9 +8,6 @@ export const dashboardSummarySchema = z.object({
   totalEnrollments: z.number().int(),
   completedEnrollments: z.number().int(),
   pendingEnrollments: z.number().int(),     // ASSIGNED + IN_PROGRESS
-  certsIssued: z.number().int(),
-  certsExpiringSoon: z.number().int(),      // expiresAt ≤ 30 days
-  certsExpired: z.number().int(),
 })
 
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>
@@ -27,9 +24,6 @@ export const complianceRowSchema = z.object({
   enrollmentStatus: z.enum(['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED']),
   progress: z.number().int(),
   completedAt: z.string().nullable(),       // ISO8601
-  certNumber: z.string().nullable(),
-  certStatus: z.enum(['valid', 'expiring-soon', 'expired', 'revoked']).nullable(),
-  certExpiresAt: z.string().nullable(),     // ISO8601
 })
 
 export const complianceListSchema = z.object({

@@ -30,7 +30,6 @@ model User {
   deletedAt         DateTime? // soft delete
 
   enrollments          Enrollment[]
-  certificates         Certificate[]
   externalCertificates ExternalCertificate[]
   refreshTokens        RefreshToken[]
   consents             Consent[]
@@ -192,7 +191,6 @@ model Enrollment {
 
   user        User         @relation(fields: [userId], references: [id])
   course      Course       @relation(fields: [courseId], references: [id])
-  certificate Certificate?
   materialProgress MaterialProgress[]
 
   // unique constraint อยู่ที่ service layer (ตรวจ deletedAt: null) — ไม่ใช่ DB
@@ -225,37 +223,6 @@ enum EnrollStatus {
   IN_PROGRESS
   COMPLETED
   EXPIRED
-}
-
-model Certificate {
-  id            String    @id @default(cuid())
-  enrollmentId  String    @unique
-  userId        String
-  courseId      String
-  courseTitleEn String    @db.VarChar(500) // snapshot ณ วันออกใบ — ไม่เปลี่ยนตามแก้ course
-  courseTitleTh String?   @db.VarChar(500)
-  certNumber    String    @unique // BTEC-YYYY-NNNN
-  score         Int
-  fileKey       String? // PDF ที่ gen แล้ว cache ใน storage
-  verifyHash    String    @unique // UUID สำหรับ public verify URL
-  issuedAt      DateTime  @default(now())
-  expiresAt     DateTime? // คำนวณจาก course.expiryMonths
-  revokedAt     DateTime?
-
-  user       User       @relation(fields: [userId], references: [id])
-  enrollment Enrollment @relation(fields: [enrollmentId], references: [id])
-
-  @@index([userId])
-  @@index([verifyHash])
-  @@index([expiresAt])
-}
-
-// counter สำหรับ certNumber atomic increment — กัน race condition
-model CertificateCounter {
-  year    Int @id
-  lastSeq Int @default(0) @map("last_seq")
-
-  @@map("certificate_counter")
 }
 
 // ใบรับรองภายนอกที่ผู้ใช้อัปโหลดเอง (จากองค์กรภายนอก)

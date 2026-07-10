@@ -4,24 +4,6 @@ import { logAudit } from '../../lib/audit.js'
 import { localizeField, type Locale } from '../../lib/i18n.js'
 import type { ComplianceQuery, ComplianceExportQuery } from './reports.schema.js'
 
-// ─── Helper: cert status ──────────────────────────────────────────────────────
-
-const EXPIRING_SOON_DAYS = 30
-
-function certStatus(
-  cert: { expiresAt: Date | null; revokedAt: Date | null } | null,
-): ComplianceRow['certStatus'] {
-  if (!cert) return null
-  if (cert.revokedAt) return 'revoked'
-  if (!cert.expiresAt) return 'valid'
-  const now = new Date()
-  if (cert.expiresAt < now) return 'expired'
-  if (cert.expiresAt.getTime() - now.getTime() <= EXPIRING_SOON_DAYS * 24 * 60 * 60 * 1000) {
-    return 'expiring-soon'
-  }
-  return 'valid'
-}
-
 // ─── getDashboardSummary ──────────────────────────────────────────────────────
 
 export async function getDashboardSummary(
@@ -30,32 +12,16 @@ export async function getDashboardSummary(
   _role: string,
   _locale: Locale,
 ): Promise<DashboardSummary> {
-  const now = new Date()
-  const expirySoon = new Date(now.getTime() + EXPIRING_SOON_DAYS * 24 * 60 * 60 * 1000)
-
-  const [
-    totalUsers,
-    totalCourses,
-    totalEnrollments,
-    completedEnrollments,
-    pendingEnrollments,
-    certsIssued,
-    certsExpiringSoon,
-    certsExpired,
-  ] = await Promise.all([
-    prisma.user.count({ where: { deletedAt: null, isActive: true } }),
-    prisma.course.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
-    prisma.enrollment.count({ where: { deletedAt: null } }),
-    prisma.enrollment.count({ where: { deletedAt: null, status: 'COMPLETED' } }),
-    prisma.enrollment.count({
-      where: { deletedAt: null, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
-    }),
-    prisma.certificate.count(),
-    prisma.certificate.count({
-      where: { expiresAt: { gte: now, lte: expirySoon }, revokedAt: null },
-    }),
-    prisma.certificate.count({ where: { expiresAt: { lt: now }, revokedAt: null } }),
-  ])
+  const [totalUsers, totalCourses, totalEnrollments, completedEnrollments, pendingEnrollments] =
+    await Promise.all([
+      prisma.user.count({ where: { deletedAt: null, isActive: true } }),
+      prisma.course.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
+      prisma.enrollment.count({ where: { deletedAt: null } }),
+      prisma.enrollment.count({ where: { deletedAt: null, status: 'COMPLETED' } }),
+      prisma.enrollment.count({
+        where: { deletedAt: null, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
+      }),
+    ])
 
   return {
     totalUsers,
@@ -63,9 +29,6 @@ export async function getDashboardSummary(
     totalEnrollments,
     completedEnrollments,
     pendingEnrollments,
-    certsIssued,
-    certsExpiringSoon,
-    certsExpired,
   }
 }
 
@@ -95,7 +58,6 @@ type EnrollmentRaw = {
     name: string
   }
   course: { id: string; titleEn: string; titleTh: string | null }
-  certificate: { certNumber: string; expiresAt: Date | null; revokedAt: Date | null } | null
 }
 
 function toRow(e: EnrollmentRaw, locale: Locale): ComplianceRow {
@@ -108,9 +70,6 @@ function toRow(e: EnrollmentRaw, locale: Locale): ComplianceRow {
     enrollmentStatus: e.status as ComplianceRow['enrollmentStatus'],
     progress: e.progress,
     completedAt: e.completedAt?.toISOString() ?? null,
-    certNumber: e.certificate?.certNumber ?? null,
-    certStatus: certStatus(e.certificate ?? null),
-    certExpiresAt: e.certificate?.expiresAt?.toISOString() ?? null,
   }
 }
 
@@ -126,9 +85,6 @@ const ENROLLMENT_SELECT = {
     },
   },
   course: { select: { id: true, titleEn: true, titleTh: true } },
-  certificate: {
-    select: { certNumber: true, expiresAt: true, revokedAt: true },
-  },
 } as const
 
 // ─── getComplianceList ────────────────────────────────────────────────────────
@@ -228,9 +184,6 @@ function buildCsv(rows: ComplianceRow[]): string {
     'Course',
     'Enrollment Status',
     'Progress (%)',
-    'Cert Number',
-    'Cert Status',
-    'Cert Expires At',
   ].join(',')
 
   const lines = rows.map((r) =>
@@ -239,9 +192,6 @@ function buildCsv(rows: ComplianceRow[]): string {
       escapeCsv(r.courseTitle),
       escapeCsv(r.enrollmentStatus),
       escapeCsv(String(r.progress)),
-      escapeCsv(r.certNumber),
-      escapeCsv(r.certStatus),
-      escapeCsv(r.certExpiresAt ? new Date(r.certExpiresAt).toLocaleDateString('en-GB') : null),
     ].join(','),
   )
 

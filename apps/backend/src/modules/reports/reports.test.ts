@@ -35,17 +35,16 @@ describe('Reports module', () => {
     return { cookies, userId: user.id }
   }
 
-  /** สร้าง enrollment + cert โดยตรงใน DB ไม่ผ่าน API */
+  /** สร้าง enrollment โดยตรงใน DB ไม่ผ่าน API */
   async function seedEnrollmentDirect(
     userId: string,
-    opts: { status?: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED'; withCert?: boolean } = {},
+    opts: { status?: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' } = {},
   ) {
     const course = await prisma.course.create({
       data: {
         titleEn: `Course-${randomUUID().slice(0, 6)}`,
         categoryEn: 'Safety',
         status: 'PUBLISHED',
-        expiryMonths: opts.withCert ? 3 : null,
       },
       select: { id: true, titleEn: true },
     })
@@ -59,22 +58,6 @@ describe('Reports module', () => {
       },
       select: { id: true },
     })
-    if (opts.withCert) {
-      await prisma.certificate.create({
-        data: {
-          enrollmentId: enrollment.id,
-          userId,
-          courseId: course.id,
-          courseTitleEn: course.titleEn,
-          courseTitleTh: null,
-          certNumber: `BTEC-RPT-${randomUUID().slice(0, 8).toUpperCase()}`,
-          score: 90,
-          verifyHash: randomUUID(),
-          issuedAt: new Date(),
-          expiresAt: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000), // 20 days → expiring-soon
-        },
-      })
-    }
     return { courseId: course.id, enrollmentId: enrollment.id }
   }
 
@@ -101,7 +84,7 @@ describe('Reports module', () => {
     it('returns summary with correct shape and non-negative counts', async () => {
       const admin = await makeAdmin()
       const u1 = await makeRegularUser()
-      await seedEnrollmentDirect(u1.userId, { status: 'COMPLETED', withCert: true })
+      await seedEnrollmentDirect(u1.userId, { status: 'COMPLETED' })
 
       const res = await app.inject({
         method: 'GET',
@@ -114,15 +97,9 @@ describe('Reports module', () => {
       // shape check
       expect(typeof body.totalUsers).toBe('number')
       expect(typeof body.totalCourses).toBe('number')
-      expect(typeof body.certsIssued).toBe('number')
-      expect(typeof body.certsExpiringSoon).toBe('number')
-      expect(typeof body.certsExpired).toBe('number')
 
       // ADMIN ต้องเห็น user ที่เพิ่มมา
       expect(body.totalUsers).toBeGreaterThanOrEqual(1)
-      expect(body.certsIssued).toBeGreaterThanOrEqual(1)
-      // cert อายุ 20 วัน → expiring-soon
-      expect(body.certsExpiringSoon).toBeGreaterThanOrEqual(1)
     })
   })
 
@@ -132,7 +109,7 @@ describe('Reports module', () => {
     it('ADMIN: returns paginated list with correct shape', async () => {
       const admin = await makeAdmin()
       const u = await makeRegularUser()
-      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', withCert: true })
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED' })
 
       const res = await app.inject({
         method: 'GET',
@@ -214,23 +191,6 @@ describe('Reports module', () => {
       expect(body.data.every((r) => r.enrollmentStatus === 'IN_PROGRESS')).toBe(true)
     })
 
-    it('row certStatus = expiring-soon สำหรับ cert ที่หมดใน 20 วัน', async () => {
-      const admin = await makeAdmin()
-      const u = await makeRegularUser()
-      const { courseId } = await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', withCert: true })
-
-      const res = await app.inject({
-        method: 'GET',
-        url: `/reports/compliance?courseId=${courseId}`,
-        headers: { cookie: admin.cookies },
-      })
-      const body = res.json<ComplianceList>()
-      const row = body.data[0]!
-      expect(row.certStatus).toBe('expiring-soon')
-      expect(row.certNumber).toMatch(/^BTEC-RPT-/)
-      expect(row.certExpiresAt).not.toBeNull()
-    })
-
     it('USER → 403', async () => {
       const user = await makeRegularUser()
       expect(
@@ -269,7 +229,7 @@ describe('Reports module', () => {
     it('returns CSV with BOM + correct Content-Type', async () => {
       const admin = await makeAdmin()
       const u = await makeRegularUser()
-      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', withCert: true })
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED' })
 
       const res = await app.inject({
         method: 'GET',
@@ -291,7 +251,6 @@ describe('Reports module', () => {
       // header row
       expect(body).toContain('Name')
       expect(body).toContain('Course')
-      expect(body).toContain('Cert Number')
 
       // ห้ามมี email / employeeId ใน CSV
       expect(body).not.toContain('@test.com')

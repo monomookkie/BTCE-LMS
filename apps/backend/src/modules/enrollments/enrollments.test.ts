@@ -353,7 +353,7 @@ describe('Enrollments module', () => {
       expect(body.completedMaterials).toContain(matId)
     })
 
-    it('course no quiz + all materials done → status COMPLETED', async () => {
+    it('course no quiz + all materials done → status COMPLETED (no cert issuance, no error — system cert issuance removed)', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { user, cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
@@ -367,6 +367,7 @@ describe('Enrollments module', () => {
         url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
         headers: { cookie: userCookies },
       })
+      expect(res.statusCode).toBe(200)
       expect(res.json<EnrollmentResponse>().status).toBe('COMPLETED')
     })
 

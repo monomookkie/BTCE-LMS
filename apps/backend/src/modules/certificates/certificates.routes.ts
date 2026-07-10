@@ -2,25 +2,11 @@ import type { FastifyPluginAsync } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
 import {
-  certificateAdminResponseSchema,
-  certificateVerifyResponseSchema,
   externalCertResponseSchema,
   createExternalCertInputSchema,
-  revokeCertInputSchema,
 } from '@btec-lms/shared'
+import { extCertParamsSchema, extCertListQuerySchema } from './certificates.schema.js'
 import {
-  certParamsSchema,
-  certListQuerySchema,
-  certVerifyParamsSchema,
-  extCertParamsSchema,
-  extCertListQuerySchema,
-} from './certificates.schema.js'
-import {
-  listCertificates,
-  getCertificate,
-  revokeCertificate,
-  generateCertPdf,
-  verifyByHash,
   listExternalCertsScoped,
   getExternalCert,
   createExternalCert,
@@ -41,117 +27,6 @@ const ALLOWED_EXT_CERT_MIME = [
 
 const certificatesRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
-
-  // ─── GET /certificates ─────────────────────────────────────────────────────
-  // ADMIN: list all (filter by userId optional)
-  // USER: own certs only (service ignores query.userId for USER role)
-  // No response schema at route level — role-based serialization in service (Convention #12)
-  server.get('/certificates', {
-    preHandler: [app.verifyJwt],
-    schema: {
-      querystring: certListQuerySchema,
-    },
-  }, async (req) => {
-    const locale = await resolveLocale(req, app.prisma)
-    return listCertificates(
-      app.prisma,
-      req.user.id,
-      req.user.role,
-      {
-        page: req.query.page,
-        limit: req.query.limit,
-        ...(req.query.userId != null && { userId: req.query.userId }),
-        ...(req.query.courseId != null && { courseId: req.query.courseId }),
-        ...(req.query.status != null && { status: req.query.status }),
-        ...(req.query.search != null && { search: req.query.search }),
-      },
-      locale,
-    )
-  })
-
-  // ─── GET /certificates/:id/pdf ─────────────────────────────────────────────
-  // ต้องอยู่ก่อน /:id เพื่อให้ static segment "pdf" ไม่ถูก match เป็น :id
-  server.get('/certificates/:id/pdf', {
-    config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
-    preHandler: [app.verifyJwt],
-    schema: {
-      params: certParamsSchema,
-    },
-  }, async (req, reply) => {
-    const locale = await resolveLocale(req, app.prisma)
-    const buffer = await generateCertPdf(
-      app.prisma,
-      req.params.id,
-      req.user.id,
-      req.user.role,
-      locale,
-    )
-    return reply
-      .type('application/pdf')
-      .header('Content-Disposition', `attachment; filename="certificate-${req.params.id}.pdf"`)
-      .send(buffer)
-  })
-
-  // ─── GET /certificates/:id ─────────────────────────────────────────────────
-  // USER: IDOR-guarded (service returns 404 for other users' certs)
-  // ADMIN: any cert; audited if viewing another user's cert
-  // No response schema — role-based serialization in service (Convention #12)
-  server.get('/certificates/:id', {
-    preHandler: [app.verifyJwt],
-    schema: {
-      params: certParamsSchema,
-    },
-  }, async (req) => {
-    const locale = await resolveLocale(req, app.prisma)
-    return getCertificate(
-      app.prisma,
-      req.params.id,
-      req.user.id,
-      req.user.role,
-      locale,
-      req.ip,
-    )
-  })
-
-  // ─── POST /certificates/:id/revoke — ADMIN only ────────────────────────────
-  server.post('/certificates/:id/revoke', {
-    preHandler: [app.requireRole(['ADMIN'])],
-    schema: {
-      params: certParamsSchema,
-      body: revokeCertInputSchema,
-      response: { 200: certificateAdminResponseSchema },
-    },
-  }, async (req, reply) => {
-    const locale = await resolveLocale(req, app.prisma)
-    const cert = await revokeCertificate(
-      app.prisma,
-      req.params.id,
-      req.user.id,
-      req.body.reason,
-      locale,
-      req.ip,
-    )
-    return reply.send(cert)
-  })
-
-  // ─── GET /verify/:hash — PUBLIC (unauthenticated) ──────────────────────────
-  // ไม่ต้อง login — ใช้ verifyHash (UUID) เพื่อ public certificate verification
-  // resolveLocale ใช้ Accept-Language header เป็น fallback (req.user ไม่มี)
-  server.get('/verify/:hash', {
-    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
-    schema: {
-      params: certVerifyParamsSchema,
-      response: { 200: certificateVerifyResponseSchema },
-    },
-  }, async (req) => {
-    const locale = await resolveLocale(req, app.prisma)
-    return verifyByHash(
-      app.prisma,
-      req.params.hash,
-      locale,
-      req.ip,
-    )
-  })
 
   // ─── GET /external-certs ───────────────────────────────────────────────────
   // USER: own external certs เท่านั้น (query.userId ignored)
