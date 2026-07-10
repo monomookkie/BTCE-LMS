@@ -4,8 +4,9 @@ import { ApiError, apiFetch } from '../lib/api.js'
 
 const BASE = (import.meta.env['VITE_API_URL'] as string | undefined) ?? '/api'
 
-export function listExternalCerts(): Promise<ExternalCertResponse[]> {
-  return apiFetch<ExternalCertResponse[]>('/external-certs')
+export function listExternalCerts(userId?: string): Promise<ExternalCertResponse[]> {
+  const qs = userId ? `?userId=${encodeURIComponent(userId)}` : ''
+  return apiFetch<ExternalCertResponse[]>(`/external-certs${qs}`)
 }
 
 // XHR upload: metadata (title/issuer/issuedAt/expiresAt) + optional file in one

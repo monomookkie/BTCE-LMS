@@ -4,8 +4,8 @@ import { useTranslation } from 'react-i18next'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Search, Edit2, Trash2, Upload, Ban, CheckCircle } from 'lucide-react'
-import { roleSchema, type UserResponse, type Role } from '@btec-lms/shared'
+import { Plus, Search, Edit2, Trash2, Upload, Ban, CheckCircle, Award } from 'lucide-react'
+import { roleSchema, type UserResponse, type Role, type ExternalCertResponse } from '@btec-lms/shared'
 import {
   listAdminUsers,
   createAdminUser,
@@ -14,6 +14,7 @@ import {
   importUsersCsv,
   type ImportResult,
 } from '../../api/admin-users.js'
+import { listExternalCerts } from '../../api/external-certs.js'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
@@ -27,6 +28,7 @@ import { Badge } from '../../components/ui/Badge.js'
 import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
 import { PAGE_SIZE } from '../../lib/constants.js'
+import { formatDate } from '../../lib/format.js'
 
 const ROLES: Role[] = ['ADMIN', 'USER']
 
@@ -161,6 +163,71 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
   )
 }
 
+// ─── View user's external certificates (read-only) ─────────────────────────
+
+interface UserExternalCertsModalProps {
+  user: UserResponse | null
+  onClose: () => void
+}
+
+function UserExternalCertsModal({ user, onClose }: UserExternalCertsModalProps) {
+  const { t, i18n } = useTranslation()
+
+  const { data: certs, isLoading, isError, refetch } = useQuery({
+    queryKey: ['external-certs', user?.id],
+    queryFn: () => listExternalCerts(user!.id),
+    enabled: user != null,
+  })
+
+  const columns: Column<ExternalCertResponse>[] = [
+    {
+      key: 'title',
+      header: t('material.title'),
+      skeleton: 'text',
+      render: (r) => <span className="font-medium text-slate-800">{r.title}</span>,
+    },
+    { key: 'issuer', header: t('externalCert.issuer'), skeleton: 'text' },
+    {
+      key: 'issuedAt',
+      header: t('certificate.issued'),
+      skeleton: 'text',
+      render: (r) => formatDate(r.issuedAt, i18n.language),
+    },
+    {
+      key: 'expiresAt',
+      header: t('certificate.expires'),
+      skeleton: 'text',
+      render: (r) => (r.expiresAt != null ? formatDate(r.expiresAt, i18n.language) : '—'),
+    },
+  ]
+
+  return (
+    <Modal
+      isOpen={user != null}
+      onClose={onClose}
+      title={user ? `${t('externalCert.title')} — ${user.name}` : t('externalCert.title')}
+      size="lg"
+    >
+      {isError ? (
+        <div className="py-6 text-center">
+          <p className="text-sm text-slate-500">{t('common.error')}</p>
+          <button className="mt-2 text-sm text-brand-500 hover:underline" onClick={() => void refetch()}>
+            {t('common.retry')}
+          </button>
+        </div>
+      ) : (
+        <DataTable<ExternalCertResponse>
+          columns={columns}
+          data={certs ?? []}
+          keyField="id"
+          isLoading={isLoading}
+          emptyMessage={t('externalCert.noData')}
+        />
+      )}
+    </Modal>
+  )
+}
+
 // ─── CSV import modal ───────────────────────────────────────────────────────
 
 interface ImportModalProps {
@@ -276,6 +343,7 @@ export default function UserDirectoryPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null)
   const [suspendTarget, setSuspendTarget] = useState<{ user: UserResponse; next: boolean } | null>(null)
+  const [certsTarget, setCertsTarget] = useState<UserResponse | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'users', search, positionFilter, statusFilter, page],
@@ -378,13 +446,16 @@ export default function UserDirectoryPage() {
       {
         key: 'actions',
         header: '',
-        width: '14%',
+        width: '17%',
         align: 'right',
         skeleton: 'icons',
         render: (u) => {
           const isSelf = u.id === currentUser?.id
           return (
             <div className="flex items-center justify-end gap-1">
+              <Button size="sm" variant="ghost" onClick={() => setCertsTarget(u)} title={t('externalCert.title')}>
+                <Award size={14} />
+              </Button>
               <Button size="sm" variant="ghost" onClick={() => setFormModal({ open: true, user: u })} title={t('common.edit')}>
                 <Edit2 size={14} />
               </Button>
@@ -507,6 +578,8 @@ export default function UserDirectoryPage() {
       />
 
       <ImportModal isOpen={importOpen} onClose={() => setImportOpen(false)} />
+
+      <UserExternalCertsModal user={certsTarget} onClose={() => setCertsTarget(null)} />
 
       <ConfirmDialog
         isOpen={suspendTarget != null}
