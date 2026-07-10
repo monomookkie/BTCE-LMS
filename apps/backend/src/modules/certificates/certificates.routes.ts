@@ -65,6 +65,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
     // ใช้ req.parts() แทน req.file() เพื่อรองรับ optional file upload
     const fields: Record<string, string> = {}
     let fileKey: string | null = null
+    let fileMimeType: string | null = null
 
     for await (const part of req.parts()) {
       if (part.type === 'file') {
@@ -78,6 +79,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
         const filename = ext ? `${randomUUID()}.${ext}` : randomUUID()
         const result = await getStorage().upload(buffer, 'certificates', filename, part.mimetype)
         fileKey = result.fileKey
+        fileMimeType = result.mimeType
       } else {
         fields[part.fieldname] = part.value as string
       }
@@ -98,6 +100,7 @@ const certificatesRoutes: FastifyPluginAsync = async (app) => {
       req.user.id,
       metaParse.data,
       fileKey,
+      fileMimeType,
       getStorage(),
       req.ip,
     )

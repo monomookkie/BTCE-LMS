@@ -15,6 +15,7 @@ type ExternalCertRecord = {
   issuedAt: Date
   expiresAt: Date | null
   fileKey: string | null
+  mimeType: string | null
   createdAt: Date
 }
 
@@ -29,7 +30,7 @@ function toExternalCertResponse(
     issuedAt: c.issuedAt.toISOString(),
     expiresAt: c.expiresAt?.toISOString() ?? null,
     fileKey: c.fileKey,
-    signedUrl: c.fileKey != null ? storage.getSignedUrl(c.fileKey) : null,
+    signedUrl: c.fileKey != null ? storage.getSignedUrl(c.fileKey, undefined, c.mimeType) : null,
     createdAt: c.createdAt.toISOString(),
   })
 }
@@ -41,6 +42,7 @@ const EXT_CERT_SELECT = {
   issuedAt: true,
   expiresAt: true,
   fileKey: true,
+  mimeType: true,
   createdAt: true,
 } as const
 
@@ -49,6 +51,7 @@ export async function createExternalCert(
   userId: string,
   input: CreateExternalCertInput,
   fileKey: string | null,
+  mimeType: string | null,
   storage: StorageProvider,
   ip?: string,
 ): Promise<ExternalCertResponse> {
@@ -60,6 +63,7 @@ export async function createExternalCert(
       issuedAt: new Date(input.issuedAt),
       expiresAt: input.expiresAt != null ? new Date(input.expiresAt) : null,
       fileKey,
+      mimeType,
     },
     select: EXT_CERT_SELECT,
   })

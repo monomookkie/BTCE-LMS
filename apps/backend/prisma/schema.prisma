@@ -234,6 +234,7 @@ model ExternalCertificate {
   issuedAt  DateTime
   expiresAt DateTime?
   fileKey   String? // อัปโหลดขึ้น storage — ไม่เก็บ base64
+  mimeType  String? // MIME type ของไฟล์ที่อัปโหลด — ใช้กำหนด Cloudinary resource_type ตอนสร้าง signed URL
   createdAt DateTime  @default(now())
   updatedAt DateTime  @updatedAt
   deletedAt DateTime?

@@ -363,7 +363,12 @@
     "expiresAt": "Expires on (optional)",
     "fileUpload": "File (PDF or image, optional)",
     "uploading": "Uploading...",
-    "added": "Certificate added"
+    "added": "Certificate added",
+    "view": "View",
+    "viewing": "Viewing",
+    "backToMine": "Back to my certificates",
+    "searchUser": "Search a user to view their certificates...",
+    "noUsersFound": "No users found"
   },
   "adminDash": {
     "title": "Admin Dashboard",
