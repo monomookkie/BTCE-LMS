@@ -17,6 +17,7 @@ import type {
   MaterialType,
   QuizForUserResponse,
   QuizAttemptResponse,
+  SurveyForUserResponse,
 } from '@btec-lms/shared'
 import { Card } from '../../components/ui/Card.js'
 import { Button } from '../../components/ui/Button.js'
@@ -27,6 +28,7 @@ import { getCourse } from '../../api/courses.js'
 import { listMyEnrollments } from '../../api/enrollments.js'
 import { listMaterials, markMaterialComplete } from '../../api/materials.js'
 import { getQuizForTaking, submitQuizAnswers, getMyQuizAttempts } from '../../api/quizzes.js'
+import { getSurveyForTaking, submitSurveyAnswers } from '../../api/surveys.js'
 import { ApiError } from '../../lib/api.js'
 import { useToast } from '../../hooks/useToast.js'
 import { formatDate } from '../../lib/format.js'
@@ -40,6 +42,7 @@ const courseKey = (id: string) => ['courses', id] as const
 const materialsKey = (id: string) => ['materials', id] as const
 const quizKey = (id: string) => ['quiz', 'take', id] as const
 const attemptsKey = (id: string) => ['quiz', 'attempts', id] as const
+const surveyKey = (id: string) => ['survey', 'take', id] as const
 const ENROLLMENTS_ME_KEY = ['enrollments', 'me'] as const
 const CERTS_ME_KEY = ['certificates', 'me'] as const
 
@@ -255,6 +258,115 @@ function QuizRunner({ courseId, quiz, attemptsUsed, passScore }: QuizRunnerProps
   return null
 }
 
+// ─── SurveyRunner ────────────────────────────────────────────────────────────
+
+interface SurveyRunnerProps {
+  courseId: string
+  survey: SurveyForUserResponse
+  isCompleted: boolean
+}
+
+function SurveyRunner({ courseId, survey, isCompleted }: SurveyRunnerProps) {
+  const { t } = useTranslation()
+  const qc = useQueryClient()
+  const toast = useToast()
+
+  const [answers, setAnswers] = useState<Record<string, number | string>>({})
+  const [submitted, setSubmitted] = useState(false)
+
+  const ratingQuestions = survey.questions.filter(q => q.type === 'RATING')
+  const allRatingsAnswered = ratingQuestions.every(q => answers[q.id] != null)
+
+  const submitMutation = useMutation({
+    mutationFn: () => submitSurveyAnswers(courseId, answers),
+    onSuccess: () => {
+      setSubmitted(true)
+      void qc.invalidateQueries({ queryKey: ENROLLMENTS_ME_KEY })
+      void qc.invalidateQueries({ queryKey: surveyKey(courseId) })
+    },
+    onError: (err) => {
+      toast.error(err instanceof ApiError ? err.message : t('common.error'))
+    },
+  })
+
+  // ตอบไปแล้ว (จาก server) หรือเพิ่งตอบเสร็จรอบนี้ (local, กันฟอร์มโผล่ค้างระหว่างรอ refetch)
+  if (survey.alreadySubmitted || submitted) {
+    return (
+      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
+        <p className="text-sm font-semibold text-emerald-700">
+          {t('surveyTake.thankYou')}
+        </p>
+        {isCompleted && (
+          <p className="mt-1 text-sm text-emerald-600">
+            🎉 {t('surveyTake.courseCompleted')}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {survey.questions.map((q, idx) => (
+        <div key={q.id} className="space-y-3">
+          <p className="text-sm font-semibold text-slate-700">
+            {t('quiz.questionN', { n: idx + 1, total: survey.questions.length })}
+          </p>
+          <p className="text-sm text-slate-700">{q.text}</p>
+
+          {q.type === 'RATING' ? (
+            <div className="space-y-1.5">
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 3, 4, 5].map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setAnswers(prev => ({ ...prev, [q.id]: n }))}
+                    className={[
+                      'flex h-11 w-11 items-center justify-center rounded-lg border text-sm font-semibold transition-colors',
+                      answers[q.id] === n
+                        ? 'border-brand-400 bg-brand-50 text-brand-700'
+                        : 'border-slate-200 text-slate-600 hover:bg-slate-50',
+                    ].join(' ')}
+                  >
+                    {n}
+                  </button>
+                ))}
+              </div>
+              <div className="flex justify-between text-xs text-slate-400">
+                <span>{t('surveyTake.ratingLow')}</span>
+                <span>{t('surveyTake.ratingHigh')}</span>
+              </div>
+            </div>
+          ) : (
+            <textarea
+              value={(answers[q.id] as string | undefined) ?? ''}
+              onChange={(e) => setAnswers(prev => ({ ...prev, [q.id]: e.target.value }))}
+              maxLength={2000}
+              rows={3}
+              placeholder={t('surveyTake.textPlaceholder')}
+              className="w-full rounded-lg border border-slate-200 p-3 text-sm text-slate-700 focus:border-brand-400 focus:outline-none"
+            />
+          )}
+        </div>
+      ))}
+
+      <div className="flex items-center gap-3 border-t border-slate-100 pt-4">
+        <Button
+          isLoading={submitMutation.isPending}
+          disabled={!allRatingsAnswered || submitMutation.isPending}
+          onClick={() => { submitMutation.mutate() }}
+        >
+          {submitMutation.isPending ? t('surveyTake.submitting') : t('surveyTake.submitSurvey')}
+        </Button>
+        {!allRatingsAnswered && (
+          <p className="text-xs text-slate-400">{t('surveyTake.ratingRequired')}</p>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // mirror ของ course header card จริง — category tag, title, description, progress row
 function CourseHeaderSkeleton() {
   return (
@@ -318,6 +430,27 @@ function QuizSectionSkeleton() {
   )
 }
 
+// mirror ของ survey section จริง — คำถาม 2 ข้อ (rating buttons + textarea) + ปุ่ม submit
+function SurveySectionSkeleton() {
+  return (
+    <div className="space-y-6">
+      <div className="space-y-3">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3.5 w-full" />
+        <div className="flex gap-2">
+          {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} className="h-11 w-11 rounded-lg" />)}
+        </div>
+      </div>
+      <div className="space-y-3">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-3.5 w-full" />
+        <Skeleton className="h-16 w-full rounded-lg" />
+      </div>
+      <Skeleton className="h-9 w-28 rounded-lg" />
+    </div>
+  )
+}
+
 // ─── CourseDetailPage ────────────────────────────────────────────────────────
 
 export default function CourseDetailPage() {
@@ -373,6 +506,15 @@ export default function CourseDetailPage() {
     staleTime: 30_000,
   })
 
+  // survey เป็น optional ต่อ course — 404 แปลว่า course นี้ไม่มี survey เลย (ไม่ต้องแสดง section)
+  const { data: survey, isError: surveyErr, error: surveyError } = useQuery({
+    queryKey: surveyKey(id),
+    queryFn: () => getSurveyForTaking(id),
+    enabled: isEnrolled,
+    staleTime: 60_000,
+    retry: false,
+  })
+
   // ── Mark complete mutation ────────────────────────────────────────────────
 
   const markCompleteMutation = useMutation({
@@ -394,6 +536,13 @@ export default function CourseDetailPage() {
   )
 
   const quizNotFound = quizErr && quizError instanceof ApiError && quizError.status === 404
+  const surveyNotFound = surveyErr && surveyError instanceof ApiError && surveyError.status === 404
+
+  // survey ปลดล็อกเมื่อ material ครบ + quiz ผ่านแล้ว (ตรงกับ backend checkCanComplete)
+  // quizPassed = จริงเมื่อ course ไม่มี quiz เลย หรือมี attempt ที่ passed แล้ว
+  const materialsComplete = enrollment?.progress === 100
+  const quizPassed = quizNotFound || attempts.some(a => a.passed)
+  const surveyPrereqsLoading = matLoad || attemptsLoad || (quiz == null && !quizErr)
 
   // ── Loading / error states ───────────────────────────────────────────────
 
@@ -650,6 +799,29 @@ export default function CourseDetailPage() {
                 />
               </div>
             </div>
+          ) : null}
+        </Card>
+      )}
+
+      {/* ── Survey — optional ต่อ course, 404 = ไม่มี survey เลย ไม่แสดง section ── */}
+      {isEnrolled && !surveyNotFound && (
+        <Card
+          header={
+            <h2 className="text-sm font-semibold text-slate-700">{t('courseDetail.surveySection')}</h2>
+          }
+        >
+          {surveyPrereqsLoading || (survey === undefined && !surveyErr) ? (
+            <SurveySectionSkeleton />
+          ) : !materialsComplete ? (
+            <p className="py-6 text-center text-sm text-slate-400">{t('courseDetail.surveyNeedsMaterials')}</p>
+          ) : !quizPassed ? (
+            <p className="py-6 text-center text-sm text-slate-400">{t('courseDetail.surveyNeedsQuizPass')}</p>
+          ) : survey != null ? (
+            <SurveyRunner
+              courseId={id}
+              survey={survey}
+              isCompleted={enrollment?.status === 'COMPLETED'}
+            />
           ) : null}
         </Card>
       )}

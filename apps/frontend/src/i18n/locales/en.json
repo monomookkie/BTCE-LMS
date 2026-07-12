@@ -249,7 +249,20 @@
     "videoEmbedFailed": "Unable to load the video player. Please open the video directly using the link below.",
     "videoFallbackWaitHint": "Please wait at least {{minutes}} minutes after opening before marking complete",
     "materialNotOpenedHint": "Open this material first to start the timer",
-    "materialTimeGateCountdown": "Please wait {{time}} before marking complete"
+    "materialTimeGateCountdown": "Please wait {{time}} before marking complete",
+    "surveySection": "Course Survey",
+    "surveyNeedsMaterials": "Complete all materials to unlock the survey",
+    "surveyNeedsQuizPass": "Pass the assessment to unlock the survey"
+  },
+  "surveyTake": {
+    "ratingLow": "Poor",
+    "ratingHigh": "Excellent",
+    "textPlaceholder": "Additional comments (optional)",
+    "submitSurvey": "Submit Survey",
+    "submitting": "Submitting…",
+    "ratingRequired": "Please rate every question before submitting",
+    "thankYou": "Thank you for your feedback!",
+    "courseCompleted": "You've completed this course."
   },
   "status": {
     "quiz": {

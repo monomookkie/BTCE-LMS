@@ -249,7 +249,20 @@
     "videoEmbedFailed": "ไม่สามารถโหลดตัวเล่นวิดีโอได้ กรุณาเปิดวิดีโอโดยตรงผ่านลิงก์ด้านล่าง",
     "videoFallbackWaitHint": "กรุณารออย่างน้อย {{minutes}} นาทีหลังเปิดวิดีโอ ก่อนทำเครื่องหมายว่าเรียนจบ",
     "materialNotOpenedHint": "เปิดสื่อการเรียนนี้ก่อนเพื่อเริ่มนับเวลา",
-    "materialTimeGateCountdown": "กรุณารออีก {{time}} ก่อนทำเครื่องหมายว่าเรียนจบ"
+    "materialTimeGateCountdown": "กรุณารออีก {{time}} ก่อนทำเครื่องหมายว่าเรียนจบ",
+    "surveySection": "แบบสำรวจหลักสูตร",
+    "surveyNeedsMaterials": "เรียนสื่อการเรียนให้ครบก่อนเพื่อปลดล็อกแบบสำรวจ",
+    "surveyNeedsQuizPass": "สอบผ่านแบบประเมินก่อนเพื่อปลดล็อกแบบสำรวจ"
+  },
+  "surveyTake": {
+    "ratingLow": "ไม่พอใจ",
+    "ratingHigh": "พอใจมาก",
+    "textPlaceholder": "ความคิดเห็นเพิ่มเติม (ไม่บังคับ)",
+    "submitSurvey": "ส่งแบบสำรวจ",
+    "submitting": "กำลังส่ง…",
+    "ratingRequired": "กรุณาให้คะแนนทุกข้อก่อนส่ง",
+    "thankYou": "ขอบคุณสำหรับความคิดเห็นของคุณ!",
+    "courseCompleted": "คุณเรียนจบหลักสูตรนี้แล้ว"
   },
   "status": {
     "quiz": {
