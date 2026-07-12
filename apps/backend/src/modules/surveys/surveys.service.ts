@@ -113,10 +113,20 @@ export async function createSurvey(
   const existing = await getActiveSurvey(prisma, courseId)
   if (existing) throw badRequest(t('error.survey.alreadyExists', undefined, locale))
 
-  const survey = await prisma.survey.create({
-    data: { courseId },
-    include: SURVEY_ADMIN_INCLUDE,
-  })
+  // courseId มี unique constraint — ถ้าเคยสร้าง survey ให้ course นี้มาก่อนแล้วถูกลบ (soft-delete)
+  // row เก่ายังอยู่ใน DB (เพื่อรักษา SurveyResponse ประวัติไว้ให้ report) การ create ใหม่จะชน unique constraint
+  // ต้อง "revive" row เดิมแทนแทนการ insert ใหม่
+  const existingAny = await prisma.survey.findUnique({ where: { courseId } })
+  const survey = existingAny
+    ? await prisma.survey.update({
+        where: { id: existingAny.id },
+        data: { deletedAt: null },
+        include: SURVEY_ADMIN_INCLUDE,
+      })
+    : await prisma.survey.create({
+        data: { courseId },
+        include: SURVEY_ADMIN_INCLUDE,
+      })
 
   await logAudit(prisma, {
     actorId,
@@ -421,7 +431,8 @@ export async function getSurveyResponses(
   filterUserId: string | undefined,
   locale: Locale = 'en',
 ): Promise<SurveyResponseRecord[]> {
-  const survey = await getActiveSurvey(prisma, courseId)
+  // ไม่กรอง deletedAt: response ของแบบสำรวจที่ถูกลบไปแล้วยังต้องดูได้ (เพื่อ report ข้อ 4 ไม่เสีย)
+  const survey = await prisma.survey.findUnique({ where: { courseId } })
   if (!survey) throw notFound(t('error.survey.notFound', undefined, locale))
 
   // USER เห็นแค่ของตัวเอง เสมอ — ไม่สนใจ filterUserId จาก query

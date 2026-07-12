@@ -216,6 +216,35 @@ describe('Surveys module', () => {
       })
       expect(getRes.statusCode).toBe(404)
     })
+
+    it('recreate survey after delete → revives the row (unique courseId constraint does not 500)', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      await createSurveyWithQuestions(admin.cookies, course.id)
+
+      await app.inject({
+        method: 'DELETE',
+        url: `/courses/${course.id}/survey`,
+        headers: { cookie: admin.cookies },
+      })
+
+      const recreateRes = await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/survey`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(recreateRes.statusCode).toBe(201)
+      const revived = recreateRes.json()
+      // revived survey starts with 0 active questions — old ones stay soft-deleted, not resurrected
+      expect(revived.questions).toHaveLength(0)
+
+      const getRes = await app.inject({
+        method: 'GET',
+        url: `/courses/${course.id}/survey`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(getRes.statusCode).toBe(200)
+    })
   })
 
   describe('Enrollment gate', () => {
@@ -560,6 +589,91 @@ describe('Surveys module', () => {
       })
       expect(afterSurvey?.status).toBe('COMPLETED')
       expect(afterSurvey?.completedAt).not.toBeNull()
+    })
+
+    it('deleting a survey after a response was submitted: response row survives, enrollment stays COMPLETED, admin can still view the response for reporting', async () => {
+      const admin = await setup('ADMIN')
+      const user = await setup('USER')
+      const course = await createCourse(admin.cookies)
+
+      const qRes = await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+        payload: { titleEn: 'Quiz', passScore: 50 },
+      })
+      expect(qRes.statusCode).toBe(201)
+      const questionRes = await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/quiz/questions`,
+        headers: { cookie: admin.cookies },
+        payload: {
+          textEn: 'Q1',
+          options: [
+            { textEn: 'Correct', isCorrect: true },
+            { textEn: 'Wrong', isCorrect: false },
+          ],
+        },
+      })
+      const quiz = questionRes.json()
+      const question = quiz.questions[0]
+      const correctOptionId = question.options.find((o: { isCorrect: boolean }) => o.isCorrect).id
+
+      const { ratingQId } = await createSurveyWithQuestions(admin.cookies, course.id)
+
+      await app.inject({
+        method: 'PATCH',
+        url: `/courses/${course.id}/status`,
+        headers: { cookie: admin.cookies },
+        payload: { status: 'PUBLISHED' },
+      })
+
+      const enrollment = await enroll(admin.cookies, user.userId, course.id)
+      await prisma.enrollment.update({ where: { id: enrollment.id }, data: { progress: 100 } })
+
+      await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/quiz/submit`,
+        headers: { cookie: user.cookies },
+        payload: { answers: { [question.id]: correctOptionId } },
+      })
+
+      const surveySubmitRes = await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/survey/submit`,
+        headers: { cookie: user.cookies },
+        payload: { answers: { [ratingQId]: 5 } },
+      })
+      expect(surveySubmitRes.statusCode).toBe(201)
+      const responseId = surveySubmitRes.json().id
+
+      const beforeDelete = await prisma.enrollment.findUnique({ where: { id: enrollment.id }, select: { status: true } })
+      expect(beforeDelete?.status).toBe('COMPLETED')
+
+      const deleteRes = await app.inject({
+        method: 'DELETE',
+        url: `/courses/${course.id}/survey`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(deleteRes.statusCode).toBe(200)
+
+      // 1. response row is not cascade-deleted
+      const rawResponse = await prisma.surveyResponse.findUnique({ where: { id: responseId } })
+      expect(rawResponse).not.toBeNull()
+
+      // 2. enrollment does not revert (grandfather — matches material-tracking pattern)
+      const afterDelete = await prisma.enrollment.findUnique({ where: { id: enrollment.id }, select: { status: true } })
+      expect(afterDelete?.status).toBe('COMPLETED')
+
+      // 3. admin can still pull the response through the report endpoint after the survey is gone
+      const responsesRes = await app.inject({
+        method: 'GET',
+        url: `/courses/${course.id}/survey/responses`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(responsesRes.statusCode).toBe(200)
+      expect(responsesRes.json()).toHaveLength(1)
+      expect(responsesRes.json()[0].id).toBe(responseId)
     })
 
     it('course WITHOUT survey: quiz passed + progress 100% → COMPLETED immediately (unchanged from 2A)', async () => {

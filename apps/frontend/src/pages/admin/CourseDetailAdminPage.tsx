@@ -28,6 +28,7 @@ import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { Card } from '../../components/ui/Card.js'
 import { Skeleton } from '../../components/ui/Skeleton.js'
 import QuizEditorTab from './QuizEditorTab.js'
+import SurveyEditorTab from './SurveyEditorTab.js'
 
 // ─── Icons per material type ──────────────────────────────────────────────────
 
@@ -428,7 +429,7 @@ function MaterialRowSkeleton() {
 
 // ─── CourseDetailAdminPage ────────────────────────────────────────────────────
 
-type Tab = 'materials' | 'quiz'
+type Tab = 'materials' | 'quiz' | 'survey'
 
 export default function CourseDetailAdminPage() {
   const { id = '' } = useParams<{ id: string }>()
@@ -534,7 +535,7 @@ export default function CourseDetailAdminPage() {
 
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl border border-slate-100 bg-slate-50 p-1">
-        {(['materials', 'quiz'] as Tab[]).map((t2) => (
+        {(['materials', 'quiz', 'survey'] as Tab[]).map((t2) => (
           <button
             key={t2}
             onClick={() => setTab(t2)}
@@ -544,7 +545,7 @@ export default function CourseDetailAdminPage() {
                 : 'text-slate-500 hover:text-slate-700'
             }`}
           >
-            {t2 === 'materials' ? t('adminCourse.tabMaterials') : t('adminCourse.tabQuiz')}
+            {t2 === 'materials' ? t('adminCourse.tabMaterials') : t2 === 'quiz' ? t('adminCourse.tabQuiz') : t('adminCourse.tabSurvey')}
           </button>
         ))}
       </div>
@@ -612,6 +613,7 @@ export default function CourseDetailAdminPage() {
 
       {/* Quiz tab */}
       {tab === 'quiz' && <QuizEditorTab courseId={id} isArchived={isArchived} />}
+      {tab === 'survey' && <SurveyEditorTab courseId={id} isArchived={isArchived} />}
 
       {/* Modals */}
       <AddLinkModal isOpen={addLinkOpen} onClose={() => setAddLinkOpen(false)} courseId={id} />
