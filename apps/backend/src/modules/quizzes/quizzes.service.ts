@@ -14,6 +14,7 @@ import type {
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
+import { checkCanComplete } from '../enrollments/enrollments.service.js'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -672,20 +673,23 @@ export async function submitQuiz(
     ...(ip != null && { ip }),
   })
 
-  // 8. ถ้าผ่าน + progress 100% → mark enrollment COMPLETED แล้ว auto-issue cert
-  if (passed && enrollment.progress >= 100 && enrollment.status !== 'COMPLETED') {
-    await prisma.enrollment.update({
-      where: { id: enrollment.id },
-      data: { status: 'COMPLETED', completedAt: new Date() },
-    })
-    await logAudit(prisma, {
-      actorId: userId,
-      action: 'ENROLLMENT_COMPLETE',
-      targetType: 'Enrollment',
-      targetId: enrollment.id,
-      metadata: { quizId: quizWithCourse.id, score },
-      ...(ip != null && { ip }),
-    })
+  // 8. ถ้า status ยังไม่ COMPLETED → เช็คเงื่อนไขรวม (progress 100% + quiz passed + survey ตอบแล้วถ้ามี)
+  if (enrollment.status !== 'COMPLETED') {
+    const canComplete = await checkCanComplete(prisma, courseId, userId, enrollment.progress)
+    if (canComplete) {
+      await prisma.enrollment.update({
+        where: { id: enrollment.id },
+        data: { status: 'COMPLETED', completedAt: new Date() },
+      })
+      await logAudit(prisma, {
+        actorId: userId,
+        action: 'ENROLLMENT_COMPLETE',
+        targetType: 'Enrollment',
+        targetId: enrollment.id,
+        metadata: { quizId: quizWithCourse.id, score },
+        ...(ip != null && { ip }),
+      })
+    }
   }
 
   return toAttemptResponse(attempt)

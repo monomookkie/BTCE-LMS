@@ -52,6 +52,13 @@
   "error.option.wrongQuestion": "Option \"{{optionId}}\" does not belong to question \"{{questionId}}\"",
   "error.answer.wrongQuestion": "Question \"{{questionId}}\" is not in this quiz",
 
+  "error.survey.notFound": "Survey not found for this course",
+  "error.survey.alreadyExists": "This course already has a survey",
+  "error.survey.alreadySubmitted": "You have already submitted this survey",
+  "error.survey.ratingRequired": "Please answer all rating questions",
+  "error.survey.responsesNotFound": "Responses not found",
+  "error.surveyQuestion.notFound": "Survey question not found",
+
   "error.file.noFile": "No file uploaded",
   "error.file.invalidCsv": "Please upload a CSV file",
 

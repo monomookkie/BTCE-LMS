@@ -81,6 +81,7 @@ model Course {
 
   materials   Material[]
   quiz        Quiz?
+  survey      Survey?
   enrollments Enrollment[]
 
   @@index([status, deletedAt])
@@ -173,6 +174,50 @@ model QuizAttempt {
   quiz Quiz @relation(fields: [quizId], references: [id])
 
   @@index([quizId, userId])
+}
+
+// ===== Survey (post-course feedback) =====
+// Optional per course (ไม่บังคับเหมือน Quiz) — ถ้ามี survey ต้องตอบก่อน COMPLETED (2B)
+
+model Survey {
+  id        String    @id @default(cuid())
+  courseId  String    @unique
+  deletedAt DateTime?
+
+  course    Course           @relation(fields: [courseId], references: [id])
+  questions SurveyQuestion[]
+  responses SurveyResponse[]
+}
+
+enum SurveyQuestionType {
+  RATING
+  TEXT
+}
+
+model SurveyQuestion {
+  id        String             @id @default(cuid())
+  surveyId  String
+  type      SurveyQuestionType
+  textEn    String             @db.Text
+  textTh    String?            @db.Text
+  order     Int                @default(0)
+  deletedAt DateTime?
+
+  survey Survey @relation(fields: [surveyId], references: [id])
+
+  @@index([surveyId, order])
+}
+
+model SurveyResponse {
+  id        String   @id @default(cuid())
+  surveyId  String
+  userId    String
+  answers   Json // { [questionId]: number (1-5, RATING) | string (TEXT) }
+  createdAt DateTime @default(now())
+
+  survey Survey @relation(fields: [surveyId], references: [id])
+
+  @@unique([surveyId, userId]) // ตอบได้ครั้งเดียว — ไม่ retake เหมือน quiz
 }
 
 // ===== Enrollment & Certificate =====

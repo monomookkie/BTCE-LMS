@@ -52,6 +52,13 @@
   "error.option.wrongQuestion": "ตัวเลือก \"{{optionId}}\" ไม่ใช่ของคำถาม \"{{questionId}}\"",
   "error.answer.wrongQuestion": "คำถาม \"{{questionId}}\" ไม่อยู่ในแบบทดสอบนี้",
 
+  "error.survey.notFound": "ไม่พบแบบสำรวจสำหรับหลักสูตรนี้",
+  "error.survey.alreadyExists": "หลักสูตรนี้มีแบบสำรวจอยู่แล้ว",
+  "error.survey.alreadySubmitted": "คุณตอบแบบสำรวจนี้ไปแล้ว",
+  "error.survey.ratingRequired": "กรุณาตอบคำถามแบบให้คะแนนทุกข้อ",
+  "error.survey.responsesNotFound": "ไม่พบคำตอบ",
+  "error.surveyQuestion.notFound": "ไม่พบคำถามในแบบสำรวจ",
+
   "error.file.noFile": "กรุณาอัปโหลดไฟล์",
   "error.file.invalidCsv": "กรุณาอัปโหลดไฟล์ CSV",
 

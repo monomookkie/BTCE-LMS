@@ -13,6 +13,8 @@ beforeEach(async () => {
     prisma.consent.deleteMany(),
     prisma.notification.deleteMany(),
     prisma.quizAttempt.deleteMany(),
+    prisma.surveyResponse.deleteMany(), // FK → survey
+    prisma.surveyQuestion.deleteMany(), // FK → survey
     prisma.trainingAttendee.deleteMany(),
     prisma.externalCertificate.deleteMany(), // FK → user (ON DELETE RESTRICT)
     prisma.materialProgress.deleteMany(),    // FK → enrollment
@@ -22,6 +24,7 @@ beforeEach(async () => {
     prisma.option.deleteMany(),       // FK → question
     prisma.question.deleteMany(),     // FK → quiz
     prisma.quiz.deleteMany(),         // FK → course
+    prisma.survey.deleteMany(),       // FK → course
     prisma.material.deleteMany(),     // FK → course
     prisma.course.deleteMany(),
     prisma.trainingLog.deleteMany(),

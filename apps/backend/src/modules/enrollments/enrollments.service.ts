@@ -82,8 +82,9 @@ async function recalculateProgress(
   return { progress, completedMaterials: validCompleted, isComplete }
 }
 
-// ตรวจว่า enrollment สามารถ COMPLETED ได้: progress 100% + quiz passed (ถ้า course มี quiz)
-async function checkCanComplete(
+// ตรวจว่า enrollment สามารถ COMPLETED ได้: progress 100% + quiz passed (ถ้า course มี quiz) + survey ตอบแล้ว (ถ้า course มี survey)
+// export ไว้ให้ quizzes.service.ts / surveys.service.ts เรียกใช้ร่วมกัน — กัน logic แยกกันแล้ว drift
+export async function checkCanComplete(
   prisma: PrismaClient,
   courseId: string,
   userId: string,
@@ -101,6 +102,21 @@ async function checkCanComplete(
       where: { quizId: quiz.id, userId, passed: true },
     })
     if (!passedAttempt) return false
+  }
+
+  // survey เป็น optional ต่อ course (2B) — ถ้ามี survey ต้องตอบก่อน COMPLETED
+  // ถ้าไม่มี survey ไม่ gate เลย (เหมือนเดิมก่อนมี survey — ไม่ retroactive กับ enrollment ที่ COMPLETED ไปแล้ว
+  // เพราะฟังก์ชันนี้เช็คแค่ตอนกำลังจะเปลี่ยนสถานะเท่านั้น)
+  const survey = await prisma.survey.findFirst({
+    where: { courseId, deletedAt: null },
+    select: { id: true },
+  })
+
+  if (survey) {
+    const response = await prisma.surveyResponse.findFirst({
+      where: { surveyId: survey.id, userId },
+    })
+    if (!response) return false
   }
 
   return true
