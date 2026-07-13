@@ -38,7 +38,7 @@ describe('Reports module', () => {
   /** สร้าง enrollment โดยตรงใน DB ไม่ผ่าน API */
   async function seedEnrollmentDirect(
     userId: string,
-    opts: { status?: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' } = {},
+    opts: { status?: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED'; isMandatory?: boolean } = {},
   ) {
     const course = await prisma.course.create({
       data: {
@@ -53,6 +53,7 @@ describe('Reports module', () => {
         userId,
         courseId: course.id,
         status: opts.status ?? 'IN_PROGRESS',
+        isMandatory: opts.isMandatory ?? false,
         progress: opts.status === 'COMPLETED' ? 100 : 50,
         ...(opts.status === 'COMPLETED' && { completedAt: new Date() }),
       },
@@ -100,6 +101,84 @@ describe('Reports module', () => {
 
       // ADMIN ต้องเห็น user ที่เพิ่มมา
       expect(body.totalUsers).toBeGreaterThanOrEqual(1)
+    })
+  })
+
+  // ─── 2b. Dashboard — mandatory/optional split (2C-4) ──────────────────────
+
+  describe('GET /reports/dashboard — mandatory/optional split', () => {
+    it('mandatoryComplianceRate = null when there are zero mandatory enrollments (not 0%)', async () => {
+      const admin = await makeAdmin()
+      const u = await makeRegularUser()
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', isMandatory: false })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/reports/dashboard',
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<DashboardSummary>()
+      expect(body.mandatoryEnrollments).toBe(0)
+      expect(body.mandatoryComplianceRate).toBeNull()
+      // optional ยังนับตามปกติ ไม่ปนกับ mandatory
+      expect(body.optionalEnrollments).toBeGreaterThanOrEqual(1)
+    })
+
+    it('mandatoryComplianceRate counts ONLY mandatory enrollments, ignores optional entirely', async () => {
+      const admin = await makeAdmin()
+      const u = await makeRegularUser()
+      // 2 mandatory: 1 completed, 1 not → rate = 50%
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', isMandatory: true })
+      await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS', isMandatory: true })
+      // 3 optional, all completed — must NOT drag mandatoryComplianceRate toward 100%
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', isMandatory: false })
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', isMandatory: false })
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', isMandatory: false })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/reports/dashboard',
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<DashboardSummary>()
+      expect(body.mandatoryEnrollments).toBe(2)
+      expect(body.mandatoryCompleted).toBe(1)
+      expect(body.mandatoryComplianceRate).toBe(50)
+      expect(body.optionalEnrollments).toBe(3)
+      expect(body.optionalCompleted).toBe(3)
+    })
+
+    it('overallCompletionRate mixes mandatory+optional together (documented as NOT the compliance rate)', async () => {
+      const admin = await makeAdmin()
+      const u = await makeRegularUser()
+      // total 4, completed 2 → overall = 50%, but mandatory-only would be different (1/1 = 100%)
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', isMandatory: true })
+      await seedEnrollmentDirect(u.userId, { status: 'COMPLETED', isMandatory: false })
+      await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS', isMandatory: false })
+      await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS', isMandatory: false })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/reports/dashboard',
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<DashboardSummary>()
+      expect(body.overallCompletionRate).toBe(50)
+      expect(body.mandatoryComplianceRate).toBe(100) // 1/1 mandatory completed — deliberately different from overall
+    })
+
+    it('overallCompletionRate = null when there are zero enrollments at all', async () => {
+      const admin = await makeAdmin()
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/reports/dashboard',
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<DashboardSummary>()
+      expect(body.totalEnrollments).toBe(0)
+      expect(body.overallCompletionRate).toBeNull()
+      expect(body.mandatoryComplianceRate).toBeNull()
     })
   })
 
@@ -191,6 +270,38 @@ describe('Reports module', () => {
       expect(body.data.every((r) => r.enrollmentStatus === 'IN_PROGRESS')).toBe(true)
     })
 
+    it('ADMIN filter by isMandatory=true → only mandatory rows, isMandatory field present on every row', async () => {
+      const admin = await makeAdmin()
+      const u = await makeRegularUser()
+      const { enrollmentId: mandatoryId } = await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS', isMandatory: true })
+      await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS', isMandatory: false })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/reports/compliance?isMandatory=true',
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<ComplianceList>()
+      expect(body.data.every((r) => r.isMandatory === true)).toBe(true)
+      expect(body.data.map((r) => r.enrollmentId)).toContain(mandatoryId)
+    })
+
+    it('ADMIN filter by isMandatory=false → only optional rows', async () => {
+      const admin = await makeAdmin()
+      const u = await makeRegularUser()
+      await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS', isMandatory: true })
+      const { enrollmentId: optionalId } = await seedEnrollmentDirect(u.userId, { status: 'IN_PROGRESS', isMandatory: false })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/reports/compliance?isMandatory=false',
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<ComplianceList>()
+      expect(body.data.every((r) => r.isMandatory === false)).toBe(true)
+      expect(body.data.map((r) => r.enrollmentId)).toContain(optionalId)
+    })
+
     it('USER → 403', async () => {
       const user = await makeRegularUser()
       expect(
@@ -251,9 +362,35 @@ describe('Reports module', () => {
       // header row
       expect(body).toContain('Name')
       expect(body).toContain('Course')
+      expect(body).toContain('Mandatory')
 
       // ห้ามมี email / employeeId ใน CSV
       expect(body).not.toContain('@test.com')
+    })
+
+    it('Mandatory column renders Yes/No correctly per row (EN only — matches existing CSV convention, not i18n)', async () => {
+      const admin = await makeAdmin()
+
+      const mandatoryName = `Mandatory-${randomUUID().slice(0, 8)}`
+      const { user: mandatoryUser, plainPassword: pw1 } = await createUser({ role: 'USER', name: mandatoryName })
+      await loginAs(app, mandatoryUser.email, pw1)
+      await seedEnrollmentDirect(mandatoryUser.id, { status: 'IN_PROGRESS', isMandatory: true })
+
+      const optionalName = `Optional-${randomUUID().slice(0, 8)}`
+      const { user: optionalUser, plainPassword: pw2 } = await createUser({ role: 'USER', name: optionalName })
+      await loginAs(app, optionalUser.email, pw2)
+      await seedEnrollmentDirect(optionalUser.id, { status: 'IN_PROGRESS', isMandatory: false })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/reports/compliance/export',
+        headers: { cookie: admin.cookies },
+      })
+      const lines = res.payload.split('\r\n')
+      const mandatoryLine = lines.find((l) => l.includes(mandatoryName))
+      const optionalLine = lines.find((l) => l.includes(optionalName))
+      expect(mandatoryLine).toContain('Yes')
+      expect(optionalLine).toContain('No')
     })
 
     it('ADMIN export: CSV includes enrollments from users other than the exporter', async () => {

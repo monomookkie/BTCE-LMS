@@ -95,6 +95,36 @@ list — only pre-deploy blockers and cross-phase follow-ups land here.
 
 ---
 
+### 7. `ASSIGNED` enrollment status — dead enum value, never created going forward
+
+- **Found:** 2C-3 (2026-07-13), while removing `assignEnrollment` (the ADMIN
+  manual-assign endpoint, confirmed unused by any frontend page).
+- **What it is:** `assignEnrollment` was the only code path that ever created
+  an `Enrollment` with `status: 'ASSIGNED'`. Now that it's deleted, the sole
+  remaining creation path (`selfEnroll`) always creates `IN_PROGRESS` —
+  `ASSIGNED` can never be produced by the application again.
+- **Currently harmless:** `ASSIGNED` is still a valid Prisma enum member
+  (`apps/backend/prisma/schema.prisma`'s `EnrollStatus`), still accepted by
+  3 separately-declared Zod enums (`packages/shared/src/schemas/enrollment.schema.ts`,
+  `packages/shared/src/schemas/report.schema.ts`, `apps/backend/src/modules/reports/reports.schema.ts`
+  — not sharing one source of truth), and still rendered/filterable in the
+  frontend (`statusMaps.ts` gray badge, `ReportsPage.tsx` status filter
+  dropdown, `UserDashboardPage.tsx` counts it alongside `IN_PROGRESS`). None
+  of this is broken — it just represents data that can no longer be created
+  new, only inherited from legacy/manually-inserted rows.
+- **Deliberately not removed in 2C-3/2C-4:** stripping the enum value is a
+  breaking change touching the DB enum + 3 duplicated Zod schemas + frontend
+  UI (dropdown option, badge color, i18n labels) simultaneously — out of
+  scope for those phases.
+- **Before deploy:** decide whether to (a) leave `ASSIGNED` permanently as a
+  legacy-only value (cheapest, no risk), or (b) do a dedicated cleanup pass
+  removing it from the enum + all 3 Zod duplicates + frontend UI, and while
+  at it consider consolidating the 3 duplicated status enums into one shared
+  source of truth. Bundle with item 6 (dead deps / `pnpm install`) since both
+  are "accumulated cleanup, not urgent, needs its own careful pass."
+
+---
+
 ## Tech debt — before next TypeScript major upgrade
 
 ### 4. `esModuleInterop: false` in `apps/backend/tsconfig.json` blocks TS 7.0 upgrade

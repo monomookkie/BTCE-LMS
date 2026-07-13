@@ -8,6 +8,17 @@ export const dashboardSummarySchema = z.object({
   totalEnrollments: z.number().int(),
   completedEnrollments: z.number().int(),
   pendingEnrollments: z.number().int(),     // ASSIGNED + IN_PROGRESS
+  // overall = mandatory + optional ปนกัน — ไม่ใช่ compliance rate ที่แท้จริง (2C-4)
+  // ห้ามใช้ตัวนี้แทน mandatoryComplianceRate บน UI ที่ต้องการรายงาน compliance บังคับเรียน
+  overallCompletionRate: z.number().nullable(), // completedEnrollments/totalEnrollments*100, null ถ้า totalEnrollments=0
+  // 2C-4: แยกนับ mandatory (POSITION_BASED) vs optional (PUBLIC) — snapshot จาก Enrollment.isMandatory
+  mandatoryEnrollments: z.number().int(),
+  mandatoryCompleted: z.number().int(),
+  // compliance rate ที่แท้จริง — นับเฉพาะ mandatory เท่านั้น (optional สมัครใจ ไม่เรียนก็ไม่ผิด)
+  // null ถ้า mandatoryEnrollments=0 (ไม่มีอะไรให้วัด ต่างจาก "วัดแล้วได้ 0%")
+  mandatoryComplianceRate: z.number().nullable(),
+  optionalEnrollments: z.number().int(),
+  optionalCompleted: z.number().int(),
 })
 
 export type DashboardSummary = z.infer<typeof dashboardSummarySchema>
@@ -23,6 +34,7 @@ export const complianceRowSchema = z.object({
   courseTitle: z.string(),                  // localized
   enrollmentStatus: z.enum(['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED']),
   progress: z.number().int(),
+  isMandatory: z.boolean(),                 // 2C-4: snapshot จาก Enrollment.isMandatory
   completedAt: z.string().nullable(),       // ISO8601
 })
 

@@ -12,16 +12,30 @@ export async function getDashboardSummary(
   _role: string,
   _locale: Locale,
 ): Promise<DashboardSummary> {
-  const [totalUsers, totalCourses, totalEnrollments, completedEnrollments, pendingEnrollments] =
-    await Promise.all([
-      prisma.user.count({ where: { deletedAt: null, isActive: true } }),
-      prisma.course.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
-      prisma.enrollment.count({ where: { deletedAt: null } }),
-      prisma.enrollment.count({ where: { deletedAt: null, status: 'COMPLETED' } }),
-      prisma.enrollment.count({
-        where: { deletedAt: null, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
-      }),
-    ])
+  const [
+    totalUsers,
+    totalCourses,
+    totalEnrollments,
+    completedEnrollments,
+    pendingEnrollments,
+    mandatoryEnrollments,
+    mandatoryCompleted,
+    optionalEnrollments,
+    optionalCompleted,
+  ] = await Promise.all([
+    prisma.user.count({ where: { deletedAt: null, isActive: true } }),
+    prisma.course.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
+    prisma.enrollment.count({ where: { deletedAt: null } }),
+    prisma.enrollment.count({ where: { deletedAt: null, status: 'COMPLETED' } }),
+    prisma.enrollment.count({
+      where: { deletedAt: null, status: { in: ['ASSIGNED', 'IN_PROGRESS'] } },
+    }),
+    // 2C-4: mandatory (POSITION_BASED) vs optional (PUBLIC) — snapshot จาก Enrollment.isMandatory
+    prisma.enrollment.count({ where: { deletedAt: null, isMandatory: true } }),
+    prisma.enrollment.count({ where: { deletedAt: null, isMandatory: true, status: 'COMPLETED' } }),
+    prisma.enrollment.count({ where: { deletedAt: null, isMandatory: false } }),
+    prisma.enrollment.count({ where: { deletedAt: null, isMandatory: false, status: 'COMPLETED' } }),
+  ])
 
   return {
     totalUsers,
@@ -29,6 +43,13 @@ export async function getDashboardSummary(
     totalEnrollments,
     completedEnrollments,
     pendingEnrollments,
+    overallCompletionRate: totalEnrollments > 0 ? Math.round((completedEnrollments / totalEnrollments) * 100) : null,
+    mandatoryEnrollments,
+    mandatoryCompleted,
+    mandatoryComplianceRate:
+      mandatoryEnrollments > 0 ? Math.round((mandatoryCompleted / mandatoryEnrollments) * 100) : null,
+    optionalEnrollments,
+    optionalCompleted,
   }
 }
 
@@ -38,11 +59,13 @@ export async function getDashboardSummary(
 function buildComplianceWhere(
   courseId: string | undefined,
   status: 'ASSIGNED' | 'IN_PROGRESS' | 'COMPLETED' | 'EXPIRED' | undefined,
+  isMandatory: boolean | undefined,
 ) {
   return {
     deletedAt: null,
     ...(courseId !== undefined && { courseId }),
     ...(status !== undefined && { status }),
+    ...(isMandatory !== undefined && { isMandatory }),
   }
 }
 
@@ -52,6 +75,7 @@ type EnrollmentRaw = {
   id: string
   status: string
   progress: number
+  isMandatory: boolean
   completedAt: Date | null
   user: {
     id: string
@@ -69,6 +93,7 @@ function toRow(e: EnrollmentRaw, locale: Locale): ComplianceRow {
     courseTitle: localizeField(e.course.titleEn, e.course.titleTh, locale),
     enrollmentStatus: e.status as ComplianceRow['enrollmentStatus'],
     progress: e.progress,
+    isMandatory: e.isMandatory,
     completedAt: e.completedAt?.toISOString() ?? null,
   }
 }
@@ -77,6 +102,7 @@ const ENROLLMENT_SELECT = {
   id: true,
   status: true,
   progress: true,
+  isMandatory: true,
   completedAt: true,
   user: {
     select: {
@@ -97,9 +123,9 @@ export async function getComplianceList(
   locale: Locale,
   ip?: string,
 ): Promise<ComplianceList> {
-  const { page, limit, courseId, status } = query
+  const { page, limit, courseId, status, isMandatory } = query
 
-  const where = buildComplianceWhere(courseId, status)
+  const where = buildComplianceWhere(courseId, status, isMandatory)
 
   const [total, rows] = await Promise.all([
     prisma.enrollment.count({ where }),
@@ -143,7 +169,7 @@ export async function getComplianceCsv(
   locale: Locale,
   ip: string | undefined,
 ): Promise<string> {
-  const where = buildComplianceWhere(query.courseId, query.status)
+  const where = buildComplianceWhere(query.courseId, query.status, query.isMandatory)
 
   const rows = await prisma.enrollment.findMany({
     where,
@@ -184,6 +210,7 @@ function buildCsv(rows: ComplianceRow[]): string {
     'Course',
     'Enrollment Status',
     'Progress (%)',
+    'Mandatory',
   ].join(',')
 
   const lines = rows.map((r) =>
@@ -192,6 +219,7 @@ function buildCsv(rows: ComplianceRow[]): string {
       escapeCsv(r.courseTitle),
       escapeCsv(r.enrollmentStatus),
       escapeCsv(String(r.progress)),
+      escapeCsv(r.isMandatory ? 'Yes' : 'No'),
     ].join(','),
   )
 
