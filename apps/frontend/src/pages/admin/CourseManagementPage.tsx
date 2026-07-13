@@ -2,18 +2,21 @@ import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { useForm } from 'react-hook-form'
+import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, Search, Edit2, Trash2, Settings, Globe, Archive } from 'lucide-react'
-import type { CourseAdminResponse } from '@btec-lms/shared'
+import type { CourseAdminResponse, CourseAccessType } from '@btec-lms/shared'
 import {
   listAdminCourses,
   createAdminCourse,
   updateAdminCourse,
   updateCourseStatus,
   deleteAdminCourse,
+  setCoursePositions,
 } from '../../api/admin-courses.js'
+import { listAdminPositions } from '../../api/admin-positions.js'
+import { courseHasActiveEnrollment } from '../../api/enrollments.js'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
@@ -44,6 +47,7 @@ const courseFormSchema = z.object({
   expiryMonthsRaw:      z.string().optional(),
   enrollmentCloseAtRaw: z.string().optional(),
   paperSavingSheetsRaw: z.string().optional(),
+  accessType:           z.enum(['PUBLIC', 'POSITION_BASED']),
 })
 type CourseFormValues = z.infer<typeof courseFormSchema>
 
@@ -60,9 +64,31 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
   const toast = useToast()
   const qc = useQueryClient()
 
+  const originalPositionIds = useMemo(
+    () => (editCourse?.positions ?? []).map((p) => p.id),
+    [editCourse],
+  )
+  const [selectedPositionIds, setSelectedPositionIds] = useState<string[]>(originalPositionIds)
+
+  const { data: positions } = useQuery({
+    queryKey: ['admin', 'positions'],
+    queryFn: listAdminPositions,
+  })
+
+  // accessType-lock: เช็คว่า course มี enrollment ที่ยัง active อยู่ไหมตอนเปิด edit modal —
+  // ถ้ามี → disable accessType selector + บอกเหตุผล แทนที่จะปล่อยให้ submit แล้วเจอ 400 (UX แย่)
+  const { data: hasActiveEnrollment } = useQuery({
+    queryKey: ['admin', 'enrollments', 'has-active', editCourse?.id],
+    queryFn: () => courseHasActiveEnrollment(editCourse!.id),
+    enabled: editCourse != null,
+  })
+  const accessTypeLocked = editCourse != null && hasActiveEnrollment === true
+
   const {
     register,
+    control,
     handleSubmit,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<CourseFormValues>({
     resolver: zodResolver(courseFormSchema),
@@ -77,15 +103,17 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
       expiryMonthsRaw:      editCourse.expiryMonths != null ? String(editCourse.expiryMonths) : '',
       enrollmentCloseAtRaw: editCourse.enrollmentCloseAt != null ? editCourse.enrollmentCloseAt.slice(0, 10) : '',
       paperSavingSheetsRaw: editCourse.paperSavingSheets != null ? String(editCourse.paperSavingSheets) : '',
+      accessType:           editCourse.accessType,
     } : {
       titleEn: '', titleTh: '', categoryEn: '', categoryTh: '',
       descriptionEn: '', descriptionTh: '',
       expiryMonthsRaw: '', enrollmentCloseAtRaw: '', paperSavingSheetsRaw: '',
+      accessType: 'PUBLIC',
     },
   })
 
-  // accessType/position picker เป็นงาน 2C-5 — ฟอร์มนี้ยังสร้างได้แค่ PUBLIC เท่านั้น
-  // (แก้ accessType ของ course เดิมทำผ่านฟอร์มนี้ไม่ได้เช่นกัน จนกว่า 2C-5 จะเพิ่ม UI)
+  const accessTypeValue = watch('accessType')
+
   const buildApiBody = (values: CourseFormValues) => ({
     titleEn: values.titleEn,
     ...(values.titleTh?.trim() ? { titleTh: values.titleTh.trim() } : {}),
@@ -103,13 +131,28 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
   const onSubmit = async (values: CourseFormValues) => {
     try {
       const body = buildApiBody(values)
+      let courseId: string
+
       if (editCourse) {
-        await updateAdminCourse(editCourse.id, body)
+        await updateAdminCourse(editCourse.id, { ...body, accessType: values.accessType })
+        courseId = editCourse.id
         toast.success(t('adminCourse.courseUpdated'))
       } else {
-        await createAdminCourse({ ...body, accessType: 'PUBLIC' })
+        const created = await createAdminCourse({ ...body, accessType: values.accessType })
+        courseId = created.id
         toast.success(t('adminCourse.courseCreated'))
       }
+
+      // setCoursePositions ใช้ได้เฉพาะ course ที่ accessType เป็น POSITION_BASED เท่านั้น (backend gate)
+      // ต้องเรียกหลัง accessType ถูกตั้งเป็น POSITION_BASED แล้วเท่านั้น (ลำดับสำคัญ) — ข้ามถ้าไม่ได้เลือก
+      // POSITION_BASED หรือ list ไม่เปลี่ยนแปลงเลย (ลด request ที่ไม่จำเป็น)
+      const positionsChanged =
+        selectedPositionIds.length !== originalPositionIds.length ||
+        selectedPositionIds.some((id) => !originalPositionIds.includes(id))
+      if (values.accessType === 'POSITION_BASED' && positionsChanged) {
+        await setCoursePositions(courseId, { positionIds: selectedPositionIds })
+      }
+
       await qc.invalidateQueries({ queryKey: ['admin', 'courses'] })
       onClose()
     } catch (err) {
@@ -118,6 +161,22 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
   }
 
   const isArchived = editCourse?.status === 'ARCHIVED'
+  // course-position-removal-gate (backend, 2C-2): published + POSITION_BASED ต้องเหลือ position ≥1
+  // เสมอ — UI ต้องกันการ uncheck ตัวสุดท้ายไว้ก่อน ไม่ใช่ปล่อยให้ยิงแล้วเจอ 400
+  const isLastPositionLocked =
+    editCourse?.status === 'PUBLISHED' &&
+    accessTypeValue === 'POSITION_BASED' &&
+    selectedPositionIds.length === 1
+
+  const togglePosition = (id: string) => {
+    setSelectedPositionIds((prev) => {
+      if (prev.includes(id)) {
+        if (isLastPositionLocked && prev.length === 1) return prev
+        return prev.filter((p) => p !== id)
+      }
+      return [...prev, id]
+    })
+  }
 
   return (
     <Modal
@@ -206,10 +265,64 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
         </div>
 
         {/* accessType (PUBLIC/POSITION_BASED) + position picker — 2C-5 */}
-        {!editCourse && (
-          <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
-            {t('adminCourse.accessTypeComingSoon')}
-          </p>
+        <div className="space-y-1">
+          <Controller
+            name="accessType"
+            control={control}
+            render={({ field }) => (
+              <Select
+                label={t('adminCourse.accessType')}
+                value={field.value}
+                onChange={(v) => field.onChange(v as CourseAccessType)}
+                disabled={isArchived || accessTypeLocked}
+                options={[
+                  { value: 'PUBLIC', label: t('adminCourse.accessTypePublic') },
+                  { value: 'POSITION_BASED', label: t('adminCourse.accessTypePositionBased') },
+                ]}
+              />
+            )}
+          />
+          {accessTypeLocked && (
+            <p className="text-xs text-amber-600">{t('adminCourse.accessTypeLocked')}</p>
+          )}
+        </div>
+
+        {accessTypeValue === 'POSITION_BASED' && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-slate-700">{t('adminCourse.positions')}</label>
+            <p className="text-xs text-slate-500">{t('adminCourse.positionsHelp')}</p>
+            {(positions ?? []).length === 0 ? (
+              <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+                {t('adminCourse.noPositionsAvailable')}
+              </p>
+            ) : (
+              <div className="grid grid-cols-1 gap-1.5 rounded-xl border border-slate-200 p-3 sm:grid-cols-2">
+                {(positions ?? []).map((p) => {
+                  const checked = selectedPositionIds.includes(p.id)
+                  const disableUncheck = isArchived || (checked && isLastPositionLocked)
+                  return (
+                    <label
+                      key={p.id}
+                      className={[
+                        'flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm',
+                        disableUncheck ? 'cursor-not-allowed opacity-60' : 'cursor-pointer hover:bg-slate-50',
+                      ].join(' ')}
+                      title={checked && isLastPositionLocked ? t('adminCourse.cannotUncheckLastPosition') : undefined}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        disabled={disableUncheck}
+                        onChange={() => togglePosition(p.id)}
+                        className="rounded border-slate-300 text-brand-600 focus:ring-brand-500"
+                      />
+                      <span className="text-slate-700">{p.name}</span>
+                    </label>
+                  )
+                })}
+              </div>
+            )}
+          </div>
         )}
 
         {isArchived && (

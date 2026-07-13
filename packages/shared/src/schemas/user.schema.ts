@@ -27,7 +27,7 @@ export const updateProfileInputSchema = z.object({
 export const updateUserInputSchema = z.object({
   name: z.string().min(1).max(100).optional(),
   role: roleSchema.optional(),
-  position: z.string().max(100).optional(),
+  positionId: z.string().cuid().nullable().optional(), // 2C-5: admin เลือกจาก dropdown จริง แทน free-text
   isActive: z.boolean().optional(),
 })
 
@@ -37,7 +37,7 @@ export const createUserInputSchema = z.object({
   name: z.string().min(1).max(100),
   role: roleSchema.optional(),
   employeeId: z.string().max(50).optional(),
-  position: z.string().max(100).optional(),
+  positionId: z.string().cuid().nullable().optional(), // 2C-5
 })
 
 export type Role = z.infer<typeof roleSchema>

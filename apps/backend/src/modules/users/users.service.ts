@@ -15,6 +15,13 @@ import { t, localizeField, type Locale } from '../../lib/i18n.js'
 import { resolvePositionId } from '../positions/positions.service.js'
 import type { UserListQuery, ImportResult } from './users.schema.js'
 
+// 2C-5: createUser/updateUser รับ positionId ตรงๆ จาก dropdown จริงแล้ว — validate ว่ามีอยู่จริง
+// (resolvePositionId แบบ find-or-create ยังใช้เฉพาะ CSV import ที่เป็น free-text โดยธรรมชาติ)
+async function assertPositionExists(prisma: PrismaClient, positionId: string, locale: Locale): Promise<void> {
+  const position = await prisma.position.findFirst({ where: { id: positionId, deletedAt: null }, select: { id: true } })
+  if (!position) throw badRequest(t('error.position.notFound', undefined, locale))
+}
+
 function toUserResponse(
   user: {
     id: string
@@ -70,11 +77,9 @@ export async function listUsers(
   locale: Locale = 'en',
   ip?: string,
 ): Promise<{ data: UserResponse[]; total: number; page: number; limit: number }> {
-  const { page, limit, search, role, position, isActive } = query
+  const { page, limit, search, role, positionId, isActive } = query
   const skip = (page - 1) * limit
 
-  // position filter ยังรับ string (frontend เดิมยังไม่เปลี่ยนจนถึง 2C-5) — match
-  // ทั้ง nameEn/nameTh กัน filter dropdown ที่มีค่าภาษาไทยอยู่เดิมพังเงียบๆ
   const where = {
     deletedAt: null,
     ...(search && {
@@ -85,7 +90,7 @@ export async function listUsers(
       ],
     }),
     ...(role != null && { role }),
-    ...(position && { position: { OR: [{ nameEn: position }, { nameTh: position }] } }),
+    ...(positionId != null && { positionId }),
     ...(isActive !== undefined && { isActive }),
   }
 
@@ -108,7 +113,7 @@ export async function listUsers(
       limit,
       ...(search != null && { search }),
       ...(role != null && { role }),
-      ...(position != null && { position }),
+      ...(positionId != null && { positionId }),
     },
     ...(ip != null && { ip }),
   })
@@ -128,8 +133,11 @@ export async function createUser(
   })
   if (exists) throw conflict(t('error.user.emailConflict', undefined, locale))
 
+  if (input.positionId != null) {
+    await assertPositionExists(prisma, input.positionId, locale)
+  }
+
   const password = await hashPassword(input.password)
-  const positionId = await resolvePositionId(prisma, input.position)
 
   const user = await prisma.user.create({
     data: {
@@ -140,7 +148,7 @@ export async function createUser(
       mustChangePassword: true,
       // conditional spread เพื่อหลีกเลี่ยง exactOptionalPropertyTypes + Prisma conflict
       ...(input.employeeId != null && { employeeId: input.employeeId }),
-      ...(positionId != null && { positionId }),
+      ...(input.positionId !== undefined && { positionId: input.positionId }),
     },
     select: USER_SELECT,
   })
@@ -192,17 +200,17 @@ export async function updateUser(
   const exists = await prisma.user.findFirst({ where: { id, deletedAt: null } })
   if (!exists) throw notFound(t('error.user.notFound', undefined, locale))
 
-  // input.position === undefined → ไม่แตะ positionId เดิม; '' หรือ string ใหม่ → resolve ใหม่
-  // (string ว่างจะ resolve เป็น null คือ "เคลียร์ position" — ตั้งใจเปลี่ยนพฤติกรรมเล็กน้อยจากเดิม
-  // ที่เก็บ empty string ตรงๆ ซึ่งไม่มีความหมายอะไรอยู่แล้ว)
-  const positionId = input.position !== undefined ? await resolvePositionId(prisma, input.position) : undefined
+  // input.positionId === undefined → ไม่แตะ positionId เดิม; null → เคลียร์; string → ต้องมีอยู่จริง
+  if (input.positionId != null) {
+    await assertPositionExists(prisma, input.positionId, locale)
+  }
 
   const user = await prisma.user.update({
     where: { id },
     data: {
       ...(input.name != null && { name: input.name }),
       ...(input.role != null && { role: input.role }),
-      ...(positionId !== undefined && { positionId }),
+      ...(input.positionId !== undefined && { positionId: input.positionId }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
     },
     select: USER_SELECT,

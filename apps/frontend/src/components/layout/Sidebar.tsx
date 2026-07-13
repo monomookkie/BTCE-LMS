@@ -9,6 +9,7 @@ import {
   Megaphone,
   LogOut,
   Droplets,
+  Briefcase,
 } from 'lucide-react'
 import { useAuth, useLogoutMutation } from '../../hooks/useAuth.js'
 import { Avatar } from '../ui/Avatar.js'
@@ -34,6 +35,7 @@ const adminNav: NavItem[] = [
   { path: '/admin/reports',       labelKey: 'nav.reports',          Icon: BarChart3 },
   { path: '/admin/announcements', labelKey: 'nav.announcements',    Icon: Megaphone },
   { path: '/admin/users',         labelKey: 'nav.users',            Icon: Users },
+  { path: '/admin/positions',     labelKey: 'nav.positions',        Icon: Briefcase },
 ]
 
 interface SidebarProps {

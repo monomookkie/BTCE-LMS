@@ -6,7 +6,6 @@ import { verifyPassword, hashPassword } from '../../lib/password.js'
 import { logAudit } from '../../lib/audit.js'
 import { unauthorized, notFound, badRequest, conflict } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
-import { resolvePositionId } from '../positions/positions.service.js'
 import { env } from '../../config/env.js'
 import type { MeResponse } from './auth.schema.js'
 
@@ -143,7 +142,17 @@ export async function registerUser(
   if (exists) throw conflict(t('error.auth.registrationFailed', undefined, locale))
 
   const password = await hashPassword(input.password)
-  const positionId = await resolvePositionId(prisma, input.position)
+
+  // 2C-5: input.positionId มาจาก dropdown จริงแล้ว (ไม่ใช่ free-text อีกต่อไป) — validate
+  // ว่ามีอยู่จริง+ยัง active ก่อนเขียน แทน resolvePositionId เดิม (นั้นเก็บไว้ให้ CSV import
+  // ที่ยังเป็น free-text โดยธรรมชาติเท่านั้น) — null คือเลือก "Others" ตั้งใจ ผ่านได้เลย
+  if (input.positionId != null) {
+    const position = await prisma.position.findFirst({
+      where: { id: input.positionId, deletedAt: null },
+      select: { id: true },
+    })
+    if (!position) throw badRequest(t('error.position.notFound', undefined, locale))
+  }
 
   const user = await prisma.user.create({
     data: {
@@ -154,7 +163,7 @@ export async function registerUser(
       isActive: true,
       mustChangePassword: false, // สมัครเองแล้วตั้งรหัสเอง — ไม่ใช่ temp password จาก admin/CSV
       department: input.department,
-      ...(positionId != null && { positionId }),
+      positionId: input.positionId,
       ...(input.employeeId != null && { employeeId: input.employeeId }),
     },
     include: { position: { select: { nameEn: true, nameTh: true } } },

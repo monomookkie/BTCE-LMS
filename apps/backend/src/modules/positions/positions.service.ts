@@ -4,6 +4,7 @@ import type {
   PositionAdminResponse,
   CreatePositionInput,
   UpdatePositionInput,
+  MergePositionInput,
 } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound, conflict, badRequest } from '../../lib/errors.js'
@@ -49,13 +50,24 @@ function toPublicResponse(
 function toAdminResponse(
   position: { id: string; nameEn: string; nameTh: string | null },
   locale: Locale,
+  counts: { userCount: number; courseCount: number },
 ): PositionAdminResponse {
   return {
     id: position.id,
     name: localizeField(position.nameEn, position.nameTh, locale),
     nameEn: position.nameEn,
     nameTh: position.nameTh,
+    userCount: counts.userCount,
+    courseCount: counts.courseCount,
   }
+}
+
+async function getPositionCounts(prisma: PrismaClient, positionId: string): Promise<{ userCount: number; courseCount: number }> {
+  const [userCount, courseCount] = await Promise.all([
+    prisma.user.count({ where: { positionId, deletedAt: null } }),
+    prisma.coursePosition.count({ where: { positionId } }),
+  ])
+  return { userCount, courseCount }
 }
 
 // ─── Public: list (unauthenticated — ใช้ใน self-registration) ──────────────
@@ -81,7 +93,8 @@ export async function listPositionsAdmin(
     where: { deletedAt: null },
     orderBy: { nameEn: 'asc' },
   })
-  return positions.map((p) => toAdminResponse(p, locale))
+  const counts = await Promise.all(positions.map((p) => getPositionCounts(prisma, p.id)))
+  return positions.map((p, i) => toAdminResponse(p, locale, counts[i]!))
 }
 
 export async function createPosition(
@@ -113,7 +126,9 @@ export async function createPosition(
     ...(ip != null && { ip }),
   })
 
-  return toAdminResponse(position, locale)
+  // สร้างใหม่หรือ revive จาก soft-delete เสมอเริ่มที่ 0 usage — delete ถูก block ไว้ตอนยังมี
+  // ref อยู่แล้ว จึง soft-delete ได้ก็ต่อเมื่อ 0 ref อยู่ก่อนแล้วเท่านั้น
+  return toAdminResponse(position, locale, { userCount: 0, courseCount: 0 })
 }
 
 export async function updatePosition(
@@ -151,7 +166,8 @@ export async function updatePosition(
     ...(ip != null && { ip }),
   })
 
-  return toAdminResponse(position, locale)
+  const counts = await getPositionCounts(prisma, id)
+  return toAdminResponse(position, locale, counts)
 }
 
 export async function deletePosition(
@@ -193,5 +209,88 @@ export async function deletePosition(
     targetId: id,
     metadata: { nameEn: existing.nameEn },
     ...(ip != null && { ip }),
+  })
+}
+
+// ─── Merge (2C-5) ───────────────────────────────────────────────────────────
+// รวมตำแหน่งซ้ำ — ย้าย user + course ทั้งหมดจาก source ไป target แล้ว soft-delete source
+// ทำทั้งหมดใน $transaction เดียว กัน state ค้างครึ่งๆ กลางๆ ถ้าล้มระหว่างทาง
+export async function mergePositions(
+  prisma: PrismaClient,
+  sourceId: string,
+  input: MergePositionInput,
+  actorId: string,
+  locale: Locale = 'en',
+  ip?: string,
+): Promise<void> {
+  const targetId = input.targetPositionId
+  if (targetId === sourceId) throw badRequest(t('error.position.mergeSameTarget', undefined, locale))
+
+  const [source, target] = await Promise.all([
+    prisma.position.findFirst({ where: { id: sourceId, deletedAt: null } }),
+    prisma.position.findFirst({ where: { id: targetId, deletedAt: null } }),
+  ])
+  if (!source) throw notFound(t('error.position.notFound', undefined, locale))
+  if (!target) throw badRequest(t('error.position.mergeTargetNotFound', undefined, locale))
+
+  await prisma.$transaction(async (tx) => {
+    // re-check target ใน tx เอง — กัน race ที่ target ถูก soft-delete ไปแล้วในช่วงระหว่าง
+    // fetch ด้านบนกับตอนเริ่ม transaction จริง (TOCTOU)
+    const targetStillActive = await tx.position.findFirst({ where: { id: targetId, deletedAt: null }, select: { id: true } })
+    if (!targetStillActive) throw badRequest(t('error.position.mergeTargetNotFound', undefined, locale))
+
+    const movedUsers = await tx.user.updateMany({
+      where: { positionId: sourceId },
+      data: { positionId: targetId },
+    })
+
+    // CoursePosition มี unique(courseId, positionId) — ถ้า target ผูก course เดียวกันอยู่แล้ว
+    // ย้าย source's row ไปทับไม่ได้ (ชน constraint) ต้องลบทิ้งแทน (target ครอบคลุมอยู่แล้ว)
+    const sourceLinks = await tx.coursePosition.findMany({
+      where: { positionId: sourceId },
+      select: { id: true, courseId: true },
+    })
+    const targetLinks = await tx.coursePosition.findMany({
+      where: { positionId: targetId },
+      select: { courseId: true },
+    })
+    const targetCourseIds = new Set(targetLinks.map((l) => l.courseId))
+    const toDeleteIds = sourceLinks.filter((l) => targetCourseIds.has(l.courseId)).map((l) => l.id)
+    const toRepointIds = sourceLinks.filter((l) => !targetCourseIds.has(l.courseId)).map((l) => l.id)
+
+    if (toDeleteIds.length > 0) {
+      await tx.coursePosition.deleteMany({ where: { id: { in: toDeleteIds } } })
+    }
+    if (toRepointIds.length > 0) {
+      await tx.coursePosition.updateMany({ where: { id: { in: toRepointIds } }, data: { positionId: targetId } })
+    }
+
+    // defensive check ก่อน soft-delete จริง — ยืนยันว่า source ไม่มี ref เหลือค้าง (0 orphan)
+    // กัน bug ในอนาคตที่อาจทำให้ logic ย้ายด้านบน drift ไปแบบไม่ครบ แล้ว soft-delete ไปทั้งที่ยังมีคนอ้างอิงอยู่
+    const [remainingUsers, remainingCourseLinks] = await Promise.all([
+      tx.user.count({ where: { positionId: sourceId } }),
+      tx.coursePosition.count({ where: { positionId: sourceId } }),
+    ])
+    if (remainingUsers > 0 || remainingCourseLinks > 0) {
+      throw badRequest(t('error.position.mergeIncomplete', undefined, locale))
+    }
+
+    await tx.position.update({ where: { id: sourceId }, data: { deletedAt: new Date() } })
+
+    await logAudit(tx, {
+      actorId,
+      action: 'POSITION_MERGE',
+      targetType: 'Position',
+      targetId: sourceId,
+      metadata: {
+        sourceNameEn: source.nameEn,
+        targetPositionId: targetId,
+        targetNameEn: target.nameEn,
+        usersMoved: movedUsers.count,
+        coursesMoved: toRepointIds.length,
+        coursesSkippedDuplicate: toDeleteIds.length,
+      },
+      ...(ip != null && { ip }),
+    })
   })
 }

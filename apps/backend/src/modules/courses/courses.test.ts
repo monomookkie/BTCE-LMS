@@ -867,4 +867,118 @@ describe('Courses module', () => {
       expect(body.positions[0]!.name).toBe('Nurse Position')
     })
   })
+
+  // ─── USER visibility — accessType + position filter (2C-5) ────────────────
+
+  describe('USER visibility — accessType + position filter (2C-5)', () => {
+    async function createPosition(cookies: string, nameEn = `Pos ${Date.now()}-${Math.random()}`) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/positions',
+        headers: { cookie: cookies },
+        payload: { nameEn },
+      })
+      return res.json<{ id: string }>().id
+    }
+
+    async function createPublishedPositionCourseAs(cookies: string, positionId: string, overrides: Record<string, unknown> = {}) {
+      const created = (await createCourseAs(cookies, { accessType: 'POSITION_BASED', ...overrides })).json<CourseAdminResponse>()
+      await addQuizWithQuestion(cookies, created.id)
+      await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [positionId] },
+      })
+      await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}/status`,
+        headers: { cookie: cookies },
+        payload: { status: 'PUBLISHED' },
+      })
+      return created
+    }
+
+    it('USER sees PUBLIC published courses regardless of position', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const publicCourse = await createPublishedCourseAs(adminCookies, { accessType: 'PUBLIC', titleEn: 'Public For All' })
+
+      const { user, plainPassword } = await createUser({ role: 'USER' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+
+      const res = await app.inject({ method: 'GET', url: '/courses', headers: { cookie: cookies } })
+      const ids = res.json<{ data: CoursePublicResponse[] }>().data.map((c) => c.id)
+      expect(ids).toContain(publicCourse.id)
+    })
+
+    it('USER with matching position sees the POSITION_BASED course', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const positionId = await createPosition(adminCookies)
+      const posCourse = await createPublishedPositionCourseAs(adminCookies, positionId, { titleEn: 'Matching Position Course' })
+
+      const { user, plainPassword } = await createUser({ role: 'USER' })
+      await prisma.user.update({ where: { id: user.id }, data: { positionId } })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+
+      const res = await app.inject({ method: 'GET', url: '/courses', headers: { cookie: cookies } })
+      const ids = res.json<{ data: CoursePublicResponse[] }>().data.map((c) => c.id)
+      expect(ids).toContain(posCourse.id)
+
+      const detailRes = await app.inject({ method: 'GET', url: `/courses/${posCourse.id}`, headers: { cookie: cookies } })
+      expect(detailRes.statusCode).toBe(200)
+    })
+
+    it('USER with a DIFFERENT position does NOT see the POSITION_BASED course (list hides it, direct GET → 404)', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const positionId = await createPosition(adminCookies)
+      const otherPositionId = await createPosition(adminCookies)
+      const posCourse = await createPublishedPositionCourseAs(adminCookies, positionId, { titleEn: 'Mismatched Position Course' })
+
+      const { user, plainPassword } = await createUser({ role: 'USER' })
+      await prisma.user.update({ where: { id: user.id }, data: { positionId: otherPositionId } })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+
+      const res = await app.inject({ method: 'GET', url: '/courses', headers: { cookie: cookies } })
+      const ids = res.json<{ data: CoursePublicResponse[] }>().data.map((c) => c.id)
+      expect(ids).not.toContain(posCourse.id)
+
+      const detailRes = await app.inject({ method: 'GET', url: `/courses/${posCourse.id}`, headers: { cookie: cookies } })
+      expect(detailRes.statusCode).toBe(404)
+    })
+
+    it('USER with positionId=null does NOT see any POSITION_BASED course', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const positionId = await createPosition(adminCookies)
+      const posCourse = await createPublishedPositionCourseAs(adminCookies, positionId, { titleEn: 'No Position User Hidden' })
+
+      // createUser ค่า positionId เริ่มต้นเป็น null อยู่แล้ว (ไม่ต้อง set)
+      const { user, plainPassword } = await createUser({ role: 'USER' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+
+      const res = await app.inject({ method: 'GET', url: '/courses', headers: { cookie: cookies } })
+      const ids = res.json<{ data: CoursePublicResponse[] }>().data.map((c) => c.id)
+      expect(ids).not.toContain(posCourse.id)
+
+      const detailRes = await app.inject({ method: 'GET', url: `/courses/${posCourse.id}`, headers: { cookie: cookies } })
+      expect(detailRes.statusCode).toBe(404)
+    })
+
+    it('ADMIN sees POSITION_BASED courses regardless of their own position (unaffected by the filter)', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const positionId = await createPosition(adminCookies)
+      const posCourse = await createPublishedPositionCourseAs(adminCookies, positionId, { titleEn: 'Admin Always Sees' })
+
+      const res = await app.inject({ method: 'GET', url: '/courses', headers: { cookie: adminCookies } })
+      const ids = res.json<{ data: CourseAdminResponse[] }>().data.map((c) => c.id)
+      expect(ids).toContain(posCourse.id)
+
+      const detailRes = await app.inject({ method: 'GET', url: `/courses/${posCourse.id}`, headers: { cookie: adminCookies } })
+      expect(detailRes.statusCode).toBe(200)
+    })
+  })
 })

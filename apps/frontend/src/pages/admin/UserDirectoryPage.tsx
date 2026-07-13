@@ -14,6 +14,7 @@ import {
   importUsersCsv,
   type ImportResult,
 } from '../../api/admin-users.js'
+import { listAdminPositions } from '../../api/admin-positions.js'
 import { useAuth } from '../../hooks/useAuth.js'
 import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
@@ -41,7 +42,7 @@ const userFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(72).optional(),
   role: roleSchema,
-  position: z.string().max(100).optional(),
+  positionId: z.string().cuid().nullable().optional(),
 })
 type UserFormValues = z.infer<typeof userFormSchema>
 
@@ -55,6 +56,11 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
   const { t } = useTranslation()
   const toast = useToast()
   const qc = useQueryClient()
+
+  const { data: positions } = useQuery({
+    queryKey: ['admin', 'positions'],
+    queryFn: listAdminPositions,
+  })
 
   const {
     register,
@@ -71,18 +77,19 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
           name: editUser.name,
           email: editUser.email,
           role: editUser.role,
-          position: editUser.position ?? '',
+          positionId: editUser.positionId ?? '',
         }
-      : { name: '', email: '', password: '', role: 'USER', position: '' },
+      : { name: '', email: '', password: '', role: 'USER', positionId: '' },
   })
 
   const onSubmit = async (values: UserFormValues) => {
     try {
+      const positionId = values.positionId?.trim() ? values.positionId : null
       if (editUser) {
         await updateAdminUser(editUser.id, {
           name: values.name,
           role: values.role,
-          ...(values.position?.trim() ? { position: values.position.trim() } : {}),
+          positionId,
         })
         toast.success(t('userDirectory.userUpdated'))
       } else {
@@ -91,7 +98,7 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
           password: values.password!,
           name: values.name,
           role: values.role,
-          ...(values.position?.trim() ? { position: values.position.trim() } : {}),
+          positionId,
         })
         toast.success(t('userDirectory.userCreated'))
       }
@@ -150,7 +157,22 @@ function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
             />
           )}
         />
-        <Input label={t('userDirectory.position')} {...register('position')} />
+        <Controller
+          name="positionId"
+          control={control}
+          render={({ field }) => (
+            <Select
+              label={t('userDirectory.position')}
+              value={field.value ?? ''}
+              onChange={field.onChange}
+              placeholder={t('userDirectory.allPositions')}
+              options={[
+                { value: '', label: t('userDirectory.allPositions') },
+                ...(positions ?? []).map((p) => ({ value: p.id, label: p.name })),
+              ]}
+            />
+          )}
+        />
 
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
           <Button variant="ghost" type="button" onClick={onClose}>{t('common.cancel')}</Button>
@@ -282,24 +304,21 @@ export default function UserDirectoryPage() {
     queryFn: () =>
       listAdminUsers({
         ...(search ? { search } : {}),
-        ...(positionFilter ? { position: positionFilter } : {}),
+        ...(positionFilter ? { positionId: positionFilter } : {}),
         ...(statusFilter ? { isActive: statusFilter === 'active' } : {}),
         page,
         limit: PAGE_SIZE,
       }),
   })
 
-  const { data: positionData } = useQuery({
-    queryKey: ['admin', 'users', 'positions'],
-    queryFn: () => listAdminUsers({ limit: 100 }),
+  const { data: positionsData } = useQuery({
+    queryKey: ['admin', 'positions'],
+    queryFn: listAdminPositions,
   })
 
   const positionOptions = useMemo(
-    () =>
-      Array.from(
-        new Set((positionData?.data ?? []).map((u) => u.position?.trim()).filter(Boolean) as string[]),
-      ).sort((a, b) => a.localeCompare(b)),
-    [positionData?.data],
+    () => (positionsData ?? []).map((p) => ({ value: p.id, label: p.name })),
+    [positionsData],
   )
 
   const deleteMutation = useMutation({
@@ -458,10 +477,7 @@ export default function UserDirectoryPage() {
           onChange={(v) => { setPositionFilter(v); setPage(1) }}
           options={[
             { value: '', label: t('userDirectory.allPositions') },
-            ...(positionFilter && !positionOptions.includes(positionFilter)
-              ? [{ value: positionFilter, label: positionFilter }]
-              : []),
-            ...positionOptions.map((position) => ({ value: position, label: position })),
+            ...positionOptions,
           ]}
         />
         <Select

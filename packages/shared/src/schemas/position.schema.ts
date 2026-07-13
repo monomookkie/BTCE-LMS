@@ -7,11 +7,14 @@ export const positionPublicResponseSchema = z.object({
 })
 
 // admin: raw bilingual fields สำหรับหน้า Manage Positions (edit form)
+// userCount/courseCount (2C-5): ให้ admin เห็นก่อนตัดสินใจลบ/merge — ไม่ต้องยิง request เพิ่ม
 export const positionAdminResponseSchema = z.object({
   id: z.string().cuid(),
   name: z.string(),
   nameEn: z.string(),
   nameTh: z.string().nullable(),
+  userCount: z.number().int(),
+  courseCount: z.number().int(),
 })
 
 export const createPositionInputSchema = z.object({
@@ -24,7 +27,13 @@ export const updatePositionInputSchema = z.object({
   nameTh: z.string().trim().max(100).optional(),
 })
 
+// 2C-5: รวม position ซ้ำ — ย้าย user + course ทั้งหมดจาก :id (source) ไป targetPositionId แล้วลบ source
+export const mergePositionInputSchema = z.object({
+  targetPositionId: z.string().cuid(),
+})
+
 export type PositionPublicResponse = z.infer<typeof positionPublicResponseSchema>
 export type PositionAdminResponse = z.infer<typeof positionAdminResponseSchema>
 export type CreatePositionInput = z.infer<typeof createPositionInputSchema>
 export type UpdatePositionInput = z.infer<typeof updatePositionInputSchema>
+export type MergePositionInput = z.infer<typeof mergePositionInputSchema>

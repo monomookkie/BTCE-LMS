@@ -56,7 +56,7 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
     },
   }, async (req) => {
     const locale = await resolveLocale(req, app.prisma)
-    return getCourse(app.prisma, req.params.id, req.user.role, locale)
+    return getCourse(app.prisma, req.params.id, req.user.role, locale, req.user.id)
   })
 
   // PATCH /courses/:id — ADMIN (metadata) → คืน admin schema

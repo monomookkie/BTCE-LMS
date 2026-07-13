@@ -215,9 +215,10 @@ describe('Users module', () => {
       expect(res.json<{ name: string }>().name).toBe('Updated Name')
     })
 
-    it('PATCH /users/me ignores a user-submitted position (admin-only field)', async () => {
+    it('PATCH /users/me ignores a user-submitted positionId (admin-only field)', async () => {
       const { user, plainPassword } = await createUser({ email: 'profile-position@test.com' })
       const position = await prisma.position.create({ data: { nameEn: 'Original Position' } })
+      const otherPosition = await prisma.position.create({ data: { nameEn: 'Hacked Position' } })
       await prisma.user.update({ where: { id: user.id }, data: { positionId: position.id } })
       const { cookies } = await loginAs(app, user.email, plainPassword)
 
@@ -225,11 +226,11 @@ describe('Users module', () => {
         method: 'PATCH',
         url: '/users/me',
         headers: { cookie: cookies },
-        payload: { name: 'Name Changed', position: 'Hacked Position' },
+        payload: { name: 'Name Changed', positionId: otherPosition.id },
       })
       expect(res.statusCode).toBe(200)
-      expect(res.json<{ name: string; position: string | null }>().name).toBe('Name Changed')
-      expect(res.json<{ name: string; position: string | null }>().position).toBe('Original Position')
+      expect(res.json<{ name: string; positionId: string | null }>().name).toBe('Name Changed')
+      expect(res.json<{ name: string; positionId: string | null }>().positionId).toBe(position.id)
     })
 
     it('PATCH /users/me writes USER_UPDATE_PROFILE audit log', async () => {

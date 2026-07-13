@@ -22,6 +22,9 @@
   "error.position.nameConflict": "มีตำแหน่งชื่อนี้อยู่แล้ว",
   "error.position.inUse": "ลบไม่ได้ — ยังมีผู้ใช้ {{count}} คนที่ถูกกำหนดตำแหน่งนี้อยู่",
   "error.position.linkedToCourse": "ลบไม่ได้ — ตำแหน่งนี้ยังผูกกับหลักสูตร {{count}} รายการ",
+  "error.position.mergeSameTarget": "ไม่สามารถรวมตำแหน่งเข้ากับตัวเองได้",
+  "error.position.mergeTargetNotFound": "ไม่พบตำแหน่งปลายทาง",
+  "error.position.mergeIncomplete": "การรวมตำแหน่งล้มเหลว — ย้ายข้อมูลอ้างอิงไม่ครบ",
 
   "error.course.notFound": "ไม่พบหลักสูตร",
   "error.course.notPublished": "หลักสูตรนี้ยังไม่เปิดให้เรียน",

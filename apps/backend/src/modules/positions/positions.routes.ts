@@ -6,6 +6,7 @@ import {
   positionAdminResponseSchema,
   createPositionInputSchema,
   updatePositionInputSchema,
+  mergePositionInputSchema,
 } from '@btec-lms/shared'
 import { positionParamsSchema } from './positions.schema.js'
 import {
@@ -14,6 +15,7 @@ import {
   createPosition,
   updatePosition,
   deletePosition,
+  mergePositions,
 } from './positions.service.js'
 import { resolveLocale } from '../../lib/i18n.js'
 
@@ -67,6 +69,20 @@ const positionsRoutes: FastifyPluginAsync = async (app) => {
     const locale = await resolveLocale(req, app.prisma)
     const position = await updatePosition(app.prisma, req.params.id, req.body, req.user.id, locale, req.ip)
     return reply.send(position)
+  })
+
+  // POST /positions/:id/merge — ADMIN, รวมตำแหน่งซ้ำ (ย้าย user+course ไป target แล้วลบ source)
+  server.post('/:id/merge', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      params: positionParamsSchema,
+      body: mergePositionInputSchema,
+      response: { 200: z.object({ message: z.literal('ok') }) },
+    },
+  }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
+    await mergePositions(app.prisma, req.params.id, req.body, req.user.id, locale, req.ip)
+    return reply.send({ message: 'ok' as const })
   })
 
   // DELETE /positions/:id — ADMIN, soft delete (บล็อกถ้ายังมี user assign อยู่)

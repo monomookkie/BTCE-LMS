@@ -233,28 +233,231 @@ describe('Positions module', () => {
     })
   })
 
-  describe('resolvePositionId shim — admin create-user still sends free-text position', () => {
-    it('resolving a soft-deleted position by exact string revives it instead of 500ing', async () => {
+  // 2C-5: admin create/edit user form ใช้ positionId ตรงๆ แล้ว ไม่ใช้ resolvePositionId shim อีก —
+  // consumer ที่เหลืออยู่จริงคือ CSV bulk import เท่านั้น (free-text โดยธรรมชาติ ไม่มีทาง "เลือกจาก dropdown"
+  // ได้จริงสำหรับข้อมูลนำเข้าจำนวนมาก) ยืนยันว่า find-or-create + revive ยังทำงานถูกผ่านทางนั้น
+  describe('resolvePositionId shim — CSV bulk import only remaining consumer', () => {
+    it('CSV import resolving a soft-deleted position by exact string revives it instead of 500ing', async () => {
       const admin = await setup('ADMIN')
       const position = await prisma.position.create({ data: { nameEn: 'Shim Revivable' } })
       await prisma.position.update({ where: { id: position.id }, data: { deletedAt: new Date() } })
 
+      const email = `shim-revive-${Date.now()}@test.com`
+      const csv = ['email,name,position', `${email},Shim Revive,Shim Revivable`].join('\n')
+      const body = Buffer.concat([
+        Buffer.from(
+          '--b\r\n' +
+            'Content-Disposition: form-data; name="file"; filename="users.csv"\r\n' +
+            'Content-Type: text/csv\r\n\r\n',
+        ),
+        Buffer.from(csv),
+        Buffer.from('\r\n--b--\r\n'),
+      ])
+
       const res = await app.inject({
         method: 'POST',
-        url: '/users',
-        headers: { cookie: admin.cookies },
-        payload: {
-          email: `shim-revive-${Date.now()}@test.com`,
-          password: 'TestPass1!',
-          name: 'Shim Revive',
-          position: 'Shim Revivable',
-        },
+        url: '/users/import',
+        headers: { cookie: admin.cookies, 'content-type': 'multipart/form-data; boundary=b' },
+        body,
       })
-      expect(res.statusCode).toBe(201)
-      expect(res.json<{ positionId: string }>().positionId).toBe(position.id)
+      expect(res.statusCode).toBe(200)
+      expect(res.json<{ created: number }>().created).toBe(1)
+
+      const importedUser = await prisma.user.findUnique({ where: { email } })
+      expect(importedUser?.positionId).toBe(position.id)
 
       const revived = await prisma.position.findUnique({ where: { id: position.id } })
       expect(revived?.deletedAt).toBeNull()
+    })
+
+    it('CSV import resolving a brand-new position name creates it (find-or-create)', async () => {
+      const admin = await setup('ADMIN')
+      const email = `shim-create-${Date.now()}@test.com`
+      const newName = `Brand New Position ${Date.now()}`
+      const csv = ['email,name,position', `${email},Shim Create,${newName}`].join('\n')
+      const body = Buffer.concat([
+        Buffer.from(
+          '--b\r\n' +
+            'Content-Disposition: form-data; name="file"; filename="users.csv"\r\n' +
+            'Content-Type: text/csv\r\n\r\n',
+        ),
+        Buffer.from(csv),
+        Buffer.from('\r\n--b--\r\n'),
+      ])
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/users/import',
+        headers: { cookie: admin.cookies, 'content-type': 'multipart/form-data; boundary=b' },
+        body,
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json<{ created: number }>().created).toBe(1)
+
+      const created = await prisma.position.findFirst({ where: { nameEn: newName } })
+      expect(created).not.toBeNull()
+    })
+  })
+
+  // ─── POST /positions/:id/merge (2C-5) ──────────────────────────────────────
+
+  describe('POST /positions/:id/merge', () => {
+    it('moves all users + course links from source to target, then soft-deletes source', async () => {
+      const admin = await setup('ADMIN')
+      const source = await prisma.position.create({ data: { nameEn: 'Source Position' } })
+      const target = await prisma.position.create({ data: { nameEn: 'Target Position' } })
+
+      const { user: u1 } = await createUser({ role: 'USER' })
+      const { user: u2 } = await createUser({ role: 'USER' })
+      await prisma.user.update({ where: { id: u1.id }, data: { positionId: source.id } })
+      await prisma.user.update({ where: { id: u2.id }, data: { positionId: source.id } })
+
+      const course = await prisma.course.create({
+        data: { titleEn: 'Course A', categoryEn: 'Safety', status: 'PUBLISHED', accessType: 'POSITION_BASED' },
+      })
+      await prisma.coursePosition.create({ data: { courseId: course.id, positionId: source.id } })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/positions/${source.id}/merge`,
+        headers: { cookie: admin.cookies },
+        payload: { targetPositionId: target.id },
+      })
+      expect(res.statusCode).toBe(200)
+
+      const [movedU1, movedU2] = await Promise.all([
+        prisma.user.findUnique({ where: { id: u1.id } }),
+        prisma.user.findUnique({ where: { id: u2.id } }),
+      ])
+      expect(movedU1?.positionId).toBe(target.id)
+      expect(movedU2?.positionId).toBe(target.id)
+
+      const courseLink = await prisma.coursePosition.findFirst({ where: { courseId: course.id } })
+      expect(courseLink?.positionId).toBe(target.id)
+
+      const deletedSource = await prisma.position.findUnique({ where: { id: source.id } })
+      expect(deletedSource?.deletedAt).not.toBeNull()
+
+      // 0 orphan: ไม่มี user/course อ้างอิง source เหลือค้างหลัง merge
+      const remainingUsers = await prisma.user.count({ where: { positionId: source.id } })
+      const remainingLinks = await prisma.coursePosition.count({ where: { positionId: source.id } })
+      expect(remainingUsers).toBe(0)
+      expect(remainingLinks).toBe(0)
+    })
+
+    it('course linked to BOTH source and target → dedup (source link deleted, not duplicated)', async () => {
+      const admin = await setup('ADMIN')
+      const source = await prisma.position.create({ data: { nameEn: 'Dup Source' } })
+      const target = await prisma.position.create({ data: { nameEn: 'Dup Target' } })
+
+      const course = await prisma.course.create({
+        data: { titleEn: 'Shared Course', categoryEn: 'Safety', status: 'DRAFT', accessType: 'POSITION_BASED' },
+      })
+      await prisma.coursePosition.create({ data: { courseId: course.id, positionId: source.id } })
+      await prisma.coursePosition.create({ data: { courseId: course.id, positionId: target.id } })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/positions/${source.id}/merge`,
+        headers: { cookie: admin.cookies },
+        payload: { targetPositionId: target.id },
+      })
+      expect(res.statusCode).toBe(200)
+
+      // ไม่ชน unique(courseId, positionId) — เหลือ link เดียวไปที่ target ไม่ใช่ 2 links
+      const links = await prisma.coursePosition.findMany({ where: { courseId: course.id } })
+      expect(links).toHaveLength(1)
+      expect(links[0]?.positionId).toBe(target.id)
+    })
+
+    it('merge into itself → 400', async () => {
+      const admin = await setup('ADMIN')
+      const position = await prisma.position.create({ data: { nameEn: 'Self Merge' } })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/positions/${position.id}/merge`,
+        headers: { cookie: admin.cookies },
+        payload: { targetPositionId: position.id },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('target position does not exist → 400, source untouched', async () => {
+      const admin = await setup('ADMIN')
+      const source = await prisma.position.create({ data: { nameEn: 'Untouched Source' } })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/positions/${source.id}/merge`,
+        headers: { cookie: admin.cookies },
+        payload: { targetPositionId: `c${'x'.repeat(24)}` },
+      })
+      expect(res.statusCode).toBe(400)
+
+      const stillActive = await prisma.position.findUnique({ where: { id: source.id } })
+      expect(stillActive?.deletedAt).toBeNull()
+    })
+
+    it('audit log POSITION_MERGE written with counts', async () => {
+      const admin = await setup('ADMIN')
+      const source = await prisma.position.create({ data: { nameEn: 'Audit Source' } })
+      const target = await prisma.position.create({ data: { nameEn: 'Audit Target' } })
+      const { user } = await createUser({ role: 'USER' })
+      await prisma.user.update({ where: { id: user.id }, data: { positionId: source.id } })
+
+      await app.inject({
+        method: 'POST',
+        url: `/positions/${source.id}/merge`,
+        headers: { cookie: admin.cookies },
+        payload: { targetPositionId: target.id },
+      })
+
+      const log = await prisma.auditLog.findFirst({
+        where: { action: 'POSITION_MERGE', targetId: source.id },
+        orderBy: { createdAt: 'desc' },
+      })
+      expect(log).not.toBeNull()
+      expect(log?.metadata).toMatchObject({ usersMoved: 1, targetPositionId: target.id })
+    })
+
+    it('USER cannot merge → 403', async () => {
+      const user = await setup('USER')
+      const source = await prisma.position.create({ data: { nameEn: 'Guarded Source' } })
+      const target = await prisma.position.create({ data: { nameEn: 'Guarded Target' } })
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/positions/${source.id}/merge`,
+        headers: { cookie: user.cookies },
+        payload: { targetPositionId: target.id },
+      })
+      expect(res.statusCode).toBe(403)
+    })
+  })
+
+  // ─── GET /positions/admin — userCount/courseCount (2C-5) ───────────────────
+
+  describe('GET /positions/admin — usage counts', () => {
+    it('returns accurate userCount and courseCount per position', async () => {
+      const admin = await setup('ADMIN')
+      const position = await prisma.position.create({ data: { nameEn: 'Counted Position' } })
+      const { user } = await createUser({ role: 'USER' })
+      await prisma.user.update({ where: { id: user.id }, data: { positionId: position.id } })
+
+      const course = await prisma.course.create({
+        data: { titleEn: 'Counted Course', categoryEn: 'Safety', status: 'DRAFT', accessType: 'POSITION_BASED' },
+      })
+      await prisma.coursePosition.create({ data: { courseId: course.id, positionId: position.id } })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/positions/admin',
+        headers: { cookie: admin.cookies },
+      })
+      const found = res.json<Array<{ id: string; userCount: number; courseCount: number }>>().find((p) => p.id === position.id)
+      expect(found?.userCount).toBe(1)
+      expect(found?.courseCount).toBe(1)
     })
   })
 })

@@ -3,7 +3,7 @@ import { paginationQuerySchema, roleSchema } from '@btec-lms/shared'
 
 export const userListQuerySchema = paginationQuerySchema.extend({
   role: roleSchema.optional(),
-  position: z.string().trim().optional(),
+  positionId: z.string().cuid().optional(), // 2C-5: filter ตาม id จริง แทน string match เดิม
   isActive: z
     .string()
     .optional()

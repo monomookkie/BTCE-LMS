@@ -184,22 +184,18 @@ export default function BrowseCoursesPage() {
                         </span>
                       )
                     }
-                    if (course.accessType === 'PUBLIC') {
-                      return (
-                        <Button
-                          size="sm"
-                          isLoading={isEnrolling}
-                          disabled={enrollMutation.isPending}
-                          onClick={() => enrollMutation.mutate(course.id)}
-                        >
-                          {isEnrolling ? t('browse.enrolling') : t('course.enroll')}
-                        </Button>
-                      )
-                    }
+                    // 2C-5: listCourses กรอง server-side แล้ว — course POSITION_BASED ที่ปรากฏใน
+                    // list นี้คือ course ที่ user มีสิทธิ์อยู่แล้วเสมอ (ตำแหน่งตรงกัน) ไม่ต้องเช็ค
+                    // accessType ซ้ำฝั่ง client อีก ปุ่มลงทะเบียนใช้ได้ทั้ง PUBLIC และ POSITION_BASED
                     return (
-                      <span className="text-xs text-slate-400">
-                        {t('browse.selfEnrollDisabled')}
-                      </span>
+                      <Button
+                        size="sm"
+                        isLoading={isEnrolling}
+                        disabled={enrollMutation.isPending}
+                        onClick={() => enrollMutation.mutate(course.id)}
+                      >
+                        {isEnrolling ? t('browse.enrolling') : t('course.enroll')}
+                      </Button>
                     )
                   })()}
                 </div>

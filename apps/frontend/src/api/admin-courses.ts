@@ -2,6 +2,7 @@ import type {
   CourseAdminResponse,
   CreateCourseInput,
   UpdateCourseInput,
+  SetCoursePositionsInput,
 } from '@btec-lms/shared'
 import { apiFetch } from '../lib/api.js'
 
@@ -49,4 +50,8 @@ export function updateCourseStatus(
 
 export function deleteAdminCourse(id: string): Promise<void> {
   return apiFetch<void>(`/courses/${id}`, { method: 'DELETE' })
+}
+
+export function setCoursePositions(id: string, body: SetCoursePositionsInput): Promise<CourseAdminResponse> {
+  return apiFetch<CourseAdminResponse>(`/courses/${id}/positions`, { method: 'PUT', json: body })
 }

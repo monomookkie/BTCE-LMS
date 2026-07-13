@@ -22,6 +22,9 @@
   "error.position.nameConflict": "A position with this name already exists",
   "error.position.inUse": "Cannot delete — {{count}} user(s) are still assigned to this position",
   "error.position.linkedToCourse": "Cannot delete — this position is still linked to {{count}} course(s)",
+  "error.position.mergeSameTarget": "Cannot merge a position into itself",
+  "error.position.mergeTargetNotFound": "Target position not found",
+  "error.position.mergeIncomplete": "Merge failed — some references were not fully reassigned",
 
   "error.course.notFound": "Course not found",
   "error.course.notPublished": "This course is not available",

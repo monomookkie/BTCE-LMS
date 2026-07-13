@@ -1,4 +1,4 @@
-import type { PrismaClient } from '@prisma/client'
+import type { PrismaClient, Prisma } from '@prisma/client'
 import type {
   CoursePublicResponse,
   CourseAdminResponse,
@@ -116,11 +116,31 @@ export async function listCourses(
         ? { status }
         : {}
 
-  const where = {
-    deletedAt: null,
-    ...statusFilter,
-    ...(category != null && { categoryEn: { contains: category } }),
-    ...(search != null && {
+  // 2C-5: USER เห็นเฉพาะ PUBLIC หรือ POSITION_BASED ที่ user.positionId ตรงกับ course.positions —
+  // enforce ที่ server (ไม่ใช่แค่ client filter) กันข้อมูล/ชื่อ course ที่ไม่เกี่ยวกับตำแหน่งตัวเองรั่วออกไป
+  // ADMIN เห็นทุก course เหมือนเดิม ไม่ถูก filter นี้
+  //
+  // ใช้ AND แยกจาก search's OR — ถ้าใส่ OR ปนกันในระดับเดียวกันของ where object เดียว key OR
+  // จะถูก spread ทับกันเงียบๆ (object literal, key ซ้ำ = ตัวหลังชนะ) ทำให้ access filter หายไปจริง
+  const andClauses: Prisma.CourseWhereInput[] = []
+
+  if (requesterRole === 'USER') {
+    const requester = actorId != null
+      ? await prisma.user.findFirst({ where: { id: actorId, deletedAt: null }, select: { positionId: true } })
+      : null
+    const positionId = requester?.positionId ?? null
+    andClauses.push({
+      OR: [
+        { accessType: 'PUBLIC' },
+        ...(positionId != null
+          ? [{ accessType: 'POSITION_BASED' as const, positions: { some: { positionId } } }]
+          : []),
+      ],
+    })
+  }
+
+  if (search != null) {
+    andClauses.push({
       OR: [
         { titleEn: { contains: search } },
         { titleTh: { contains: search } },
@@ -129,7 +149,14 @@ export async function listCourses(
         { descriptionEn: { contains: search } },
         { descriptionTh: { contains: search } },
       ],
-    }),
+    })
+  }
+
+  const where = {
+    deletedAt: null,
+    ...statusFilter,
+    ...(category != null && { categoryEn: { contains: category } }),
+    ...(andClauses.length > 0 && { AND: andClauses }),
   }
 
   const [courses, total] = await prisma.$transaction([
@@ -165,6 +192,7 @@ export async function getCourse(
   id: string,
   requesterRole: string,
   locale: Locale = 'en',
+  actorId?: string,
 ): Promise<CourseAdminResponse | CoursePublicResponse> {
   const statusFilter = requesterRole === 'USER' ? { status: 'PUBLISHED' as const } : {}
 
@@ -174,6 +202,20 @@ export async function getCourse(
   })
 
   if (!course) throw notFound(t('error.course.notFound', undefined, locale))
+
+  // 2C-5: consistency กับ listCourses — USER เข้าลิงก์ตรงของ course POSITION_BASED ที่ตัวเอง
+  // ไม่มีสิทธิ์ไม่ได้ (ไม่งั้น list ซ่อนไว้แต่ direct link ยังดูได้ ขัดกับเหตุผลที่เลือก enforce server-side)
+  // notFound เหมือน IDOR pattern อื่นในระบบ — ไม่บอกว่า "มีอยู่แต่ไม่มีสิทธิ์" กัน enumeration
+  if (requesterRole === 'USER' && course.accessType === 'POSITION_BASED') {
+    const requester = actorId != null
+      ? await prisma.user.findFirst({ where: { id: actorId, deletedAt: null }, select: { positionId: true } })
+      : null
+    const eligible =
+      requester?.positionId != null &&
+      course.positions.some((cp) => cp.position.id === requester.positionId)
+    if (!eligible) throw notFound(t('error.course.notFound', undefined, locale))
+  }
+
   return serializeCourse(course, locale, requesterRole)
 }
 

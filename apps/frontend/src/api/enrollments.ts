@@ -18,3 +18,10 @@ export function selfEnroll(courseId: string): Promise<EnrollmentResponse> {
     json: { courseId },
   })
 }
+
+// ADMIN: เช็คว่า course มี enrollment ที่ยัง active อยู่ไหม — ใช้กับ accessType-lock UI
+// (เช็คก่อนเปิด edit modal แทนที่จะปล่อยให้ submit แล้วเจอ 400)
+export async function courseHasActiveEnrollment(courseId: string): Promise<boolean> {
+  const res = await apiFetch<EnrollmentsPage>(`/enrollments?courseId=${courseId}&limit=1`)
+  return res.total > 0
+}

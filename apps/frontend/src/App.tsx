@@ -18,6 +18,7 @@ const AdminDashboardPage    = lazy(() => import('./pages/admin/AdminDashboardPag
 const CourseManagementPage  = lazy(() => import('./pages/admin/CourseManagementPage.js'))
 const CourseDetailAdminPage = lazy(() => import('./pages/admin/CourseDetailAdminPage.js'))
 const UserDirectoryPage     = lazy(() => import('./pages/admin/UserDirectoryPage.js'))
+const ManagePositionsPage   = lazy(() => import('./pages/admin/ManagePositionsPage.js'))
 const ReportsPage           = lazy(() => import('./pages/admin/ReportsPage.js'))
 const AnnouncementsPage     = lazy(() => import('./pages/admin/AnnouncementsPage.js'))
 const NotFoundPage          = lazy(() => import('./pages/NotFoundPage.js'))
@@ -137,6 +138,14 @@ export default function App() {
               element={
                 <Suspense fallback={<PageSkeleton variant="table" />}>
                   <UserDirectoryPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/admin/positions"
+              element={
+                <Suspense fallback={<PageSkeleton variant="table" />}>
+                  <ManagePositionsPage />
                 </Suspense>
               }
             />

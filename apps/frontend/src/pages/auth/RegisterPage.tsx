@@ -1,11 +1,13 @@
 import { useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQuery } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Link } from 'react-router-dom'
 import { Droplets, Check, X } from 'lucide-react'
 import { z } from 'zod'
 import { registerInputSchema } from '@btec-lms/shared'
+import { listPositions } from '../../api/positions.js'
 import { useAuth, useRegisterMutation, ApiError } from '../../hooks/useAuth.js'
 import { Input } from '../../components/ui/Input.js'
 import { Button } from '../../components/ui/Button.js'
@@ -15,25 +17,21 @@ import { PasswordStrengthMeter } from '../../components/auth/PasswordStrengthMet
 
 type TFn = ReturnType<typeof useTranslation>['t']
 
-const OTHER_POSITION = 'Others'
-const POSITION_OPTIONS = [
-  'Medical Technologist',
-  'Medical Scientist',
-  'Medical Technician Assistant',
-  'General Administration Officer',
-  OTHER_POSITION,
-] as const
+// sentinel เฉพาะ UI — เลือกแล้วส่ง positionId: null จริงไปหา backend (2C-5)
+const OTHER_POSITION = '__other__'
 
 // confirmPassword ตรวจแค่ฝั่ง client — schema จริงที่ส่งไป backend คือ registerInputSchema
 // เดิม (ไม่มี confirmPassword) ผ่าน .extend() นี่คือ superset ไม่ใช่ schema คนละตัว
 function buildRegisterFormSchema(t: TFn) {
   return registerInputSchema
+    .omit({ positionId: true })
     .extend({
       confirmPassword: z.string().min(1, t('common.required')),
+      positionChoice: z.string().min(1, t('common.required')),
       positionOther: z.string().trim().max(100).optional(),
     })
     .superRefine((d, ctx) => {
-      if (d.position === OTHER_POSITION && !d.positionOther?.trim()) {
+      if (d.positionChoice === OTHER_POSITION && !d.positionOther?.trim()) {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           message: t('common.required'),
@@ -54,6 +52,11 @@ export default function RegisterPage() {
   const { user, isLoading } = useAuth()
   const registerMutation = useRegisterMutation()
 
+  const { data: positions } = useQuery({
+    queryKey: ['positions'],
+    queryFn: listPositions,
+  })
+
   const registerFormSchema = useMemo(() => buildRegisterFormSchema(t), [t])
 
   const {
@@ -69,8 +72,8 @@ export default function RegisterPage() {
 
   const passwordValue = watch('password') ?? ''
   const confirmPasswordValue = watch('confirmPassword') ?? ''
-  const positionValue = watch('position') ?? ''
-  const isOtherPosition = positionValue === OTHER_POSITION
+  const positionChoiceValue = watch('positionChoice') ?? ''
+  const isOtherPosition = positionChoiceValue === OTHER_POSITION
   const showMatchIndicator = confirmPasswordValue.length > 0
 
   if (!isLoading && user) {
@@ -82,15 +85,15 @@ export default function RegisterPage() {
 
   const onSubmit = async (data: RegisterFormValues) => {
     try {
-      const {
-        confirmPassword: _confirmPassword,
-        positionOther: _positionOther,
-        ...body
-      } = data
-
       await registerMutation.mutateAsync({
-        ...body,
-        position: isOtherPosition ? data.positionOther!.trim() : data.position,
+        name: data.name,
+        email: data.email,
+        department: data.department,
+        password: data.password,
+        ...(data.employeeId ? { employeeId: data.employeeId } : {}),
+        // "Others" (isOtherPosition) → positionId: null เสมอ ไม่ว่าจะกรอก positionOther หรือไม่
+        // (2C-5: backend เก็บแค่ positionId จริง — free-text "อื่นๆ" ไม่มีที่เก็บฝั่ง server)
+        positionId: isOtherPosition ? null : positionChoiceValue,
       })
     } catch (err) {
       const message = err instanceof ApiError ? err.message : t('common.error')
@@ -141,7 +144,7 @@ export default function RegisterPage() {
           />
 
           <Controller
-            name="position"
+            name="positionChoice"
             control={control}
             defaultValue=""
             render={({ field }) => (
@@ -151,8 +154,11 @@ export default function RegisterPage() {
                 placeholder={t('auth.positionSelectPlaceholder')}
                 value={field.value ?? ''}
                 onChange={field.onChange}
-                error={errors.position?.message}
-                options={POSITION_OPTIONS.map((position) => ({ value: position, label: position }))}
+                error={errors.positionChoice?.message}
+                options={[
+                  ...(positions ?? []).map((p) => ({ value: p.id, label: p.name })),
+                  { value: OTHER_POSITION, label: t('auth.positionOther') },
+                ]}
               />
             )}
           />

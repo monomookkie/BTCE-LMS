@@ -28,8 +28,9 @@ export const registerPasswordSchema = z
   .regex(/[0-9]/, 'Password must contain a number')
   .regex(/[^A-Za-z0-9]/, 'Password must contain a special character')
 
-// self-registration: department + position บังคับกรอกทั้งคู่ (ต่างจาก
-// admin-create-user / CSV import ที่ยัง optional เหมือนเดิม — ไม่แตะ field เดิม)
+// self-registration: department บังคับกรอก, positionId บังคับ "เลือก" จาก dropdown จริง
+// (ต่างจาก admin-create-user ที่ positionId ยัง optional) — ค่า null ที่ถูกต้องคือ
+// เลือก "Others" ตั้งใจ (2C-5) ไม่ใช่แค่ไม่ได้กรอก — ต้องส่ง field มาเสมอ ไม่ optional
 export const registerInputSchema = z.object({
   email: z.string().email().refine(isAllowedRegisterEmailDomain, {
     message: `Email must be a @${REGISTER_ALLOWED_EMAIL_DOMAIN} address`,
@@ -37,7 +38,7 @@ export const registerInputSchema = z.object({
   password: registerPasswordSchema,
   name: z.string().min(1).max(100),
   department: z.string().trim().min(1).max(100),
-  position: z.string().trim().min(1).max(100),
+  positionId: z.string().cuid().nullable(),
   employeeId: z.string().max(50).optional(),
 })
 

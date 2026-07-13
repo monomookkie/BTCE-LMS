@@ -133,8 +133,15 @@ describe('Auth module', () => {
   // The route's `config.rateLimit.max: 5` is verified by code review instead.
 
   describe('POST /auth/register', () => {
+    /** สร้าง Position จริงไว้ให้ register ส่ง positionId (2C-5 — ไม่ใช่ free-text อีกต่อไป) */
+    async function createTestPosition(nameEn = 'Nurse'): Promise<string> {
+      const position = await prisma.position.create({ data: { nameEn: `${nameEn}-${Date.now()}-${Math.random()}` } })
+      return position.id
+    }
+
     it('valid @redcross.or.th email → 201, role=USER, isActive=true, cookies set', async () => {
       const email = `register-ok-${Date.now()}@redcross.or.th`
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -143,7 +150,7 @@ describe('Auth module', () => {
           email,
           password: 'ValidPass1!',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
         },
       })
       expect(res.statusCode).toBe(201)
@@ -163,18 +170,48 @@ describe('Auth module', () => {
       })
       expect(meRes.statusCode).toBe(200)
 
-      // department ถูก persist ลง DB จริง; position ถูก resolve เป็น Position row (2C-1)
-      const dbUser = await prisma.user.findUnique({
-        where: { email },
-        include: { position: true },
-      })
+      // department ถูก persist ลง DB จริง; positionId ต้องตรงกับที่ส่งไป (2C-5)
+      const dbUser = await prisma.user.findUnique({ where: { email } })
       expect(dbUser?.department).toBe('Blood Bank Division')
-      expect(dbUser?.position?.nameEn).toBe('Nurse')
+      expect(dbUser?.positionId).toBe(positionId)
+    })
+
+    it('positionId: null (เลือก "Others") → 201, positionId เป็น null จริง', async () => {
+      const email = `register-others-${Date.now()}@redcross.or.th`
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'Others Staff',
+          email,
+          password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          positionId: null,
+        },
+      })
+      expect(res.statusCode).toBe(201)
+      expect(res.json<{ positionId: string | null }>().positionId).toBeNull()
+    })
+
+    it('positionId that does not exist → 400', async () => {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'Bad Position',
+          email: `badposition-${Date.now()}@redcross.or.th`,
+          password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          positionId: `c${'x'.repeat(24)}`,
+        },
+      })
+      expect(res.statusCode).toBe(400)
     })
 
     it('duplicate email → 409 with generic message (no enumeration)', async () => {
       const email = `dup-${Date.now()}@redcross.or.th`
       await createUser({ email })
+      const positionId = await createTestPosition()
 
       const res = await app.inject({
         method: 'POST',
@@ -184,7 +221,7 @@ describe('Auth module', () => {
           email,
           password: 'ValidPass1!',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
         },
       })
       expect(res.statusCode).toBe(409)
@@ -193,6 +230,7 @@ describe('Auth module', () => {
     })
 
     it('password shorter than 8 chars → 400', async () => {
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -201,13 +239,14 @@ describe('Auth module', () => {
           email: `shortpw-${Date.now()}@redcross.or.th`,
           password: 'Sh0rt!',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
         },
       })
       expect(res.statusCode).toBe(400)
     })
 
     it('password missing complexity (no uppercase/special char) → 400', async () => {
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -216,13 +255,14 @@ describe('Auth module', () => {
           email: `weakpw-${Date.now()}@redcross.or.th`,
           password: 'alllowercase1',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
         },
       })
       expect(res.statusCode).toBe(400)
     })
 
     it('missing department → 400', async () => {
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -230,13 +270,13 @@ describe('Auth module', () => {
           name: 'No Dept',
           email: `nodept-${Date.now()}@redcross.or.th`,
           password: 'ValidPass1!',
-          position: 'Nurse',
+          positionId,
         },
       })
       expect(res.statusCode).toBe(400)
     })
 
-    it('missing position → 400', async () => {
+    it('missing positionId field entirely → 400 (must be present, even if null)', async () => {
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -252,6 +292,7 @@ describe('Auth module', () => {
 
     it('sending role=ADMIN in payload → created user is still USER (no privilege escalation)', async () => {
       const email = `noescalate-${Date.now()}@redcross.or.th`
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -260,7 +301,7 @@ describe('Auth module', () => {
           email,
           password: 'ValidPass1!',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
           role: 'ADMIN',
         },
       })
@@ -273,6 +314,7 @@ describe('Auth module', () => {
 
     it('register writes a USER_REGISTER audit log', async () => {
       const email = `audit-${Date.now()}@redcross.or.th`
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -281,7 +323,7 @@ describe('Auth module', () => {
           email,
           password: 'ValidPass1!',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
         },
       })
       const userId = res.json<{ id: string }>().id
@@ -295,6 +337,7 @@ describe('Auth module', () => {
     // ─── Domain restriction ──────────────────────────────────────────────────
 
     it('non-redcross.or.th email (@gmail.com) → 400 domain error', async () => {
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -303,13 +346,14 @@ describe('Auth module', () => {
           email: `outsider-${Date.now()}@gmail.com`,
           password: 'ValidPass1!',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
         },
       })
       expect(res.statusCode).toBe(400)
     })
 
     it('subdomain-spoofed email (@redcross.or.th.evil.com) → 400, not a bypass', async () => {
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -318,13 +362,14 @@ describe('Auth module', () => {
           email: `spoof-${Date.now()}@redcross.or.th.evil.com`,
           password: 'ValidPass1!',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
         },
       })
       expect(res.statusCode).toBe(400)
     })
 
     it('mixed-case domain (User@REDCROSS.OR.TH) → 201, case-insensitive match', async () => {
+      const positionId = await createTestPosition()
       const res = await app.inject({
         method: 'POST',
         url: '/auth/register',
@@ -333,7 +378,7 @@ describe('Auth module', () => {
           email: `CaseTest-${Date.now()}@REDCROSS.OR.TH`,
           password: 'ValidPass1!',
           department: 'Blood Bank Division',
-          position: 'Nurse',
+          positionId,
         },
       })
       expect(res.statusCode).toBe(201)

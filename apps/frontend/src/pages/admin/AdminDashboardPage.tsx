@@ -59,11 +59,14 @@ export default function AdminDashboardPage() {
 
   const columns = useComplianceColumns()
 
-  // Completion rate
   const total = summary?.totalEnrollments ?? 0
   const completed = summary?.completedEnrollments ?? 0
   const pending = summary?.pendingEnrollments ?? 0
-  const completionPct = total > 0 ? Math.round((completed / total) * 100) : 0
+  // 2C-4: mandatoryComplianceRate/overallCompletionRate เป็นตัวเลขคนละความหมาย — ห้ามสลับกันใช้
+  // (mandatory = compliance บังคับจริง, overall = ปนกับหลักสูตรสมัครใจ) null = ไม่มีหลักสูตรบังคับ
+  // เลย ไม่ใช่ "วัดแล้วได้ 0%" ต้องแสดง "—" แยกจากกรณี 0% จริง
+  const mandatoryComplianceRate = summary?.mandatoryComplianceRate ?? null
+  const overallCompletionRate = summary?.overallCompletionRate ?? null
 
   return (
     <div className="space-y-6">
@@ -173,11 +176,29 @@ export default function AdminDashboardPage() {
               </div>
             ) : (
               <div className="space-y-4">
-                <ProgressBar
-                  value={completionPct}
-                  label={t('adminDash.completionRate')}
-                  showValue
-                />
+                {mandatoryComplianceRate != null ? (
+                  <ProgressBar
+                    value={mandatoryComplianceRate}
+                    label={t('adminDash.mandatoryComplianceRate')}
+                    showValue
+                  />
+                ) : (
+                  <div>
+                    <div className="mb-1 flex items-center justify-between text-xs text-slate-600">
+                      <span>{t('adminDash.mandatoryComplianceRate')}</span>
+                      <span>—</span>
+                    </div>
+                    <p className="text-xs text-slate-400">{t('adminDash.noMandatoryCourses')}</p>
+                  </div>
+                )}
+
+                <div className="flex items-center justify-between text-xs text-slate-500">
+                  <span>{t('adminDash.overallCompletionRate')}</span>
+                  <span className="font-medium text-slate-700">
+                    {overallCompletionRate != null ? `${Math.round(overallCompletionRate)}%` : '—'}
+                  </span>
+                </div>
+
                 <div className="space-y-2 text-sm">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2 text-emerald-600">
@@ -196,6 +217,18 @@ export default function AdminDashboardPage() {
                   <div className="flex items-center justify-between border-t border-slate-100 pt-2 text-slate-500">
                     <span>{t('adminDash.totalEnrollments')}</span>
                     <span className="font-semibold text-slate-700">{total}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>{t('adminDash.mandatoryBreakdown')}</span>
+                    <span className="font-medium text-slate-700">
+                      {summary?.mandatoryCompleted ?? 0}/{summary?.mandatoryEnrollments ?? 0}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-slate-500">
+                    <span>{t('adminDash.optionalBreakdown')}</span>
+                    <span className="font-medium text-slate-700">
+                      {summary?.optionalCompleted ?? 0}/{summary?.optionalEnrollments ?? 0}
+                    </span>
                   </div>
                 </div>
               </div>
