@@ -6,6 +6,7 @@ import {
   createCourseInputSchema,
   updateCourseInputSchema,
   updateCourseStatusSchema,
+  setCoursePositionsInputSchema,
 } from '@btec-lms/shared'
 import { courseListQuerySchema, courseParamsSchema } from './courses.schema.js'
 import {
@@ -14,6 +15,7 @@ import {
   createCourse,
   updateCourse,
   updateCourseStatus,
+  setCoursePositions,
   softDeleteCourse,
 } from './courses.service.js'
 import { resolveLocale } from '../../lib/i18n.js'
@@ -81,6 +83,19 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
   }, async (req) => {
     const locale = await resolveLocale(req, app.prisma)
     return updateCourseStatus(app.prisma, req.params.id, req.body, req.user.id, locale, req.ip)
+  })
+
+  // PUT /courses/:id/positions — ADMIN only, replace ทั้งชุด → คืน admin schema
+  server.put('/:id/positions', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      params: courseParamsSchema,
+      body: setCoursePositionsInputSchema,
+      response: { 200: courseAdminResponseSchema },
+    },
+  }, async (req) => {
+    const locale = await resolveLocale(req, app.prisma)
+    return setCoursePositions(app.prisma, req.params.id, req.body, req.user.id, locale, req.ip)
   })
 
   // DELETE /courses/:id — ADMIN only (soft delete + cascade materials)

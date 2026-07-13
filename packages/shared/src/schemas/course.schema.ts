@@ -2,7 +2,16 @@ import { z } from 'zod'
 
 export const courseStatusSchema = z.enum(['DRAFT', 'PUBLISHED', 'ARCHIVED'])
 
+// 2C-2: แทน allowSelfEnroll เดิม — exclusive 2 แบบ (คู่เดียวเท่านั้น ไม่ใช่ toggle)
+export const courseAccessTypeSchema = z.enum(['POSITION_BASED', 'PUBLIC'])
+
 // ─── Response schemas ──────────────────────────────────────────────────────
+
+// position ที่ผูกกับ course — ชื่อ localized เท่านั้น (raw en/th ดูผ่าน /positions/admin แยก)
+export const coursePositionItemSchema = z.object({
+  id: z.string().cuid(),
+  name: z.string(),
+})
 
 // ข้อมูล common ที่ทุก role เห็นได้ — ผ่าน localizeField แล้ว ไม่มี raw En/Th
 const courseBaseFields = {
@@ -14,7 +23,8 @@ const courseBaseFields = {
   expiryMonths: z.number().int().nullable(),
   enrollmentCloseAt: z.string().datetime().nullable(),
   paperSavingSheets: z.number().int().nullable(),
-  allowSelfEnroll: z.boolean(),
+  accessType: courseAccessTypeSchema,
+  positions: z.array(coursePositionItemSchema),
   createdById: z.string().nullable(),
   version: z.number().int(),
   createdAt: z.string().datetime(),
@@ -47,7 +57,7 @@ export const createCourseInputSchema = z.object({
   expiryMonths: z.number().int().positive().nullable().optional(),
   enrollmentCloseAt: z.string().datetime().nullable().optional(),
   paperSavingSheets: z.number().int().positive().nullable().optional(),
-  allowSelfEnroll: z.boolean().default(false),
+  accessType: courseAccessTypeSchema.default('PUBLIC'),
 })
 
 export const updateCourseInputSchema = z.object({
@@ -60,7 +70,7 @@ export const updateCourseInputSchema = z.object({
   expiryMonths: z.number().int().positive().nullable().optional(),
   enrollmentCloseAt: z.string().datetime().nullable().optional(),
   paperSavingSheets: z.number().int().positive().nullable().optional(),
-  allowSelfEnroll: z.boolean().optional(),
+  accessType: courseAccessTypeSchema.optional(),
 })
 
 // DRAFT → PUBLISHED หรือ PUBLISHED/DRAFT → ARCHIVED (ADMIN only)
@@ -68,11 +78,19 @@ export const updateCourseStatusSchema = z.object({
   status: z.enum(['PUBLISHED', 'ARCHIVED']),
 })
 
+// PUT /courses/:id/positions — replace ทั้งชุด (ง่ายกว่ามี add/remove endpoint แยก)
+export const setCoursePositionsInputSchema = z.object({
+  positionIds: z.array(z.string().cuid()),
+})
+
 // ─── Types ─────────────────────────────────────────────────────────────────
 
 export type CourseStatus = z.infer<typeof courseStatusSchema>
+export type CourseAccessType = z.infer<typeof courseAccessTypeSchema>
+export type CoursePositionItem = z.infer<typeof coursePositionItemSchema>
 export type CoursePublicResponse = z.infer<typeof coursePublicResponseSchema>
 export type CourseAdminResponse = z.infer<typeof courseAdminResponseSchema>
 export type CreateCourseInput = z.infer<typeof createCourseInputSchema>
 export type UpdateCourseInput = z.infer<typeof updateCourseInputSchema>
 export type UpdateCourseStatusInput = z.infer<typeof updateCourseStatusSchema>
+export type SetCoursePositionsInput = z.infer<typeof setCoursePositionsInputSchema>

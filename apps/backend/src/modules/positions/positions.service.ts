@@ -172,6 +172,15 @@ export async function deletePosition(
   })
   if (inUseCount > 0) throw badRequest(t('error.position.inUse', { count: inUseCount }, locale))
 
+  // กัน course หลุด invariant: ลบ Position ที่ยังผูกกับ course (2C-2) จะทำให้
+  // POSITION_BASED course ที่ published อาจเหลือ 0 position แบบไม่ตั้งใจ — บล็อกไว้ก่อน
+  // (ไม่ cascade เพราะจะขัด publish-gate ของ course เอง ให้ admin ไปเอา position
+  // ออกจาก course ก่อนตั้งใจผ่าน PUT /courses/:id/positions)
+  const linkedCourseCount = await prisma.coursePosition.count({ where: { positionId: id } })
+  if (linkedCourseCount > 0) {
+    throw badRequest(t('error.position.linkedToCourse', { count: linkedCourseCount }, locale))
+  }
+
   await prisma.position.update({
     where: { id },
     data: { deletedAt: new Date() },

@@ -184,7 +184,7 @@ export default function BrowseCoursesPage() {
                         </span>
                       )
                     }
-                    if (course.allowSelfEnroll) {
+                    if (course.accessType === 'PUBLIC') {
                       return (
                         <Button
                           size="sm"

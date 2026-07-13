@@ -21,6 +21,7 @@
   "error.position.notFound": "ไม่พบตำแหน่งนี้",
   "error.position.nameConflict": "มีตำแหน่งชื่อนี้อยู่แล้ว",
   "error.position.inUse": "ลบไม่ได้ — ยังมีผู้ใช้ {{count}} คนที่ถูกกำหนดตำแหน่งนี้อยู่",
+  "error.position.linkedToCourse": "ลบไม่ได้ — ตำแหน่งนี้ยังผูกกับหลักสูตร {{count}} รายการ",
 
   "error.course.notFound": "ไม่พบหลักสูตร",
   "error.course.notPublished": "หลักสูตรนี้ยังไม่เปิดให้เรียน",
@@ -28,6 +29,10 @@
   "error.course.invalidStatusTransition": "ไม่สามารถเปลี่ยนสถานะนี้ได้",
   "error.course.quizRequiredToPublish": "หลักสูตรนี้ต้องมีแบบทดสอบอย่างน้อย 1 ข้อก่อนจึงจะเผยแพร่ได้",
   "error.course.enrollmentClosed": "หลักสูตรนี้ปิดรับลงทะเบียนแล้ว",
+  "error.course.accessTypeLocked": "หลักสูตรนี้มีผู้ลงทะเบียนอยู่แล้ว — ไม่สามารถเปลี่ยนรูปแบบการเข้าถึงได้",
+  "error.course.positionRequiredToPublish": "หลักสูตรนี้ต้องผูกตำแหน่งอย่างน้อย 1 ตำแหน่งก่อนจึงจะเผยแพร่ได้",
+  "error.course.positionsOnlyForPositionBased": "กำหนดตำแหน่งได้เฉพาะหลักสูตรแบบผูกตำแหน่งเท่านั้น",
+  "error.course.cannotRemoveLastPosition": "ไม่สามารถลบตำแหน่งสุดท้ายออกจากหลักสูตรที่เผยแพร่แล้วและผูกตำแหน่งได้",
 
   "error.material.notFound": "ไม่พบสื่อการเรียน",
   "error.material.uploadFailed": "อัปโหลดไฟล์ไม่สำเร็จ",

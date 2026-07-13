@@ -45,7 +45,7 @@ async function main() {
       descriptionTh: 'หลักสูตรตัวอย่างสำหรับทดสอบระบบ',
       status: 'PUBLISHED',
       expiryMonths: 12,
-      allowSelfEnroll: true,
+      accessType: 'PUBLIC',
     },
   })
 

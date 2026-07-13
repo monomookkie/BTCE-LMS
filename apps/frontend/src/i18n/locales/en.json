@@ -411,7 +411,7 @@
     "expiryMonths": "Expiry (months)",
     "enrollmentCloseAt": "Enrollment closes on",
     "paperSavingSheets": "Paper saved per participant (sheets)",
-    "allowSelfEnroll": "Allow self-enrollment",
+    "accessTypeComingSoon": "New courses are created as publicly enrollable for now. Position-based access assignment is coming soon.",
     "archivedReadOnly": "This course is archived and cannot be edited.",
     "archivedLabel": "Archived",
     "status": "Status",

@@ -210,6 +210,27 @@ describe('Positions module', () => {
       })
       expect(res.statusCode).toBe(403)
     })
+
+    it('blocked when a course is still linked (2C-2) → 400, not cascaded', async () => {
+      const admin = await setup('ADMIN')
+      const position = await prisma.position.create({ data: { nameEn: 'Linked To Course' } })
+      const course = await prisma.course.create({
+        data: { titleEn: 'Course Using Position', categoryEn: 'Test', accessType: 'POSITION_BASED' },
+      })
+      await prisma.coursePosition.create({ data: { courseId: course.id, positionId: position.id } })
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/positions/${position.id}`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(res.statusCode).toBe(400)
+
+      const stillThere = await prisma.position.findUnique({ where: { id: position.id } })
+      expect(stillThere?.deletedAt).toBeNull()
+      const stillLinked = await prisma.coursePosition.findFirst({ where: { positionId: position.id } })
+      expect(stillLinked).not.toBeNull()
+    })
   })
 
   describe('resolvePositionId shim — admin create-user still sends free-text position', () => {

@@ -21,6 +21,7 @@
   "error.position.notFound": "Position not found",
   "error.position.nameConflict": "A position with this name already exists",
   "error.position.inUse": "Cannot delete — {{count}} user(s) are still assigned to this position",
+  "error.position.linkedToCourse": "Cannot delete — this position is still linked to {{count}} course(s)",
 
   "error.course.notFound": "Course not found",
   "error.course.notPublished": "This course is not available",
@@ -28,6 +29,10 @@
   "error.course.invalidStatusTransition": "Invalid status transition",
   "error.course.quizRequiredToPublish": "This course needs a quiz with at least one question before it can be published",
   "error.course.enrollmentClosed": "This course is no longer accepting new enrollments",
+  "error.course.accessTypeLocked": "This course already has active enrollments — access type cannot be changed",
+  "error.course.positionRequiredToPublish": "This course needs at least one linked position before it can be published",
+  "error.course.positionsOnlyForPositionBased": "Only position-based courses can have positions assigned",
+  "error.course.cannotRemoveLastPosition": "Cannot remove the last position from a published position-based course",
 
   "error.material.notFound": "Material not found",
   "error.material.uploadFailed": "File upload failed",

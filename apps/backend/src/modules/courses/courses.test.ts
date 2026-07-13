@@ -101,6 +101,37 @@ describe('Courses module', () => {
       expect(res.statusCode).toBe(403)
     })
 
+    it('USER role PUT /courses/:id/positions → 403 (ADMIN only)', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const courseRes = await createCourseAs(adminCookies, { accessType: 'POSITION_BASED' })
+      const courseId = courseRes.json<CourseAdminResponse>().id
+
+      const { user, plainPassword } = await createUser({ role: 'USER' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/courses/${courseId}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [] },
+      })
+      expect(res.statusCode).toBe(403)
+    })
+
+    it('unauthenticated PUT /courses/:id/positions → 401', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const courseRes = await createCourseAs(adminCookies, { accessType: 'POSITION_BASED' })
+      const courseId = courseRes.json<CourseAdminResponse>().id
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/courses/${courseId}/positions`,
+        payload: { positionIds: [] },
+      })
+      expect(res.statusCode).toBe(401)
+    })
   })
 
   // ─── Course CRUD ───────────────────────────────────────────────────────────
@@ -546,6 +577,288 @@ describe('Courses module', () => {
       expect(body.titleTh).toBe('รายละเอียดแอดมิน')
       expect(body.categoryEn).toBe('Admin Cat')
       expect(body.categoryTh).toBe('หมวดหมู่แอดมิน')
+    })
+  })
+
+  // ─── Access type & positions (2C-2) ───────────────────────────────────────
+
+  describe('Access type & positions (2C-2)', () => {
+    async function createPosition(cookies: string, nameEn = `Pos ${Date.now()}-${Math.random()}`) {
+      const res = await app.inject({
+        method: 'POST',
+        url: '/positions',
+        headers: { cookie: cookies },
+        payload: { nameEn },
+      })
+      return res.json<{ id: string }>().id
+    }
+
+    it('POST /courses defaults to accessType PUBLIC, positions empty', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+
+      const created = (await createCourseAs(cookies)).json<CourseAdminResponse>()
+      expect(created.accessType).toBe('PUBLIC')
+      expect(created.positions).toEqual([])
+    })
+
+    it('publish-gate: POSITION_BASED course with 0 positions → 400', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies, { accessType: 'POSITION_BASED' })).json<CourseAdminResponse>()
+      await addQuizWithQuestion(cookies, created.id)
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}/status`,
+        headers: { cookie: cookies },
+        payload: { status: 'PUBLISHED' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('publish-gate: POSITION_BASED course with >=1 position → 200', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies, { accessType: 'POSITION_BASED' })).json<CourseAdminResponse>()
+      await addQuizWithQuestion(cookies, created.id)
+      const positionId = await createPosition(cookies)
+      await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [positionId] },
+      })
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}/status`,
+        headers: { cookie: cookies },
+        payload: { status: 'PUBLISHED' },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('PUT /courses/:id/positions on a PUBLIC course → 400', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies, { accessType: 'PUBLIC' })).json<CourseAdminResponse>()
+      const positionId = await createPosition(cookies)
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [positionId] },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('course-position-removal-gate: removing the last position from a PUBLISHED POSITION_BASED course → 400', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies, { accessType: 'POSITION_BASED' })).json<CourseAdminResponse>()
+      await addQuizWithQuestion(cookies, created.id)
+      const positionId = await createPosition(cookies)
+      await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [positionId] },
+      })
+      await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}/status`,
+        headers: { cookie: cookies },
+        payload: { status: 'PUBLISHED' },
+      })
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [] },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('removing the last position from a DRAFT POSITION_BASED course → 200 (gate only applies to PUBLISHED)', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies, { accessType: 'POSITION_BASED' })).json<CourseAdminResponse>()
+      const positionId = await createPosition(cookies)
+      await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [positionId] },
+      })
+
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [] },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('accessType-lock: course with an active enrollment → PATCH accessType (PUBLIC→POSITION_BASED) → 400', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const { user } = await createUser({ role: 'USER' })
+      const created = await createPublishedCourseAs(adminCookies, { accessType: 'PUBLIC' })
+
+      const assignRes = await app.inject({
+        method: 'POST',
+        url: '/enrollments',
+        headers: { cookie: adminCookies },
+        payload: { userId: user.id, courseId: created.id },
+      })
+      expect(assignRes.statusCode).toBe(201)
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}`,
+        headers: { cookie: adminCookies },
+        payload: { accessType: 'POSITION_BASED' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('accessType-lock: course with an active enrollment → PATCH accessType (POSITION_BASED→PUBLIC) → 400', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const { user } = await createUser({ role: 'USER' })
+      const created = (await createCourseAs(adminCookies, { accessType: 'POSITION_BASED' })).json<CourseAdminResponse>()
+      await addQuizWithQuestion(adminCookies, created.id)
+      const positionId = await createPosition(adminCookies)
+      await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: adminCookies },
+        payload: { positionIds: [positionId] },
+      })
+      await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}/status`,
+        headers: { cookie: adminCookies },
+        payload: { status: 'PUBLISHED' },
+      })
+
+      const assignRes = await app.inject({
+        method: 'POST',
+        url: '/enrollments',
+        headers: { cookie: adminCookies },
+        payload: { userId: user.id, courseId: created.id },
+      })
+      expect(assignRes.statusCode).toBe(201)
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}`,
+        headers: { cookie: adminCookies },
+        payload: { accessType: 'PUBLIC' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('accessType-lock: no active enrollment (never enrolled) → PATCH accessType → 200', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = await createPublishedCourseAs(cookies, { accessType: 'PUBLIC' })
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}`,
+        headers: { cookie: cookies },
+        payload: { accessType: 'POSITION_BASED' },
+      })
+      // accessType เปลี่ยนได้ แต่ publish-gate ยังบังคับต้องมี position อยู่ — ตอนนี้ course
+      // เป็น PUBLISHED + POSITION_BASED + 0 position (สถานะไม่ต้องห้ามระหว่าง edit เอง เพราะ
+      // publish-gate เช็คเฉพาะตอน "publish" ไม่เช็คตอน "แก้ course ที่ published อยู่แล้ว")
+      expect(res.statusCode).toBe(200)
+      expect(res.json<CourseAdminResponse>().accessType).toBe('POSITION_BASED')
+    })
+
+    it('accessType-lock: enrollment cancelled (soft-deleted) → PATCH accessType → 200 (only active enrollments count)', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const { user } = await createUser({ role: 'USER' })
+      const created = await createPublishedCourseAs(adminCookies, { accessType: 'PUBLIC' })
+
+      const assignRes = await app.inject({
+        method: 'POST',
+        url: '/enrollments',
+        headers: { cookie: adminCookies },
+        payload: { userId: user.id, courseId: created.id },
+      })
+      const enrollment = assignRes.json<{ id: string }>()
+
+      // ยืนยันว่า lock ทำงานตอนยังมี active enrollment
+      const lockedRes = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}`,
+        headers: { cookie: adminCookies },
+        payload: { accessType: 'POSITION_BASED' },
+      })
+      expect(lockedRes.statusCode).toBe(400)
+
+      // cancel (soft-delete) enrollment
+      const cancelRes = await app.inject({
+        method: 'DELETE',
+        url: `/enrollments/${enrollment.id}`,
+        headers: { cookie: adminCookies },
+      })
+      expect(cancelRes.statusCode).toBe(200)
+
+      // ถอนหมดแล้ว → แก้ accessType ได้ตามปกติ
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}`,
+        headers: { cookie: adminCookies },
+        payload: { accessType: 'POSITION_BASED' },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('PATCH accessType to the SAME value with active enrollment → 200 (not a real change, lock does not apply)', async () => {
+      const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
+      const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
+      const { user } = await createUser({ role: 'USER' })
+      const created = await createPublishedCourseAs(adminCookies, { accessType: 'PUBLIC' })
+
+      await app.inject({
+        method: 'POST',
+        url: '/enrollments',
+        headers: { cookie: adminCookies },
+        payload: { userId: user.id, courseId: created.id },
+      })
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}`,
+        headers: { cookie: adminCookies },
+        payload: { accessType: 'PUBLIC' },
+      })
+      expect(res.statusCode).toBe(200)
+    })
+
+    it('ADMIN response includes localized position names', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies, { accessType: 'POSITION_BASED' })).json<CourseAdminResponse>()
+      const positionId = await createPosition(cookies, 'Nurse Position')
+      const res = await app.inject({
+        method: 'PUT',
+        url: `/courses/${created.id}/positions`,
+        headers: { cookie: cookies },
+        payload: { positionIds: [positionId] },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json<CourseAdminResponse>()
+      expect(body.positions).toHaveLength(1)
+      expect(body.positions[0]!.name).toBe('Nurse Position')
     })
   })
 })

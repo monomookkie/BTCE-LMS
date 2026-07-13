@@ -53,6 +53,7 @@ model Position {
   updatedAt DateTime  @updatedAt
 
   users User[]
+  courses CoursePosition[]
 
   @@unique([nameEn])
   @@index([deletedAt])
@@ -91,7 +92,7 @@ model Course {
   expiryMonths    Int? // ต้องต่ออายุทุกกี่เดือน (null = ไม่หมดอายุ)
   enrollmentCloseAt DateTime? // ปิดรับลงทะเบียนใหม่หลังวันนี้ (null = ไม่มีกำหนด) — ผู้ที่ลงแล้วเรียนต่อได้ตามปกติ
   paperSavingSheets Int? // จำนวนกระดาษที่ประหยัดได้ต่อผู้เรียน 1 คน (null = ไม่แสดงข้อความ)
-  allowSelfEnroll Boolean  @default(false) // อนุญาตให้ USER ลงทะเบียนเอง
+  accessType   CourseAccessType @default(PUBLIC) // 2C-2: POSITION_BASED (บังคับ) | PUBLIC (สมัครใจ) — แทน allowSelfEnroll เดิม
   createdById     String?
   version      Int          @default(1)
   createdAt    DateTime     @default(now())
@@ -102,8 +103,29 @@ model Course {
   quiz        Quiz?
   survey      Survey?
   enrollments Enrollment[]
+  positions   CoursePosition[]
 
   @@index([status, deletedAt])
+}
+
+enum CourseAccessType {
+  POSITION_BASED
+  PUBLIC
+}
+
+// ===== CoursePosition (2C-2) =====
+// many-to-many Course <-> Position — เฉพาะ course ที่ accessType = POSITION_BASED เท่านั้นที่ควรมี row
+model CoursePosition {
+  id         String   @id @default(cuid())
+  courseId   String
+  positionId String
+  createdAt  DateTime @default(now())
+
+  course   Course   @relation(fields: [courseId], references: [id])
+  position Position @relation(fields: [positionId], references: [id])
+
+  @@unique([courseId, positionId])
+  @@index([positionId])
 }
 
 enum CourseStatus {

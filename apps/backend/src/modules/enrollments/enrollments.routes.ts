@@ -53,7 +53,7 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
     return reply.code(201).send(enrollment)
   })
 
-  // POST /enrollments/self — USER self-enroll (allowSelfEnroll required)
+  // POST /enrollments/self — USER self-enroll (accessType=PUBLIC required — 2C-2 ชั่วคราว)
   server.post('/self', {
     preHandler: [app.verifyJwt],
     schema: {

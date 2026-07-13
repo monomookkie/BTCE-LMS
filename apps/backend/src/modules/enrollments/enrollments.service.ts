@@ -401,10 +401,14 @@ export async function selfEnroll(
 ): Promise<EnrollmentResponse> {
   const course = await prisma.course.findFirst({
     where: { id: input.courseId, deletedAt: null, status: 'PUBLISHED' },
-    select: { id: true, allowSelfEnroll: true, enrollmentCloseAt: true },
+    select: { id: true, accessType: true, enrollmentCloseAt: true },
   })
   if (!course) throw notFound(t('error.course.notFound', undefined, locale))
-  if (!course.allowSelfEnroll) throw forbidden(t('error.enrollment.selfEnrollNotAllowed', undefined, locale))
+  // 2C-2 ชั่วคราว: PUBLIC เท่านั้นที่เริ่มเรียนเองได้ตอนนี้ — POSITION_BASED fail-closed
+  // ทั้งหมดจนกว่า 2C-3 จะ match position จริง (admin ยังใช้ assignEnrollment แบบ manual ได้)
+  if (course.accessType !== 'PUBLIC') {
+    throw forbidden(t('error.enrollment.selfEnrollNotAllowed', undefined, locale))
+  }
   if (course.enrollmentCloseAt != null && course.enrollmentCloseAt < new Date()) {
     throw badRequest(t('error.course.enrollmentClosed', undefined, locale))
   }

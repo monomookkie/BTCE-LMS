@@ -5,6 +5,7 @@ import type {
   CreateCourseInput,
   UpdateCourseInput,
   UpdateCourseStatusInput,
+  SetCoursePositionsInput,
 } from '@btec-lms/shared'
 import { coursePublicResponseSchema, courseAdminResponseSchema } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
@@ -26,11 +27,14 @@ const COURSE_SELECT = {
   expiryMonths: true,
   enrollmentCloseAt: true,
   paperSavingSheets: true,
-  allowSelfEnroll: true,
+  accessType: true,
   createdById: true,
   version: true,
   createdAt: true,
   updatedAt: true,
+  positions: {
+    select: { position: { select: { id: true, nameEn: true, nameTh: true } } },
+  },
 } as const
 
 type CourseRecord = {
@@ -45,11 +49,12 @@ type CourseRecord = {
   expiryMonths: number | null
   enrollmentCloseAt: Date | null
   paperSavingSheets: number | null
-  allowSelfEnroll: boolean
+  accessType: 'POSITION_BASED' | 'PUBLIC'
   createdById: string | null
   version: number
   createdAt: Date
   updatedAt: Date
+  positions: Array<{ position: { id: string; nameEn: string; nameTh: string | null } }>
 }
 
 // สร้าง admin shape (superset) เสมอ — serializeByRole จะ strip ให้ถ้า caller เป็น USER
@@ -69,7 +74,11 @@ function toCourseAdminShape(course: CourseRecord, locale: Locale): CourseAdminRe
     expiryMonths: course.expiryMonths,
     enrollmentCloseAt: course.enrollmentCloseAt?.toISOString() ?? null,
     paperSavingSheets: course.paperSavingSheets,
-    allowSelfEnroll: course.allowSelfEnroll,
+    accessType: course.accessType,
+    positions: course.positions.map((cp) => ({
+      id: cp.position.id,
+      name: localizeField(cp.position.nameEn, cp.position.nameTh, locale),
+    })),
     createdById: course.createdById,
     version: course.version,
     createdAt: course.createdAt.toISOString(),
@@ -186,7 +195,7 @@ export async function createCourse(
       ...(input.expiryMonths != null && { expiryMonths: input.expiryMonths }),
       ...(input.enrollmentCloseAt != null && { enrollmentCloseAt: new Date(input.enrollmentCloseAt) }),
       ...(input.paperSavingSheets != null && { paperSavingSheets: input.paperSavingSheets }),
-      allowSelfEnroll: input.allowSelfEnroll,
+      accessType: input.accessType,
       createdById: actorId,
     },
     select: COURSE_SELECT,
@@ -216,24 +225,43 @@ export async function updateCourse(
   const existing = await prisma.course.findFirst({ where: { id, deletedAt: null } })
   if (!existing) throw notFound(t('error.course.notFound', undefined, locale))
 
-  const course = await prisma.course.update({
-    where: { id },
-    data: {
-      ...(input.titleEn != null && { titleEn: input.titleEn }),
-      ...('titleTh' in input && { titleTh: input.titleTh ?? null }),
-      ...(input.categoryEn != null && { categoryEn: input.categoryEn }),
-      ...('categoryTh' in input && { categoryTh: input.categoryTh ?? null }),
-      ...('descriptionEn' in input && { descriptionEn: input.descriptionEn ?? null }),
-      ...('descriptionTh' in input && { descriptionTh: input.descriptionTh ?? null }),
-      ...('expiryMonths' in input && { expiryMonths: input.expiryMonths ?? null }),
-      ...('enrollmentCloseAt' in input && {
-        enrollmentCloseAt: input.enrollmentCloseAt != null ? new Date(input.enrollmentCloseAt) : null,
-      }),
-      ...('paperSavingSheets' in input && { paperSavingSheets: input.paperSavingSheets ?? null }),
-      ...(input.allowSelfEnroll != null && { allowSelfEnroll: input.allowSelfEnroll }),
-      version: { increment: 1 },
-    },
-    select: COURSE_SELECT,
+  // accessType-lock: มี enrollment ที่ active (ไม่นับ soft-deleted) ≥1 → ห้ามเปลี่ยน accessType
+  // ทั้ง 2 ทิศ — ถอนหมดแล้วแก้ได้ตามปกติ (ตัดสินใจยืนยันแล้วว่านับเฉพาะ active)
+  //
+  // เช็ค + update ใน $transaction เดียวกัน (connection เดียว) กัน race ระหว่าง 2 admin PATCH
+  // พร้อมกัน — ไม่ปิด race กับ selfEnroll ที่แทรกระหว่างกลางได้ 100% (ต้องแก้ที่ selfEnroll เอง
+  // ซึ่งจะถูกเขียนใหม่ทั้งฟังก์ชันใน 2C-3 อยู่แล้ว) แต่แคบ window ที่เป็นไปได้จริงลงมาก
+  const changingAccessType = input.accessType != null && input.accessType !== existing.accessType
+
+  const course = await prisma.$transaction(async (tx) => {
+    if (changingAccessType) {
+      const activeEnrollmentCount = await tx.enrollment.count({
+        where: { courseId: id, deletedAt: null },
+      })
+      if (activeEnrollmentCount > 0) {
+        throw badRequest(t('error.course.accessTypeLocked', undefined, locale))
+      }
+    }
+
+    return tx.course.update({
+      where: { id },
+      data: {
+        ...(input.titleEn != null && { titleEn: input.titleEn }),
+        ...('titleTh' in input && { titleTh: input.titleTh ?? null }),
+        ...(input.categoryEn != null && { categoryEn: input.categoryEn }),
+        ...('categoryTh' in input && { categoryTh: input.categoryTh ?? null }),
+        ...('descriptionEn' in input && { descriptionEn: input.descriptionEn ?? null }),
+        ...('descriptionTh' in input && { descriptionTh: input.descriptionTh ?? null }),
+        ...('expiryMonths' in input && { expiryMonths: input.expiryMonths ?? null }),
+        ...('enrollmentCloseAt' in input && {
+          enrollmentCloseAt: input.enrollmentCloseAt != null ? new Date(input.enrollmentCloseAt) : null,
+        }),
+        ...('paperSavingSheets' in input && { paperSavingSheets: input.paperSavingSheets ?? null }),
+        ...(input.accessType != null && { accessType: input.accessType }),
+        version: { increment: 1 },
+      },
+      select: COURSE_SELECT,
+    })
   })
 
   await logAudit(prisma, {
@@ -272,6 +300,14 @@ export async function updateCourseStatus(
     if (!quiz || questionCount === 0) {
       throw badRequest(t('error.course.quizRequiredToPublish', undefined, locale))
     }
+
+    // POSITION_BASED ต้องผูก position ไว้อย่างน้อย 1 อัน ถึง publish ได้ — คู่กับ quiz-gate ด้านบน
+    if (existing.accessType === 'POSITION_BASED') {
+      const positionCount = await prisma.coursePosition.count({ where: { courseId: id } })
+      if (positionCount === 0) {
+        throw badRequest(t('error.course.positionRequiredToPublish', undefined, locale))
+      }
+    }
   }
 
   const course = await prisma.course.update({
@@ -290,6 +326,63 @@ export async function updateCourseStatus(
     ...(ip != null && { ip }),
   })
 
+  return courseAdminResponseSchema.parse(toCourseAdminShape(course, locale))
+}
+
+// PUT /courses/:id/positions — replace ทั้งชุด
+export async function setCoursePositions(
+  prisma: PrismaClient,
+  id: string,
+  input: SetCoursePositionsInput,
+  actorId: string,
+  locale: Locale = 'en',
+  ip?: string,
+): Promise<CourseAdminResponse> {
+  const existing = await prisma.course.findFirst({ where: { id, deletedAt: null } })
+  if (!existing) throw notFound(t('error.course.notFound', undefined, locale))
+
+  if (existing.accessType !== 'POSITION_BASED') {
+    throw badRequest(t('error.course.positionsOnlyForPositionBased', undefined, locale))
+  }
+
+  const positionIds = [...new Set(input.positionIds)]
+
+  // course-position-removal-gate: mirror ตรงกับ quiz/question delete-gate ของ 2A —
+  // published + POSITION_BASED ต้องเหลือ position ≥1 เสมอ กัน dead-end course ย้อนหลัง
+  if (positionIds.length === 0 && existing.status === 'PUBLISHED') {
+    throw badRequest(t('error.course.cannotRemoveLastPosition', undefined, locale))
+  }
+
+  if (positionIds.length > 0) {
+    const activeCount = await prisma.position.count({
+      where: { id: { in: positionIds }, deletedAt: null },
+    })
+    if (activeCount !== positionIds.length) {
+      throw badRequest(t('error.position.notFound', undefined, locale))
+    }
+  }
+
+  await prisma.$transaction([
+    prisma.coursePosition.deleteMany({ where: { courseId: id } }),
+    ...(positionIds.length > 0
+      ? [
+          prisma.coursePosition.createMany({
+            data: positionIds.map((positionId) => ({ courseId: id, positionId })),
+          }),
+        ]
+      : []),
+  ])
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'COURSE_POSITIONS_UPDATE',
+    targetType: 'Course',
+    targetId: id,
+    metadata: { positionIds },
+    ...(ip != null && { ip }),
+  })
+
+  const course = await prisma.course.findFirstOrThrow({ where: { id }, select: COURSE_SELECT })
   return courseAdminResponseSchema.parse(toCourseAdminShape(course, locale))
 }
 

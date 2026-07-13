@@ -28,8 +28,12 @@ describe('Enrollments module', () => {
     return { user, cookies }
   }
 
-  /** สร้าง PUBLISHED course และ return id — ต้องมี quiz ≥1 คำถามก่อน publish (2A) */
-  async function createPublishedCourse(adminCookies: string, selfEnroll = false): Promise<string> {
+  /** สร้าง PUBLISHED course และ return id — ต้องมี quiz ≥1 คำถามก่อน publish (2A)
+   *  accessType=POSITION_BASED จะสร้าง+ผูก position ให้อัตโนมัติ (publish-gate ของ 2C-2 ต้องการ ≥1) */
+  async function createPublishedCourse(
+    adminCookies: string,
+    accessType: 'PUBLIC' | 'POSITION_BASED' = 'PUBLIC',
+  ): Promise<string> {
     const res = await app.inject({
       method: 'POST',
       url: '/courses',
@@ -37,7 +41,7 @@ describe('Enrollments module', () => {
       payload: {
         titleEn: 'Test Course',
         categoryEn: 'Safety',
-        allowSelfEnroll: selfEnroll,
+        accessType,
       },
     })
     const course = res.json<CourseAdminResponse>()
@@ -60,6 +64,22 @@ describe('Enrollments module', () => {
         ],
       },
     })
+
+    if (accessType === 'POSITION_BASED') {
+      const positionRes = await app.inject({
+        method: 'POST',
+        url: '/positions',
+        headers: { cookie: adminCookies },
+        payload: { nameEn: `Test Position ${Date.now()}-${Math.random()}` },
+      })
+      const position = positionRes.json<{ id: string }>()
+      await app.inject({
+        method: 'PUT',
+        url: `/courses/${course.id}/positions`,
+        headers: { cookie: adminCookies },
+        payload: { positionIds: [position.id] },
+      })
+    }
 
     await app.inject({
       method: 'PATCH',
@@ -185,7 +205,7 @@ describe('Enrollments module', () => {
     it('selfEnroll: cutoff in the past → 400', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { cookies: userCookies } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies, true) // allowSelfEnroll
+      const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
       await setEnrollmentCloseAt(adminCookies, courseId, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
       const res = await app.inject({
@@ -277,10 +297,10 @@ describe('Enrollments module', () => {
   // ─── Self-enroll ────────────────────────────────────────────────────────────
 
   describe('POST /enrollments/self', () => {
-    it('USER self-enroll allowSelfEnroll=true → 201, status IN_PROGRESS', async () => {
+    it('USER self-enroll accessType=PUBLIC → 201, status IN_PROGRESS', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { user: selfUser, cookies: userCookies } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies, true)
+      const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
 
       const res = await app.inject({
         method: 'POST',
@@ -296,10 +316,10 @@ describe('Enrollments module', () => {
       expect(body.status).toBe('IN_PROGRESS')
     })
 
-    it('USER self-enroll allowSelfEnroll=false → 403', async () => {
+    it('USER self-enroll accessType=POSITION_BASED → 403 (2C-2 fail-closed, position matching not yet implemented)', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { cookies: userCookies } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies, false)
+      const courseId = await createPublishedCourse(adminCookies, 'POSITION_BASED')
 
       const res = await app.inject({
         method: 'POST',
@@ -312,7 +332,7 @@ describe('Enrollments module', () => {
 
     it('unauthenticated self-enroll → 401', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const courseId = await createPublishedCourse(adminCookies, true)
+      const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
 
       const res = await app.inject({
         method: 'POST',

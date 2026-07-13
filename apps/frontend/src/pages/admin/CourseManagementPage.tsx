@@ -44,7 +44,6 @@ const courseFormSchema = z.object({
   expiryMonthsRaw:      z.string().optional(),
   enrollmentCloseAtRaw: z.string().optional(),
   paperSavingSheetsRaw: z.string().optional(),
-  allowSelfEnroll:      z.boolean(),
 })
 type CourseFormValues = z.infer<typeof courseFormSchema>
 
@@ -78,15 +77,15 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
       expiryMonthsRaw:      editCourse.expiryMonths != null ? String(editCourse.expiryMonths) : '',
       enrollmentCloseAtRaw: editCourse.enrollmentCloseAt != null ? editCourse.enrollmentCloseAt.slice(0, 10) : '',
       paperSavingSheetsRaw: editCourse.paperSavingSheets != null ? String(editCourse.paperSavingSheets) : '',
-      allowSelfEnroll:      editCourse.allowSelfEnroll,
     } : {
       titleEn: '', titleTh: '', categoryEn: '', categoryTh: '',
       descriptionEn: '', descriptionTh: '',
       expiryMonthsRaw: '', enrollmentCloseAtRaw: '', paperSavingSheetsRaw: '',
-      allowSelfEnroll: false,
     },
   })
 
+  // accessType/position picker เป็นงาน 2C-5 — ฟอร์มนี้ยังสร้างได้แค่ PUBLIC เท่านั้น
+  // (แก้ accessType ของ course เดิมทำผ่านฟอร์มนี้ไม่ได้เช่นกัน จนกว่า 2C-5 จะเพิ่ม UI)
   const buildApiBody = (values: CourseFormValues) => ({
     titleEn: values.titleEn,
     ...(values.titleTh?.trim() ? { titleTh: values.titleTh.trim() } : {}),
@@ -99,7 +98,6 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
       ? new Date(`${values.enrollmentCloseAtRaw}T23:59:59`).toISOString()
       : null,
     paperSavingSheets: values.paperSavingSheetsRaw ? parseInt(values.paperSavingSheetsRaw) : null,
-    allowSelfEnroll: values.allowSelfEnroll,
   })
 
   const onSubmit = async (values: CourseFormValues) => {
@@ -109,7 +107,7 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
         await updateAdminCourse(editCourse.id, body)
         toast.success(t('adminCourse.courseUpdated'))
       } else {
-        await createAdminCourse(body as Parameters<typeof createAdminCourse>[0])
+        await createAdminCourse({ ...body, accessType: 'PUBLIC' })
         toast.success(t('adminCourse.courseCreated'))
       }
       await qc.invalidateQueries({ queryKey: ['admin', 'courses'] })
@@ -207,16 +205,12 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
           />
         </div>
 
-        {/* Self-enroll toggle */}
-        <label className="flex cursor-pointer items-center gap-3">
-          <input
-            type="checkbox"
-            disabled={isArchived}
-            className="h-4 w-4 rounded border-slate-300 text-brand-500 focus:ring-brand-500"
-            {...register('allowSelfEnroll')}
-          />
-          <span className="text-sm text-slate-700">{t('adminCourse.allowSelfEnroll')}</span>
-        </label>
+        {/* accessType (PUBLIC/POSITION_BASED) + position picker — 2C-5 */}
+        {!editCourse && (
+          <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
+            {t('adminCourse.accessTypeComingSoon')}
+          </p>
+        )}
 
         {isArchived && (
           <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-500">
