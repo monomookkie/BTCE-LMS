@@ -47,3 +47,75 @@ export const complianceListSchema = z.object({
 
 export type ComplianceRow = z.infer<typeof complianceRowSchema>
 export type ComplianceList = z.infer<typeof complianceListSchema>
+
+// ─── By Course report (item 4) ─────────────────────────────────────────────
+
+const ratingDistributionEntrySchema = z.object({
+  rating: z.number().int().min(1).max(5),
+  count: z.number().int(),
+})
+
+const ratingStatSchema = z.object({
+  questionId: z.string().cuid(),
+  text: z.string(),                         // localized question text
+  average: z.number(),                      // 0 ถ้า responseCount=0
+  responseCount: z.number().int(),
+  distribution: z.array(ratingDistributionEntrySchema), // ครบ 5 entries เสมอ (rating 1-5) แม้ count=0
+})
+
+export const courseReportSchema = z.object({
+  courseId: z.string().cuid(),
+  courseTitle: z.string(),                  // localized
+  enrollmentCount: z.number().int(),
+  passCount: z.number().int(),              // distinct user ที่มี QuizAttempt.passed=true อย่างน้อย 1 ครั้ง
+  passRate: z.number().nullable(),          // null ถ้า enrollmentCount=0
+  hasSurvey: z.boolean(),                   // false → frontend ไม่แสดง satisfaction section
+  ratingStats: z.array(ratingStatSchema),
+})
+
+export type RatingStat = z.infer<typeof ratingStatSchema>
+export type CourseReport = z.infer<typeof courseReportSchema>
+
+// Anonymous by design (PDPA) — ห้ามมี userId/userName/createdAt แม้แต่ field เดียว
+// (createdAt ตัดออกเพราะ timestamp ละเอียด + คอมเมนต์น้อย = เดาตัวตนได้จาก cross-reference กับ enrollment)
+export const courseCommentRowSchema = z.object({
+  questionId: z.string().cuid(),
+  questionText: z.string(),                 // localized
+  comment: z.string(),
+})
+
+export const courseCommentsListSchema = z.object({
+  data: z.array(courseCommentRowSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  limit: z.number().int(),
+})
+
+export type CourseCommentRow = z.infer<typeof courseCommentRowSchema>
+export type CourseCommentsList = z.infer<typeof courseCommentsListSchema>
+
+// ─── By User report (item 4) ───────────────────────────────────────────────
+// ตรงข้ามกับ courseComments — report นี้ admin เลือก user ตรงๆ อยู่แล้ว จึงไม่ใช่บริบท anonymous
+
+const userReportRowSchema = z.object({
+  enrollmentId: z.string().cuid(),
+  courseId: z.string().cuid(),
+  courseTitle: z.string(),                  // localized
+  status: z.enum(['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED']),
+  progress: z.number().int(),
+  // null = course นี้ไม่มี quiz (ไม่ใช่ "ยังไม่สอบ"); false = มี quiz แต่ยังไม่ผ่าน/ยังไม่สอบ
+  quizPassed: z.boolean().nullable(),
+  quizBestScore: z.number().int().nullable(), // คะแนนสูงสุดจากทุก attempt, null ถ้ายังไม่เคยสอบหรือไม่มี quiz
+  completedAt: z.string().nullable(),
+  dueAt: z.string().nullable(),
+})
+
+export const userReportSchema = z.object({
+  userId: z.string().cuid(),
+  userName: z.string(),
+  mandatory: z.array(userReportRowSchema),
+  optional: z.array(userReportRowSchema),
+})
+
+export type UserReportRow = z.infer<typeof userReportRowSchema>
+export type UserReport = z.infer<typeof userReportSchema>

@@ -1,11 +1,26 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
-import { dashboardSummarySchema, complianceListSchema } from '@btec-lms/shared'
-import { complianceQuerySchema, complianceExportQuerySchema } from './reports.schema.js'
+import {
+  dashboardSummarySchema,
+  complianceListSchema,
+  courseReportSchema,
+  courseCommentsListSchema,
+  userReportSchema,
+} from '@btec-lms/shared'
+import {
+  complianceQuerySchema,
+  complianceExportQuerySchema,
+  courseReportQuerySchema,
+  courseCommentsQuerySchema,
+  userReportQuerySchema,
+} from './reports.schema.js'
 import {
   getDashboardSummary,
   getComplianceList,
   getComplianceCsv,
+  getCourseReport,
+  getCourseComments,
+  getUserReport,
 } from './reports.service.js'
 import { resolveLocale } from '../../lib/i18n.js'
 
@@ -62,6 +77,43 @@ const reportsRoutes: FastifyPluginAsync = async (app) => {
       .type('text/csv; charset=utf-8')
       .header('Content-Disposition', `attachment; filename="${filename}"`)
       .send(csv)
+  })
+
+  // ─── GET /reports/by-course — ADMIN (enrollment/pass count + survey rating stats) ──
+  server.get('/reports/by-course', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      querystring: courseReportQuerySchema,
+      response: { 200: courseReportSchema },
+    },
+  }, async (req) => {
+    const locale = await resolveLocale(req, app.prisma)
+    return getCourseReport(app.prisma, req.query.courseId, req.user.id, locale, req.ip)
+  })
+
+  // ─── GET /reports/by-course/comments — ADMIN (anonymous free-text, paginated) ──────
+  // PDPA: response ไม่มี userId/userName/createdAt เลย (ดู reports.service.ts getCourseComments)
+  server.get('/reports/by-course/comments', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      querystring: courseCommentsQuerySchema,
+      response: { 200: courseCommentsListSchema },
+    },
+  }, async (req) => {
+    const locale = await resolveLocale(req, app.prisma)
+    return getCourseComments(app.prisma, req.query, req.user.id, locale, req.ip)
+  })
+
+  // ─── GET /reports/by-user — ADMIN (enrollment list, mandatory/optional split) ──────
+  server.get('/reports/by-user', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      querystring: userReportQuerySchema,
+      response: { 200: userReportSchema },
+    },
+  }, async (req) => {
+    const locale = await resolveLocale(req, app.prisma)
+    return getUserReport(app.prisma, req.query.userId, req.user.id, locale, req.ip)
   })
 }
 

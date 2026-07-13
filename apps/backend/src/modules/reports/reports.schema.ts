@@ -26,3 +26,23 @@ export const complianceExportQuerySchema = z.object({
 
 export type ComplianceQuery = z.infer<typeof complianceQuerySchema>
 export type ComplianceExportQuery = z.infer<typeof complianceExportQuerySchema>
+
+// ─── By Course / By User (item 4) ──────────────────────────────────────────
+
+export const courseReportQuerySchema = z.object({
+  courseId: z.string().cuid(),
+})
+
+export const courseCommentsQuerySchema = z.object({
+  courseId: z.string().cuid(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(12),
+})
+
+export const userReportQuerySchema = z.object({
+  userId: z.string().cuid(),
+})
+
+export type CourseReportQuery = z.infer<typeof courseReportQuerySchema>
+export type CourseCommentsQuery = z.infer<typeof courseCommentsQuerySchema>
+export type UserReportQuery = z.infer<typeof userReportQuerySchema>

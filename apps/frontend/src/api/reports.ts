@@ -1,4 +1,4 @@
-import type { DashboardSummary, ComplianceList } from '@btec-lms/shared'
+import type { DashboardSummary, ComplianceList, CourseReport, CourseCommentsList, UserReport } from '@btec-lms/shared'
 import { apiFetch, apiFetchBlob } from '../lib/api.js'
 
 export function getDashboardSummary(): Promise<DashboardSummary> {
@@ -44,4 +44,24 @@ export async function downloadComplianceCsv(
   a.click()
   document.body.removeChild(a)
   setTimeout(() => { URL.revokeObjectURL(url) }, 200)
+}
+
+// ─── By Course / By User (item 4) ──────────────────────────────────────────
+
+export function getCourseReport(courseId: string): Promise<CourseReport> {
+  return apiFetch<CourseReport>(`/reports/by-course?courseId=${courseId}`)
+}
+
+export function getCourseComments(
+  courseId: string,
+  params: { page?: number; limit?: number } = {},
+): Promise<CourseCommentsList> {
+  const qs = new URLSearchParams({ courseId })
+  if (params.page != null) qs.set('page', String(params.page))
+  if (params.limit != null) qs.set('limit', String(params.limit))
+  return apiFetch<CourseCommentsList>(`/reports/by-course/comments?${qs.toString()}`)
+}
+
+export function getUserReport(userId: string): Promise<UserReport> {
+  return apiFetch<UserReport>(`/reports/by-user?userId=${userId}`)
 }
