@@ -11,7 +11,8 @@ export const userResponseSchema = z.object({
   email: z.string().email(),
   role: roleSchema,
   language: languageSchema,
-  position: z.string().nullable(),
+  position: z.string().nullable(), // localized display name — derived จาก Position relation (2C-1)
+  positionId: z.string().nullable(),
   avatarKey: z.string().nullable(),
   isActive: z.boolean(),
   lastLoginAt: z.string().datetime().nullable(),

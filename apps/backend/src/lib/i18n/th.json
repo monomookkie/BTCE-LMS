@@ -18,6 +18,10 @@
   "error.user.importRowMissingFields": "ต้องระบุ email และ name",
   "error.user.importRowFailed": "บันทึกข้อมูลแถวนี้ล้มเหลว",
 
+  "error.position.notFound": "ไม่พบตำแหน่งนี้",
+  "error.position.nameConflict": "มีตำแหน่งชื่อนี้อยู่แล้ว",
+  "error.position.inUse": "ลบไม่ได้ — ยังมีผู้ใช้ {{count}} คนที่ถูกกำหนดตำแหน่งนี้อยู่",
+
   "error.course.notFound": "ไม่พบหลักสูตร",
   "error.course.notPublished": "หลักสูตรนี้ยังไม่เปิดให้เรียน",
   "error.course.archivedCannotChange": "หลักสูตรที่เก็บถาวรแล้วไม่สามารถเปลี่ยนสถานะได้",

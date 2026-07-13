@@ -217,7 +217,8 @@ describe('Users module', () => {
 
     it('PATCH /users/me ignores a user-submitted position (admin-only field)', async () => {
       const { user, plainPassword } = await createUser({ email: 'profile-position@test.com' })
-      await prisma.user.update({ where: { id: user.id }, data: { position: 'Original Position' } })
+      const position = await prisma.position.create({ data: { nameEn: 'Original Position' } })
+      await prisma.user.update({ where: { id: user.id }, data: { positionId: position.id } })
       const { cookies } = await loginAs(app, user.email, plainPassword)
 
       const res = await app.inject({

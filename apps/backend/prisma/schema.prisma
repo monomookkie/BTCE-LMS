@@ -16,7 +16,7 @@ model User {
   email             String    @unique
   password          String
   role              Role      @default(USER)
-  position          String?
+  positionId        String?
   department        String? // free-text — ไม่ใช่ relational model เดิมที่ลบใน REFACTOR-1
                             // กรอกได้แค่ตอน self-register (required ที่นั่น); ช่องทางอื่นไม่ set
   avatarKey         String?   // key ใน Cloudinary (ไม่เก็บ base64)
@@ -29,6 +29,7 @@ model User {
   updatedAt         DateTime  @updatedAt
   deletedAt         DateTime? // soft delete
 
+  position             Position?              @relation(fields: [positionId], references: [id])
   enrollments          Enrollment[]
   externalCertificates ExternalCertificate[]
   refreshTokens        RefreshToken[]
@@ -36,6 +37,24 @@ model User {
   notifications        Notification[]
 
   @@index([email])
+  @@index([deletedAt])
+  @@index([positionId])
+}
+
+// ===== Position (2C-1) =====
+// structured lookup table แทน User.position free-text เดิม — ให้ course
+// access model (2C-2) ผูก position ได้แม่นยำ (ไม่พึ่ง string matching)
+model Position {
+  id        String    @id @default(cuid())
+  nameEn    String
+  nameTh    String?
+  deletedAt DateTime?
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  users User[]
+
+  @@unique([nameEn])
   @@index([deletedAt])
 }
 

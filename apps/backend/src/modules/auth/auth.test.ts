@@ -163,10 +163,13 @@ describe('Auth module', () => {
       })
       expect(meRes.statusCode).toBe(200)
 
-      // department + position ถูก persist ลง DB จริง
-      const dbUser = await prisma.user.findUnique({ where: { email } })
+      // department ถูก persist ลง DB จริง; position ถูก resolve เป็น Position row (2C-1)
+      const dbUser = await prisma.user.findUnique({
+        where: { email },
+        include: { position: true },
+      })
       expect(dbUser?.department).toBe('Blood Bank Division')
-      expect(dbUser?.position).toBe('Nurse')
+      expect(dbUser?.position?.nameEn).toBe('Nurse')
     })
 
     it('duplicate email → 409 with generic message (no enumeration)', async () => {

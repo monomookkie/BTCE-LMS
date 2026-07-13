@@ -21,6 +21,7 @@ beforeEach(async () => {
     prisma.enrollment.deleteMany(),          // FK → user, course
     prisma.refreshToken.deleteMany(), // FK → user
     prisma.user.deleteMany(),
+    prisma.position.deleteMany(),     // FK จาก User เป็น ON DELETE SET NULL — ลบทีหลังได้เสมอ
     prisma.option.deleteMany(),       // FK → question
     prisma.question.deleteMany(),     // FK → quiz
     prisma.quiz.deleteMany(),         // FK → course

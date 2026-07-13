@@ -11,22 +11,27 @@ import type {
 import { hashPassword } from '../../lib/password.js'
 import { logAudit } from '../../lib/audit.js'
 import { conflict, notFound, badRequest } from '../../lib/errors.js'
-import { t, type Locale } from '../../lib/i18n.js'
+import { t, localizeField, type Locale } from '../../lib/i18n.js'
+import { resolvePositionId } from '../positions/positions.service.js'
 import type { UserListQuery, ImportResult } from './users.schema.js'
 
-function toUserResponse(user: {
-  id: string
-  employeeId: string | null
-  name: string
-  email: string
-  role: string
-  language: string
-  position: string | null
-  avatarKey: string | null
-  isActive: boolean
-  lastLoginAt: Date | null
-  createdAt: Date
-}): UserResponse {
+function toUserResponse(
+  user: {
+    id: string
+    employeeId: string | null
+    name: string
+    email: string
+    role: string
+    language: string
+    positionId: string | null
+    position: { nameEn: string; nameTh: string | null } | null
+    avatarKey: string | null
+    isActive: boolean
+    lastLoginAt: Date | null
+    createdAt: Date
+  },
+  locale: Locale,
+): UserResponse {
   return {
     id: user.id,
     employeeId: user.employeeId,
@@ -34,7 +39,8 @@ function toUserResponse(user: {
     email: user.email,
     role: user.role as UserResponse['role'],
     language: (user.language === 'th' ? 'th' : 'en') as UserResponse['language'],
-    position: user.position,
+    position: user.position ? localizeField(user.position.nameEn, user.position.nameTh, locale) : null,
+    positionId: user.positionId,
     avatarKey: user.avatarKey,
     isActive: user.isActive,
     lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
@@ -49,7 +55,8 @@ const USER_SELECT = {
   email: true,
   role: true,
   language: true,
-  position: true,
+  positionId: true,
+  position: { select: { nameEn: true, nameTh: true } },
   avatarKey: true,
   isActive: true,
   lastLoginAt: true,
@@ -60,11 +67,14 @@ export async function listUsers(
   prisma: PrismaClient,
   query: UserListQuery,
   requesterId: string,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<{ data: UserResponse[]; total: number; page: number; limit: number }> {
   const { page, limit, search, role, position, isActive } = query
   const skip = (page - 1) * limit
 
+  // position filter ยังรับ string (frontend เดิมยังไม่เปลี่ยนจนถึง 2C-5) — match
+  // ทั้ง nameEn/nameTh กัน filter dropdown ที่มีค่าภาษาไทยอยู่เดิมพังเงียบๆ
   const where = {
     deletedAt: null,
     ...(search && {
@@ -75,7 +85,7 @@ export async function listUsers(
       ],
     }),
     ...(role != null && { role }),
-    ...(position && { position }),
+    ...(position && { position: { OR: [{ nameEn: position }, { nameTh: position }] } }),
     ...(isActive !== undefined && { isActive }),
   }
 
@@ -103,7 +113,7 @@ export async function listUsers(
     ...(ip != null && { ip }),
   })
 
-  return { data: users.map(toUserResponse), total, page, limit }
+  return { data: users.map((u) => toUserResponse(u, locale)), total, page, limit }
 }
 
 export async function createUser(
@@ -119,6 +129,7 @@ export async function createUser(
   if (exists) throw conflict(t('error.user.emailConflict', undefined, locale))
 
   const password = await hashPassword(input.password)
+  const positionId = await resolvePositionId(prisma, input.position)
 
   const user = await prisma.user.create({
     data: {
@@ -129,7 +140,7 @@ export async function createUser(
       mustChangePassword: true,
       // conditional spread เพื่อหลีกเลี่ยง exactOptionalPropertyTypes + Prisma conflict
       ...(input.employeeId != null && { employeeId: input.employeeId }),
-      ...(input.position != null && { position: input.position }),
+      ...(positionId != null && { positionId }),
     },
     select: USER_SELECT,
   })
@@ -143,7 +154,7 @@ export async function createUser(
     ...(ip != null && { ip }),
   })
 
-  return toUserResponse(user)
+  return toUserResponse(user, locale)
 }
 
 export async function getUser(
@@ -167,7 +178,7 @@ export async function getUser(
     ...(ip != null && { ip }),
   })
 
-  return toUserResponse(user)
+  return toUserResponse(user, locale)
 }
 
 export async function updateUser(
@@ -181,12 +192,17 @@ export async function updateUser(
   const exists = await prisma.user.findFirst({ where: { id, deletedAt: null } })
   if (!exists) throw notFound(t('error.user.notFound', undefined, locale))
 
+  // input.position === undefined → ไม่แตะ positionId เดิม; '' หรือ string ใหม่ → resolve ใหม่
+  // (string ว่างจะ resolve เป็น null คือ "เคลียร์ position" — ตั้งใจเปลี่ยนพฤติกรรมเล็กน้อยจากเดิม
+  // ที่เก็บ empty string ตรงๆ ซึ่งไม่มีความหมายอะไรอยู่แล้ว)
+  const positionId = input.position !== undefined ? await resolvePositionId(prisma, input.position) : undefined
+
   const user = await prisma.user.update({
     where: { id },
     data: {
       ...(input.name != null && { name: input.name }),
       ...(input.role != null && { role: input.role }),
-      ...(input.position != null && { position: input.position }),
+      ...(positionId !== undefined && { positionId }),
       ...(input.isActive !== undefined && { isActive: input.isActive }),
     },
     select: USER_SELECT,
@@ -201,7 +217,7 @@ export async function updateUser(
     ...(ip != null && { ip }),
   })
 
-  return toUserResponse(user)
+  return toUserResponse(user, locale)
 }
 
 export async function softDeleteUser(
@@ -281,6 +297,7 @@ export async function importFromCsv(
 
     const roleRaw = row['role']?.trim().toUpperCase()
     const role = roleRaw === 'ADMIN' || roleRaw === 'USER' ? roleRaw : ('USER' as const)
+    const positionId = await resolvePositionId(prisma, row['position'])
 
     try {
       await prisma.user.create({
@@ -291,7 +308,7 @@ export async function importFromCsv(
           role,
           mustChangePassword: true,
           ...(row['employeeId']?.trim() && { employeeId: row['employeeId']!.trim() }),
-          ...(row['position']?.trim() && { position: row['position']!.trim() }),
+          ...(positionId != null && { positionId }),
         },
       })
 
@@ -322,13 +339,14 @@ export async function getProfile(
     select: USER_SELECT,
   })
   if (!user) throw notFound(t('error.user.notFound', undefined, locale))
-  return toUserResponse(user)
+  return toUserResponse(user, locale)
 }
 
 export async function updateProfile(
   prisma: PrismaClient,
   userId: string,
   input: UpdateProfileInput,
+  locale: Locale = 'en',
   ip?: string,
 ): Promise<UserResponse> {
   const user = await prisma.user.update({
@@ -349,7 +367,7 @@ export async function updateProfile(
     ...(ip != null && { ip }),
   })
 
-  return toUserResponse(user)
+  return toUserResponse(user, locale)
 }
 
 export async function recordConsent(

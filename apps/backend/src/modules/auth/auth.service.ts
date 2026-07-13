@@ -5,7 +5,8 @@ import { isAllowedRegisterEmailDomain } from '@btec-lms/shared'
 import { verifyPassword, hashPassword } from '../../lib/password.js'
 import { logAudit } from '../../lib/audit.js'
 import { unauthorized, notFound, badRequest, conflict } from '../../lib/errors.js'
-import { t, type Locale } from '../../lib/i18n.js'
+import { t, localizeField, type Locale } from '../../lib/i18n.js'
+import { resolvePositionId } from '../positions/positions.service.js'
 import { env } from '../../config/env.js'
 import type { MeResponse } from './auth.schema.js'
 
@@ -46,6 +47,7 @@ export async function loginUser(
 ): Promise<{ accessToken: string; refreshToken: string; user: MeResponse }> {
   const user = await prisma.user.findFirst({
     where: { email: input.email, deletedAt: null },
+    include: { position: { select: { nameEn: true, nameTh: true } } },
   })
 
   // ตรวจ password ก่อน isActive เพื่อให้ timing สม่ำเสมอ
@@ -106,7 +108,8 @@ export async function loginUser(
       email: user.email,
       role: user.role,
       language: (user.language === 'th' ? 'th' : 'en') as 'en' | 'th',
-      position: user.position,
+      position: user.position ? localizeField(user.position.nameEn, user.position.nameTh, locale) : null,
+      positionId: user.positionId,
       avatarKey: user.avatarKey,
       isActive: user.isActive,
       mustChangePassword: user.mustChangePassword,
@@ -140,6 +143,7 @@ export async function registerUser(
   if (exists) throw conflict(t('error.auth.registrationFailed', undefined, locale))
 
   const password = await hashPassword(input.password)
+  const positionId = await resolvePositionId(prisma, input.position)
 
   const user = await prisma.user.create({
     data: {
@@ -150,9 +154,10 @@ export async function registerUser(
       isActive: true,
       mustChangePassword: false, // สมัครเองแล้วตั้งรหัสเอง — ไม่ใช่ temp password จาก admin/CSV
       department: input.department,
-      position: input.position,
+      ...(positionId != null && { positionId }),
       ...(input.employeeId != null && { employeeId: input.employeeId }),
     },
+    include: { position: { select: { nameEn: true, nameTh: true } } },
   })
 
   const accessToken = sign({ sub: user.id, role: user.role })
@@ -185,7 +190,8 @@ export async function registerUser(
       email: user.email,
       role: user.role,
       language: (user.language === 'th' ? 'th' : 'en') as 'en' | 'th',
-      position: user.position,
+      position: user.position ? localizeField(user.position.nameEn, user.position.nameTh, locale) : null,
+      positionId: user.positionId,
       avatarKey: user.avatarKey,
       isActive: user.isActive,
       mustChangePassword: user.mustChangePassword,
@@ -268,6 +274,7 @@ export async function getMe(
 ): Promise<MeResponse> {
   const user = await prisma.user.findFirst({
     where: { id: userId, deletedAt: null },
+    include: { position: { select: { nameEn: true, nameTh: true } } },
   })
 
   if (!user) throw notFound(t('error.user.notFound', undefined, locale))
@@ -279,7 +286,8 @@ export async function getMe(
     email: user.email,
     role: user.role,
     language: (user.language === 'th' ? 'th' : 'en') as 'en' | 'th',
-    position: user.position,
+    position: user.position ? localizeField(user.position.nameEn, user.position.nameTh, locale) : null,
+    positionId: user.positionId,
     avatarKey: user.avatarKey,
     isActive: user.isActive,
     mustChangePassword: user.mustChangePassword,

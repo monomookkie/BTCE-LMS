@@ -15,6 +15,7 @@ import authPlugin from './plugins/auth.js'
 import healthRoutes from './modules/health/health.routes.js'
 import authRoutes from './modules/auth/auth.routes.js'
 import usersRoutes from './modules/users/users.routes.js'
+import positionsRoutes from './modules/positions/positions.routes.js'
 import coursesRoutes from './modules/courses/courses.routes.js'
 import materialsRoutes from './modules/materials/materials.routes.js'
 import enrollmentsRoutes from './modules/enrollments/enrollments.routes.js'
@@ -81,6 +82,7 @@ export async function buildApp() {
   await app.register(healthRoutes)
   await app.register(authRoutes, { prefix: '/auth' })
   await app.register(usersRoutes, { prefix: '/users' })
+  await app.register(positionsRoutes, { prefix: '/positions' })
   await app.register(coursesRoutes, { prefix: '/courses' })
   await app.register(materialsRoutes, { prefix: '/courses' })
   await app.register(enrollmentsRoutes, { prefix: '/enrollments' })

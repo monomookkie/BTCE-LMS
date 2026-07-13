@@ -44,7 +44,8 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const result = await listUsers(app.prisma, req.query, req.user.id, req.ip)
+      const locale = await resolveLocale(req, app.prisma)
+      const result = await listUsers(app.prisma, req.query, req.user.id, locale, req.ip)
       return reply.send(result)
     },
   )
@@ -91,7 +92,8 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       },
     },
     async (req, reply) => {
-      const user = await updateProfile(app.prisma, req.user.id, req.body, req.ip)
+      const locale = await resolveLocale(req, app.prisma)
+      const user = await updateProfile(app.prisma, req.user.id, req.body, locale, req.ip)
       return reply.send(user)
     },
   )
