@@ -1,7 +1,7 @@
 import type { FastifyPluginAsync } from 'fastify'
 import { type ZodTypeProvider } from 'fastify-type-provider-zod'
 import { z } from 'zod'
-import { enrollmentResponseSchema, assignEnrollmentInputSchema, selfEnrollInputSchema } from '@btec-lms/shared'
+import { enrollmentResponseSchema, selfEnrollInputSchema, setEnrollmentDueDateInputSchema } from '@btec-lms/shared'
 import {
   enrollmentListQuerySchema,
   enrollmentParamsSchema,
@@ -10,8 +10,8 @@ import {
   materialProgressResponseSchema,
 } from './enrollments.schema.js'
 import {
-  assignEnrollment,
   selfEnroll,
+  setEnrollmentDueDate,
   listEnrollments,
   listMyEnrollments,
   getEnrollment,
@@ -34,26 +34,7 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
     limit: z.number().int(),
   })
 
-  // POST /enrollments — ADMIN assign user to course
-  server.post('/', {
-    preHandler: [app.requireRole(['ADMIN'])],
-    schema: {
-      body: assignEnrollmentInputSchema,
-      response: { 201: enrollmentResponseSchema },
-    },
-  }, async (req, reply) => {
-    const locale = await resolveLocale(req, app.prisma)
-    const enrollment = await assignEnrollment(
-      app.prisma,
-      req.body,
-      req.user.id,
-      locale,
-      req.ip,
-    )
-    return reply.code(201).send(enrollment)
-  })
-
-  // POST /enrollments/self — USER self-enroll (accessType=PUBLIC required — 2C-2 ชั่วคราว)
+  // POST /enrollments/self — USER self-enroll (PUBLIC ใครก็ได้, POSITION_BASED ต้อง position ตรง — 2C-3)
   server.post('/self', {
     preHandler: [app.verifyJwt],
     schema: {
@@ -217,6 +198,27 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       app.prisma,
       req.params.id,
       req.params.materialId,
+      req.user.id,
+      locale,
+      req.ip,
+    )
+    return reply.send(enrollment)
+  })
+
+  // PATCH /enrollments/:id — ADMIN ตั้ง/เคลียร์ dueAt เท่านั้น (แทนที่ assignEnrollment ที่ลบไปใน 2C-3)
+  server.patch('/:id', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      params: enrollmentParamsSchema,
+      body: setEnrollmentDueDateInputSchema,
+      response: { 200: enrollmentResponseSchema },
+    },
+  }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
+    const enrollment = await setEnrollmentDueDate(
+      app.prisma,
+      req.params.id,
+      req.body,
       req.user.id,
       locale,
       req.ip,

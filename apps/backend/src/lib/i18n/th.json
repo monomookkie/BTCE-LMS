@@ -46,7 +46,8 @@
 
   "error.enrollment.notFound": "ไม่พบข้อมูลการลงทะเบียน",
   "error.enrollment.alreadyEnrolled": "ผู้ใช้ลงทะเบียนหลักสูตรนี้แล้ว",
-  "error.enrollment.selfEnrollNotAllowed": "หลักสูตรนี้ไม่อนุญาตให้ลงทะเบียนด้วยตัวเอง",
+  "error.enrollment.positionRequired": "หลักสูตรนี้จำกัดเฉพาะบางตำแหน่งงาน กรุณาติดต่อผู้ดูแลระบบให้กำหนดตำแหน่งงานให้คุณก่อนลงทะเบียน",
+  "error.enrollment.positionNotAllowed": "หลักสูตรนี้ไม่เปิดให้ตำแหน่งงานของคุณ",
   "error.enrollment.notEnrolled": "คุณต้องลงทะเบียนหลักสูตรนี้ก่อน",
   "error.enrollment.alreadyCompleted": "หลักสูตรนี้เรียนจบแล้ว",
 

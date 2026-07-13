@@ -270,6 +270,7 @@ model Enrollment {
   status             EnrollStatus @default(IN_PROGRESS)
   progress           Int          @default(0) // 0-100
   completedMaterials Json         @default("[]") // string[] ของ materialId
+  isMandatory        Boolean      @default(false) // 2C-3: snapshot จาก course.accessType ตอน enroll — POSITION_BASED=true, PUBLIC=false
   assignedAt         DateTime     @default(now())
   dueAt              DateTime?
   completedAt        DateTime?

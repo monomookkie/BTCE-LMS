@@ -62,12 +62,14 @@ async function publishWithThrowawayQuiz(adminCookies: string, courseId: string) 
   expect(res.statusCode).toBe(200)
 }
 
-async function enroll(adminCookies: string, userId: string, courseId: string) {
+// course ในไฟล์นี้เป็น PUBLIC โดย default — self-enroll ด้วย cookie ของ user เอง
+// แทน assignEnrollment (ADMIN) ที่ถูกลบใน 2C-3
+async function enroll(userCookies: string, courseId: string) {
   const res = await app.inject({
     method: 'POST',
-    url: '/enrollments',
-    headers: { cookie: adminCookies },
-    payload: { userId, courseId },
+    url: '/enrollments/self',
+    headers: { cookie: userCookies },
+    payload: { courseId },
   })
   expect(res.statusCode).toBe(201)
   return res.json()
@@ -285,7 +287,7 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       const { textQId } = await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await app.inject({
         method: 'POST',
@@ -302,7 +304,7 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       const { ratingQId } = await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await app.inject({
         method: 'POST',
@@ -319,7 +321,7 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await app.inject({
         method: 'POST',
@@ -336,7 +338,7 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       const { ratingQId } = await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const first = await app.inject({
         method: 'POST',
@@ -361,7 +363,7 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       const { ratingQId } = await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const before = await app.inject({
         method: 'GET',
@@ -391,7 +393,7 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await app.inject({
         method: 'GET',
@@ -412,7 +414,7 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       const { ratingQId } = await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       await app.inject({
         method: 'POST',
@@ -439,7 +441,7 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user1.userId, course.id)
+      await enroll(user1.cookies, course.id)
 
       const res = await app.inject({
         method: 'GET',
@@ -456,8 +458,8 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       const { ratingQId } = await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user1.userId, course.id)
-      await enroll(admin.cookies, user2.userId, course.id)
+      await enroll(user1.cookies, course.id)
+      await enroll(user2.cookies, course.id)
 
       await app.inject({
         method: 'POST',
@@ -488,8 +490,8 @@ describe('Surveys module', () => {
       const course = await createCourse(admin.cookies)
       const { ratingQId } = await createSurveyWithQuestions(admin.cookies, course.id)
       await publishWithThrowawayQuiz(admin.cookies, course.id)
-      await enroll(admin.cookies, user1.userId, course.id)
-      await enroll(admin.cookies, user2.userId, course.id)
+      await enroll(user1.cookies, course.id)
+      await enroll(user2.cookies, course.id)
 
       await app.inject({
         method: 'POST',
@@ -558,7 +560,7 @@ describe('Surveys module', () => {
       })
       expect(publishRes.statusCode).toBe(200)
 
-      const enrollment = await enroll(admin.cookies, user.userId, course.id)
+      const enrollment = await enroll(user.cookies, course.id)
       await prisma.enrollment.update({ where: { id: enrollment.id }, data: { progress: 100 } })
 
       // pass the quiz
@@ -628,7 +630,7 @@ describe('Surveys module', () => {
         payload: { status: 'PUBLISHED' },
       })
 
-      const enrollment = await enroll(admin.cookies, user.userId, course.id)
+      const enrollment = await enroll(user.cookies, course.id)
       await prisma.enrollment.update({ where: { id: enrollment.id }, data: { progress: 100 } })
 
       await app.inject({
@@ -714,7 +716,7 @@ describe('Surveys module', () => {
       })
       expect(publishRes.statusCode).toBe(200)
 
-      const enrollment = await enroll(admin.cookies, user.userId, course.id)
+      const enrollment = await enroll(user.cookies, course.id)
       await prisma.enrollment.update({ where: { id: enrollment.id }, data: { progress: 100 } })
 
       const quizSubmitRes = await app.inject({

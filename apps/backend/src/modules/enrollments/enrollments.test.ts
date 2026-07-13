@@ -91,13 +91,70 @@ describe('Enrollments module', () => {
     return course.id
   }
 
-  /** Assign user เข้า course — return enrollment */
-  async function assign(adminCookies: string, userId: string, courseId: string) {
+  /** สร้าง PUBLISHED + POSITION_BASED course ผูก 1 position แล้ว return ทั้ง courseId + positionId
+   *  (createPublishedCourse ไม่ return positionId — ต้องใช้ helper แยกสำหรับ test ที่ต้อง
+   *  set user.positionId ให้ตรง/ไม่ตรงกับ position ของ course) */
+  async function createPositionBasedCourse(adminCookies: string): Promise<{ courseId: string; positionId: string }> {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/courses',
+      headers: { cookie: adminCookies },
+      payload: { titleEn: 'Test Course', categoryEn: 'Safety', accessType: 'POSITION_BASED' },
+    })
+    const course = res.json<CourseAdminResponse>()
+
+    await app.inject({
+      method: 'POST',
+      url: `/courses/${course.id}/quiz`,
+      headers: { cookie: adminCookies },
+      payload: { titleEn: 'Test Quiz', passScore: 80 },
+    })
+    await app.inject({
+      method: 'POST',
+      url: `/courses/${course.id}/quiz/questions`,
+      headers: { cookie: adminCookies },
+      payload: {
+        textEn: 'Sample question?',
+        options: [
+          { textEn: 'Correct', isCorrect: true },
+          { textEn: 'Wrong', isCorrect: false },
+        ],
+      },
+    })
+
+    const positionRes = await app.inject({
+      method: 'POST',
+      url: '/positions',
+      headers: { cookie: adminCookies },
+      payload: { nameEn: `Test Position ${Date.now()}-${Math.random()}` },
+    })
+    const position = positionRes.json<{ id: string }>()
+    await app.inject({
+      method: 'PUT',
+      url: `/courses/${course.id}/positions`,
+      headers: { cookie: adminCookies },
+      payload: { positionIds: [position.id] },
+    })
+
+    await app.inject({
+      method: 'PATCH',
+      url: `/courses/${course.id}/status`,
+      headers: { cookie: adminCookies },
+      payload: { status: 'PUBLISHED' },
+    })
+
+    return { courseId: course.id, positionId: position.id }
+  }
+
+  /** Self-enroll user เข้า course (ด้วย cookie ของ user เอง) — return enrollment
+   *  แทนที่ assignEnrollment (ADMIN) ที่ถูกลบใน 2C-3 — course ในไฟล์นี้ต้องเป็น PUBLIC
+   *  ถึงจะ self-enroll ผ่านได้ตาม default ของ createPublishedCourse */
+  async function assign(userCookies: string, courseId: string) {
     return app.inject({
       method: 'POST',
-      url: '/enrollments',
-      headers: { cookie: adminCookies },
-      payload: { userId, courseId },
+      url: '/enrollments/self',
+      headers: { cookie: userCookies },
+      payload: { courseId },
     })
   }
 
@@ -110,62 +167,112 @@ describe('Enrollments module', () => {
     })
   }
 
-  // ─── Assign ────────────────────────────────────────────────────────────────
+  // ─── Self-enroll: PUBLIC / POSITION_BASED matching (2C-3) ──────────────────
 
-  describe('POST /enrollments (assign)', () => {
-    it('ADMIN assigns user → 201, status ASSIGNED', async () => {
+  describe('POST /enrollments/self — access-type gating', () => {
+    it('PUBLIC course → any USER can self-enroll, status IN_PROGRESS, isMandatory=false', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies)
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
 
-      const res = await assign(adminCookies, user.id, courseId)
+      const res = await assign(userCookies, courseId)
       expect(res.statusCode).toBe(201)
 
       const body = res.json<EnrollmentResponse>()
       expect(body.userId).toBe(user.id)
       expect(body.courseId).toBe(courseId)
       expect(body.courseTitle).toBe('Test Course')
-      expect(body.status).toBe('ASSIGNED')
-      expect(body.progress).toBe(0)
+      expect(body.status).toBe('IN_PROGRESS')
+      expect(body.isMandatory).toBe(false)
     })
 
-    it('USER cannot assign → 403', async () => {
+    it('POSITION_BASED course, user.positionId matches a linked position → 201, isMandatory=true', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { user, cookies: userCookies } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies)
+      const { courseId, positionId } = await createPositionBasedCourse(adminCookies)
+      await prisma.user.update({ where: { id: user.id }, data: { positionId } })
 
-      const res = await app.inject({
-        method: 'POST',
-        url: '/enrollments',
-        headers: { cookie: userCookies },
-        payload: { userId: user.id, courseId },
-      })
+      const res = await assign(userCookies, courseId)
+      expect(res.statusCode).toBe(201)
+      expect(res.json<EnrollmentResponse>().isMandatory).toBe(true)
+    })
+
+    it('POSITION_BASED course, user.positionId set but does NOT match any linked position → 403', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { courseId } = await createPositionBasedCourse(adminCookies)
+
+      // user มี position จริง แต่เป็นคนละตำแหน่งกับที่ course ผูกไว้
+      const otherPosition = await prisma.position.create({ data: { nameEn: `Unrelated ${Date.now()}` } })
+      const { user: mismatchedUser, cookies: mismatchedCookies } = await setupUser()
+      await prisma.user.update({ where: { id: mismatchedUser.id }, data: { positionId: otherPosition.id } })
+
+      const res = await assign(mismatchedCookies, courseId)
+      expect(res.statusCode).toBe(403)
+    })
+
+    it('POSITION_BASED course, user.positionId = null (never assigned / "Others") → 403 with positionRequired message', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { cookies: userCookies } = await setupUser()
+      const { courseId } = await createPositionBasedCourse(adminCookies)
+
+      const res = await assign(userCookies, courseId)
       expect(res.statusCode).toBe(403)
     })
 
     it('duplicate active enrollment → 400', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies)
+      const { cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
 
-      await assign(adminCookies, user.id, courseId)
-      const second = await assign(adminCookies, user.id, courseId)
+      await assign(userCookies, courseId)
+      const second = await assign(userCookies, courseId)
       expect(second.statusCode).toBe(400)
     })
 
-    it('audit log ENROLLMENT_ASSIGN written', async () => {
-      const { admin, cookies: adminCookies } = await setupAdmin()
-      const { user } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies)
+    it('audit log ENROLLMENT_SELF written', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { user, cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
 
-      const res = await assign(adminCookies, user.id, courseId)
+      const res = await assign(userCookies, courseId)
       const enrollmentId = res.json<EnrollmentResponse>().id
 
       const log = await prisma.auditLog.findFirst({
-        where: { action: 'ENROLLMENT_ASSIGN', targetId: enrollmentId },
+        where: { action: 'ENROLLMENT_SELF', targetId: enrollmentId },
       })
       expect(log).not.toBeNull()
-      expect(log!.actorId).toBe(admin.id)
+      expect(log!.actorId).toBe(user.id)
+    })
+  })
+
+  // ─── Race closure: concurrent selfEnroll vs accessType change (2C-2 TOCTOU, closed in 2C-3) ──
+
+  describe('Race closure — selfEnroll vs PATCH accessType', () => {
+    it('concurrent self-enroll and accessType change never both succeed inconsistently', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
+
+      const [enrollRes, patchRes] = await Promise.all([
+        app.inject({
+          method: 'POST',
+          url: '/enrollments/self',
+          headers: { cookie: userCookies },
+          payload: { courseId },
+        }),
+        app.inject({
+          method: 'PATCH',
+          url: `/courses/${courseId}`,
+          headers: { cookie: adminCookies },
+          payload: { accessType: 'POSITION_BASED' },
+        }),
+      ])
+
+      // ห้ามเกิดทั้งคู่พร้อมกัน: ถ้า accessType เปลี่ยนสำเร็จ (200) แปลว่า transaction ของ
+      // PATCH เห็น enrollment count = 0 ตอน commit — ซึ่งขัดกับ enroll ที่สำเร็จ (201) พร้อมกัน
+      // ไม่ว่าฝั่งไหนจะ "ชนะ" ก่อน ผลลัพธ์ต้องสอดคล้องกันเสมอ (row lock ปิด race นี้ไว้)
+      const bothSucceeded = patchRes.statusCode === 200 && enrollRes.statusCode === 201
+      expect(bothSucceeded).toBe(false)
     })
   })
 
@@ -182,23 +289,23 @@ describe('Enrollments module', () => {
       expect(res.statusCode).toBe(200)
     }
 
-    it('assignEnrollment: cutoff in the past → 400, enrollmentClosed message', async () => {
+    it('selfEnroll: cutoff in the past → 400, enrollmentClosed message', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       await setEnrollmentCloseAt(adminCookies, courseId, new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
 
-      const res = await assign(adminCookies, user.id, courseId)
+      const res = await assign(userCookies, courseId)
       expect(res.statusCode).toBe(400)
     })
 
-    it('assignEnrollment: cutoff in the future → still allowed', async () => {
+    it('selfEnroll: cutoff in the future → still allowed', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       await setEnrollmentCloseAt(adminCookies, courseId, new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString())
 
-      const res = await assign(adminCookies, user.id, courseId)
+      const res = await assign(userCookies, courseId)
       expect(res.statusCode).toBe(201)
     })
 
@@ -223,7 +330,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
 
       // enroll ก่อนตั้ง cutoff
-      const assignRes = await assign(adminCookies, user.id, courseId)
+      const assignRes = await assign(userCookies, courseId)
       expect(assignRes.statusCode).toBe(201)
 
       // ตั้ง cutoff ย้อนหลังทีหลัง
@@ -240,8 +347,8 @@ describe('Enrollments module', () => {
       expect(ids).toContain(assignRes.json<EnrollmentResponse>().id)
 
       // แต่ user คนใหม่ enroll เพิ่มไม่ได้แล้ว
-      const { user: otherUser } = await setupUser()
-      const secondAssign = await assign(adminCookies, otherUser.id, courseId)
+      const { cookies: otherUserCookies } = await setupUser()
+      const secondAssign = await assign(otherUserCookies, courseId)
       expect(secondAssign.statusCode).toBe(400)
     })
   })
@@ -251,11 +358,11 @@ describe('Enrollments module', () => {
   describe('Cancel → Re-enroll (soft delete uniqueness)', () => {
     it('assign → cancel → assign อีกครั้ง same user+course → 201 ไม่ติด constraint', async () => {
       const { admin, cookies: adminCookies } = await setupAdmin()
-      const { user } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
       // Assign ครั้งแรก
-      const first = await assign(adminCookies, user.id, courseId)
+      const first = await assign(userCookies, courseId)
       expect(first.statusCode).toBe(201)
       const firstId = first.json<EnrollmentResponse>().id
 
@@ -268,7 +375,7 @@ describe('Enrollments module', () => {
       expect(dbRecord?.deletedAt).not.toBeNull()
 
       // Assign ซ้ำคนเดิม course เดิม — ต้องผ่าน (ไม่ติด constraint)
-      const second = await assign(adminCookies, user.id, courseId)
+      const second = await assign(userCookies, courseId)
       expect(second.statusCode).toBe(201)
       const secondId = second.json<EnrollmentResponse>().id
 
@@ -285,51 +392,113 @@ describe('Enrollments module', () => {
 
     it('active enrollment ยังอยู่ → assign ซ้ำ → 400 (app-level check)', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
-      await assign(adminCookies, user.id, courseId)
-      const duplicate = await assign(adminCookies, user.id, courseId)
+      await assign(userCookies, courseId)
+      const duplicate = await assign(userCookies, courseId)
       expect(duplicate.statusCode).toBe(400)
     })
   })
 
-  // ─── Self-enroll ────────────────────────────────────────────────────────────
+  // ─── PATCH /enrollments/:id — ADMIN sets/clears dueAt (แทนที่ assignEnrollment ที่ลบใน 2C-3) ──
 
-  describe('POST /enrollments/self', () => {
-    it('USER self-enroll accessType=PUBLIC → 201, status IN_PROGRESS', async () => {
-      const { cookies: adminCookies } = await setupAdmin()
-      const { user: selfUser, cookies: userCookies } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
+  describe('PATCH /enrollments/:id — dueAt', () => {
+    it('ADMIN sets dueAt → 200, audit log ENROLLMENT_SET_DUE_DATE', async () => {
+      const { admin, cookies: adminCookies } = await setupAdmin()
+      const { cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
+      const dueAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
       const res = await app.inject({
-        method: 'POST',
-        url: '/enrollments/self',
-        headers: { cookie: userCookies },
-        payload: { courseId },
+        method: 'PATCH',
+        url: `/enrollments/${enrolled.id}`,
+        headers: { cookie: adminCookies },
+        payload: { dueAt },
       })
-      expect(res.statusCode).toBe(201)
+      expect(res.statusCode).toBe(200)
+      expect(res.json<EnrollmentResponse>().dueAt).toBe(dueAt)
 
-      const body = res.json<EnrollmentResponse>()
-      expect(body.userId).toBe(selfUser.id)
-      expect(body.courseTitle).toBe('Test Course')
-      expect(body.status).toBe('IN_PROGRESS')
+      const log = await prisma.auditLog.findFirst({
+        where: { action: 'ENROLLMENT_SET_DUE_DATE', targetId: enrolled.id },
+      })
+      expect(log).not.toBeNull()
+      expect(log!.actorId).toBe(admin.id)
     })
 
-    it('USER self-enroll accessType=POSITION_BASED → 403 (2C-2 fail-closed, position matching not yet implemented)', async () => {
+    it('ADMIN clears dueAt with null → 200, dueAt back to null', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { cookies: userCookies } = await setupUser()
-      const courseId = await createPublishedCourse(adminCookies, 'POSITION_BASED')
+      const courseId = await createPublishedCourse(adminCookies)
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
+
+      const dueAt = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString()
+      await app.inject({
+        method: 'PATCH',
+        url: `/enrollments/${enrolled.id}`,
+        headers: { cookie: adminCookies },
+        payload: { dueAt },
+      })
 
       const res = await app.inject({
-        method: 'POST',
-        url: '/enrollments/self',
+        method: 'PATCH',
+        url: `/enrollments/${enrolled.id}`,
+        headers: { cookie: adminCookies },
+        payload: { dueAt: null },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json<EnrollmentResponse>().dueAt).toBeNull()
+    })
+
+    it('USER cannot set dueAt → 403', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/enrollments/${enrolled.id}`,
         headers: { cookie: userCookies },
-        payload: { courseId },
+        payload: { dueAt: new Date().toISOString() },
       })
       expect(res.statusCode).toBe(403)
     })
 
+    it('non-existent enrollment → 404', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/enrollments/${'c'.repeat(25)}`,
+        headers: { cookie: adminCookies },
+        payload: { dueAt: new Date().toISOString() },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('cancelled (soft-deleted) enrollment → 404', async () => {
+      const { cookies: adminCookies } = await setupAdmin()
+      const { cookies: userCookies } = await setupUser()
+      const courseId = await createPublishedCourse(adminCookies)
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
+      await cancel(adminCookies, enrolled.id)
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/enrollments/${enrolled.id}`,
+        headers: { cookie: adminCookies },
+        payload: { dueAt: new Date().toISOString() },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+  })
+
+  // ─── Self-enroll — auth guard ───────────────────────────────────────────────
+  // PUBLIC/POSITION_BASED coverage moved to "POST /enrollments/self — access-type gating" above
+
+  describe('POST /enrollments/self', () => {
     it('unauthenticated self-enroll → 401', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const courseId = await createPublishedCourse(adminCookies, 'PUBLIC')
@@ -351,7 +520,7 @@ describe('Enrollments module', () => {
       const { user, cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
-      const assigned = await assign(adminCookies, user.id, courseId)
+      const assigned = await assign(userCookies, courseId)
       const enrollmentId = assigned.json<EnrollmentResponse>().id
 
       const res = await app.inject({
@@ -365,11 +534,11 @@ describe('Enrollments module', () => {
 
     it("USER gets other user's enrollment → 404 (not 403, gating enumeration)", async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user: otherUser } = await setupUser()
+      const { cookies: otherUserCookies } = await setupUser()
       const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
-      const assigned = await assign(adminCookies, otherUser.id, courseId)
+      const assigned = await assign(otherUserCookies, courseId)
       const enrollmentId = assigned.json<EnrollmentResponse>().id
 
       const res = await app.inject({
@@ -382,10 +551,10 @@ describe('Enrollments module', () => {
 
     it('ADMIN gets any enrollment → 200 + logs ENROLLMENT_VIEW', async () => {
       const { admin, cookies: adminCookies } = await setupAdmin()
-      const { user } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
-      const assigned = await assign(adminCookies, user.id, courseId)
+      const assigned = await assign(userCookies, courseId)
       const enrollmentId = assigned.json<EnrollmentResponse>().id
 
       const res = await app.inject({
@@ -453,7 +622,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
       await openAndPassTimeGate(enrolled.id, matId, userCookies)
 
       const res = await app.inject({
@@ -474,7 +643,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
       await openAndPassTimeGate(enrolled.id, matId, userCookies)
 
       const res = await app.inject({
@@ -497,7 +666,7 @@ describe('Enrollments module', () => {
       const mat1 = await addLinkMaterial(adminCookies, courseId)
       const mat2 = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
       await openAndPassTimeGate(enrolled.id, mat1, userCookies)
 
       // เรียนจบ mat1
@@ -537,7 +706,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, victim.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(victimCookies, courseId)).json<EnrollmentResponse>()
       await openAndPassTimeGate(enrolled.id, matId, victimCookies)
 
       const res = await app.inject({
@@ -555,7 +724,7 @@ describe('Enrollments module', () => {
       const otherCourseId = await createPublishedCourse(adminCookies)
       const otherMat = await addLinkMaterial(adminCookies, otherCourseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       const res = await app.inject({
         method: 'POST',
@@ -573,7 +742,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       const res = await app.inject({
         method: 'POST',
@@ -589,7 +758,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -611,7 +780,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
       await openAndPassTimeGate(enrolled.id, matId, userCookies)
 
       // เปิดซ้ำ — ต้องไม่ reset openedAt กลับเป็นปัจจุบัน
@@ -636,7 +805,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -664,7 +833,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -694,7 +863,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -725,7 +894,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -750,7 +919,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -777,7 +946,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -812,7 +981,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -838,7 +1007,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -879,7 +1048,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -903,7 +1072,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       const res = await app.inject({
         method: 'POST',
@@ -918,12 +1087,12 @@ describe('Enrollments module', () => {
 
     it('IDOR: embed-failed ของ enrollment คนอื่น → 404', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user: victim } = await setupUser()
+      const { cookies: victimCookies } = await setupUser()
       const { cookies: attackerCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, victim.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(victimCookies, courseId)).json<EnrollmentResponse>()
 
       const res = await app.inject({
         method: 'POST',
@@ -939,7 +1108,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       const res = await app.inject({
         method: 'POST',
@@ -952,12 +1121,12 @@ describe('Enrollments module', () => {
 
     it('IDOR: open/progress ของ enrollment คนอื่น → 404', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user: victim } = await setupUser()
+      const { cookies: victimCookies } = await setupUser()
       const { cookies: attackerCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, victim.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(victimCookies, courseId)).json<EnrollmentResponse>()
 
       const openRes = await app.inject({
         method: 'POST',
@@ -988,7 +1157,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       const res = await app.inject({
         method: 'GET',
@@ -1005,7 +1174,7 @@ describe('Enrollments module', () => {
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
 
       await app.inject({
         method: 'POST',
@@ -1038,13 +1207,13 @@ describe('Enrollments module', () => {
     it('returns only own enrollments + courseTitle populated', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { user: u1, cookies: u1Cookies } = await setupUser()
-      const { user: u2 } = await setupUser()
+      const { cookies: u2Cookies } = await setupUser()
 
       const course1 = await createPublishedCourse(adminCookies)
       const course2 = await createPublishedCourse(adminCookies)
 
-      await assign(adminCookies, u1.id, course1)
-      await assign(adminCookies, u2.id, course2)
+      await assign(u1Cookies, course1)
+      await assign(u2Cookies, course2)
 
       const res = await app.inject({
         method: 'GET',
@@ -1064,7 +1233,7 @@ describe('Enrollments module', () => {
       const { user, cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
-      const enrolled = (await assign(adminCookies, user.id, courseId)).json<EnrollmentResponse>()
+      const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
       await cancel(adminCookies, enrolled.id)
 
       const res = await app.inject({

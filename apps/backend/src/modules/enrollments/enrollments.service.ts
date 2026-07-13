@@ -2,8 +2,8 @@ import { Prisma } from '@prisma/client'
 import type { PrismaClient } from '@prisma/client'
 import type {
   EnrollmentResponse,
-  AssignEnrollmentInput,
   SelfEnrollInput,
+  SetEnrollmentDueDateInput,
 } from '@btec-lms/shared'
 import {
   MIN_READ_SECONDS,
@@ -23,6 +23,7 @@ const ENROLLMENT_SELECT = {
   status: true,
   progress: true,
   completedMaterials: true,
+  isMandatory: true,
   assignedAt: true,
   dueAt: true,
   completedAt: true,
@@ -37,6 +38,7 @@ type EnrollmentRecord = {
   status: string
   progress: number
   completedMaterials: unknown
+  isMandatory: boolean
   assignedAt: Date
   dueAt: Date | null
   completedAt: Date | null
@@ -53,6 +55,7 @@ function toEnrollmentResponse(e: EnrollmentRecord, locale: Locale = 'en'): Enrol
     status: e.status as EnrollmentResponse['status'],
     progress: e.progress,
     completedMaterials: (e.completedMaterials as string[]) ?? [],
+    isMandatory: e.isMandatory,
     assignedAt: e.assignedAt.toISOString(),
     dueAt: e.dueAt?.toISOString() ?? null,
     completedAt: e.completedAt?.toISOString() ?? null,
@@ -123,7 +126,12 @@ export async function checkCanComplete(
 }
 
 // ดึง active enrollment เดียว (deletedAt: null) — ใช้แทน findUnique หลังเอา DB unique ออก
-async function findActiveEnrollment(prisma: PrismaClient, userId: string, courseId: string) {
+// รับ Prisma.TransactionClient ด้วย — selfEnroll เรียกจากใน $transaction (2C-3)
+async function findActiveEnrollment(
+  prisma: PrismaClient | Prisma.TransactionClient,
+  userId: string,
+  courseId: string,
+) {
   return prisma.enrollment.findFirst({
     where: { userId, courseId, deletedAt: null },
   })
@@ -344,54 +352,11 @@ export async function updateMaterialProgress(
   return toMaterialProgressResponse(progress)
 }
 
-export async function assignEnrollment(
-  prisma: PrismaClient,
-  input: AssignEnrollmentInput,
-  actorId: string,
-  locale: Locale = 'en',
-  ip?: string,
-): Promise<EnrollmentResponse> {
-  const course = await prisma.course.findFirst({
-    where: { id: input.courseId, deletedAt: null, status: 'PUBLISHED' },
-    select: { id: true, enrollmentCloseAt: true },
-  })
-  if (!course) throw notFound(t('error.course.notFound', undefined, locale))
-  if (course.enrollmentCloseAt != null && course.enrollmentCloseAt < new Date()) {
-    throw badRequest(t('error.course.enrollmentClosed', undefined, locale))
-  }
-
-  const user = await prisma.user.findFirst({
-    where: { id: input.userId, deletedAt: null },
-    select: { id: true },
-  })
-  if (!user) throw notFound(t('error.user.notFound', undefined, locale))
-
-  // app-level uniqueness: ตรวจเฉพาะ active enrollment
-  const existing = await findActiveEnrollment(prisma, input.userId, input.courseId)
-  if (existing) throw badRequest(t('error.enrollment.alreadyEnrolled', undefined, locale))
-
-  const enrollment = await prisma.enrollment.create({
-    data: {
-      userId: input.userId,
-      courseId: input.courseId,
-      status: 'ASSIGNED',
-      ...(input.dueAt != null && { dueAt: new Date(input.dueAt) }),
-    },
-    select: ENROLLMENT_SELECT,
-  })
-
-  await logAudit(prisma, {
-    actorId,
-    action: 'ENROLLMENT_ASSIGN',
-    targetType: 'Enrollment',
-    targetId: enrollment.id,
-    metadata: { userId: input.userId, courseId: input.courseId },
-    ...(ip != null && { ip }),
-  })
-
-  return toEnrollmentResponse(enrollment, locale)
-}
-
+// USER เริ่มเรียนเอง — PUBLIC เข้าได้ทุกคน, POSITION_BASED ต้อง user.positionId ตรงกับ position
+// ที่ course ผูกไว้ (2C-3) ทำทั้งหมดใน $transaction เดียว + lock แถว Course ด้วย FOR UPDATE —
+// ปิด race กับ courses.service.ts's updateCourse (accessType-lock check) ที่ 2C-2 ปิดไม่สมบูรณ์:
+// ฝั่งไหนถึงก่อนจะ lock แถว Course ไว้ อีกฝั่งต้องรอ commit ก่อนถึงจะอ่านค่าที่ถูกต้องจริง
+// (ไม่ใช่แค่ read fresh คนละ transaction ซึ่งยังมี window ให้ interleave กันได้อยู่ดี)
 export async function selfEnroll(
   prisma: PrismaClient,
   input: SelfEnrollInput,
@@ -399,34 +364,91 @@ export async function selfEnroll(
   locale: Locale = 'en',
   ip?: string,
 ): Promise<EnrollmentResponse> {
-  const course = await prisma.course.findFirst({
-    where: { id: input.courseId, deletedAt: null, status: 'PUBLISHED' },
-    select: { id: true, accessType: true, enrollmentCloseAt: true },
+  const enrollment = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT id FROM Course WHERE id = ${input.courseId} FOR UPDATE`
+
+    const course = await tx.course.findFirst({
+      where: { id: input.courseId, deletedAt: null, status: 'PUBLISHED' },
+      select: {
+        id: true,
+        accessType: true,
+        enrollmentCloseAt: true,
+        positions: { select: { positionId: true } },
+      },
+    })
+    if (!course) throw notFound(t('error.course.notFound', undefined, locale))
+    if (course.enrollmentCloseAt != null && course.enrollmentCloseAt < new Date()) {
+      throw badRequest(t('error.course.enrollmentClosed', undefined, locale))
+    }
+
+    const isMandatory = course.accessType === 'POSITION_BASED'
+
+    if (isMandatory) {
+      const user = await tx.user.findFirst({
+        where: { id: userId, deletedAt: null },
+        select: { positionId: true },
+      })
+      // positionId = null (เลือก "Others" ตอนสมัคร) → เข้า POSITION_BASED course ไม่ได้เลย
+      // จนกว่า admin จะตั้ง position ให้ — ข้อความต่างจากกรณี "ตั้งแล้วแต่ไม่ตรง" เพื่อบอก user
+      // ว่าต้องรอ admin ไม่ใช่ปัญหาที่ตัวเอง
+      if (user?.positionId == null) {
+        throw forbidden(t('error.enrollment.positionRequired', undefined, locale))
+      }
+      const allowedPositionIds = new Set(course.positions.map((p) => p.positionId))
+      if (!allowedPositionIds.has(user.positionId)) {
+        throw forbidden(t('error.enrollment.positionNotAllowed', undefined, locale))
+      }
+    }
+
+    const existing = await findActiveEnrollment(tx, userId, input.courseId)
+    if (existing) throw badRequest(t('error.enrollment.alreadyEnrolled', undefined, locale))
+
+    const created = await tx.enrollment.create({
+      data: { userId, courseId: input.courseId, status: 'IN_PROGRESS', isMandatory },
+      select: ENROLLMENT_SELECT,
+    })
+
+    await logAudit(tx, {
+      actorId: userId,
+      action: 'ENROLLMENT_SELF',
+      targetType: 'Enrollment',
+      targetId: created.id,
+      metadata: { courseId: input.courseId, isMandatory },
+      ...(ip != null && { ip }),
+    })
+
+    return created
   })
-  if (!course) throw notFound(t('error.course.notFound', undefined, locale))
-  // 2C-2 ชั่วคราว: PUBLIC เท่านั้นที่เริ่มเรียนเองได้ตอนนี้ — POSITION_BASED fail-closed
-  // ทั้งหมดจนกว่า 2C-3 จะ match position จริง (admin ยังใช้ assignEnrollment แบบ manual ได้)
-  if (course.accessType !== 'PUBLIC') {
-    throw forbidden(t('error.enrollment.selfEnrollNotAllowed', undefined, locale))
-  }
-  if (course.enrollmentCloseAt != null && course.enrollmentCloseAt < new Date()) {
-    throw badRequest(t('error.course.enrollmentClosed', undefined, locale))
-  }
 
-  const existing = await findActiveEnrollment(prisma, userId, input.courseId)
-  if (existing) throw badRequest(t('error.enrollment.alreadyEnrolled', undefined, locale))
+  return toEnrollmentResponse(enrollment, locale)
+}
 
-  const enrollment = await prisma.enrollment.create({
-    data: { userId, courseId: input.courseId, status: 'IN_PROGRESS' },
+// ADMIN ตั้ง/เคลียร์วันครบกำหนดของ enrollment ที่มีอยู่แล้ว — แทนที่ assignEnrollment เดิม
+// ที่ถูกลบใน 2C-3 (ไม่มี frontend ใช้ + bypass access-gating โดยไม่ตั้งใจ) แต่ยังเก็บความสามารถ
+// "ตั้ง due date ให้ user" ไว้ตามที่ยืนยันแล้วว่าเป็น requirement เดิมของโปรเจกต์
+export async function setEnrollmentDueDate(
+  prisma: PrismaClient,
+  id: string,
+  input: SetEnrollmentDueDateInput,
+  actorId: string,
+  locale: Locale = 'en',
+  ip?: string,
+): Promise<EnrollmentResponse> {
+  const existing = await prisma.enrollment.findFirst({ where: { id, deletedAt: null } })
+  if (!existing) throw notFound(t('error.enrollment.notFound', undefined, locale))
+
+  const enrollment = await prisma.enrollment.update({
+    where: { id },
+    data: { dueAt: input.dueAt != null ? new Date(input.dueAt) : null },
     select: ENROLLMENT_SELECT,
   })
 
   await logAudit(prisma, {
-    actorId: userId,
-    action: 'ENROLLMENT_SELF',
+    actorId,
+    action: 'ENROLLMENT_SET_DUE_DATE',
     targetType: 'Enrollment',
-    targetId: enrollment.id,
-    metadata: { courseId: input.courseId },
+    targetId: id,
+    metadata: { dueAt: input.dueAt },
     ...(ip != null && { ip }),
   })
 

@@ -101,12 +101,14 @@ async function createQuizWithQuestions(
   }
 }
 
-async function enroll(adminCookies: string, userId: string, courseId: string) {
+// course ในไฟล์นี้เป็น PUBLIC โดย default (createCourse ไม่ตั้ง accessType) — self-enroll
+// ด้วย cookie ของ user เอง แทน assignEnrollment (ADMIN) ที่ถูกลบใน 2C-3
+async function enroll(userCookies: string, courseId: string) {
   const res = await app.inject({
     method: 'POST',
-    url: '/enrollments',
-    headers: { cookie: adminCookies },
-    payload: { userId, courseId },
+    url: '/enrollments/self',
+    headers: { cookie: userCookies },
+    payload: { courseId },
   })
   expect(res.statusCode).toBe(201)
   return res.json()
@@ -409,7 +411,7 @@ describe('Quizzes module', () => {
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
       await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await app.inject({
         method: 'GET',
@@ -449,7 +451,7 @@ describe('Quizzes module', () => {
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
       await createQuizWithQuestions(admin.cookies, course.id, { shuffle: false })
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const r1 = (await app.inject({ method: 'GET', url: `/courses/${course.id}/quiz/take`, headers: { cookie: user.cookies } })).json()
       const r2 = (await app.inject({ method: 'GET', url: `/courses/${course.id}/quiz/take`, headers: { cookie: user.cookies } })).json()
@@ -501,7 +503,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2CorrectOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
         [q1Id]: q1CorrectOptionId,
@@ -518,7 +520,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
         [q1Id]: q1CorrectOptionId,
@@ -535,7 +537,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id, { passScore: 50 })
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
         [q1Id]: q1CorrectOptionId,
@@ -553,7 +555,7 @@ describe('Quizzes module', () => {
       // passScore=51: score=50 (1 of 2 correct) is exactly passScore-1
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id, { passScore: 51 })
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
         [q1Id]: q1CorrectOptionId,
@@ -570,7 +572,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
         [q1Id]: q1WrongOptionId,
@@ -586,7 +588,7 @@ describe('Quizzes module', () => {
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId } = await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, { [q1Id]: q1CorrectOptionId })
       expect(res.statusCode).toBe(201)
@@ -600,7 +602,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await app.inject({
         method: 'POST',
@@ -625,7 +627,7 @@ describe('Quizzes module', () => {
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
       const { q1Id, q2CorrectOptionId } = await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       // Q1 answered with Q2's option → cross-question assignment rejected
       const res = await submitQuiz(user.cookies, course.id, { [q1Id]: q2CorrectOptionId })
@@ -637,7 +639,7 @@ describe('Quizzes module', () => {
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
       const { q1Id } = await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
         [q1Id]: 'cm0000000000000000000000a', // non-existent cuid
@@ -655,7 +657,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id, { maxAttempts: 2 })
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
         [q1Id]: q1WrongOptionId,
@@ -670,7 +672,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id, { maxAttempts: 1 })
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       const payload = { [q1Id]: q1WrongOptionId, [q2Id]: q2WrongOptionId }
       await submitQuiz(user.cookies, course.id, payload)
@@ -690,7 +692,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2CorrectOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      const enrollment = await enroll(admin.cookies, user.userId, course.id)
+      const enrollment = await enroll(user.cookies, course.id)
 
       // force progress to 100 directly (no materials in this test)
       await prisma.enrollment.update({
@@ -719,7 +721,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      const enrollment = await enroll(admin.cookies, user.userId, course.id)
+      const enrollment = await enroll(user.cookies, course.id)
 
       await prisma.enrollment.update({ where: { id: enrollment.id }, data: { progress: 100 } })
 
@@ -743,7 +745,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id, { passScore: 50 })
-      const enrollment = await enroll(admin.cookies, user.userId, course.id)
+      const enrollment = await enroll(user.cookies, course.id)
 
       // progress stays at default 0
       const res = await submitQuiz(user.cookies, course.id, {
@@ -770,7 +772,7 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user.userId, course.id)
+      await enroll(user.cookies, course.id)
 
       await submitQuiz(user.cookies, course.id, {
         [q1Id]: q1WrongOptionId,
@@ -794,7 +796,7 @@ describe('Quizzes module', () => {
       const user2 = await setup('USER')
       const course = await createCourse(admin.cookies)
       await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user1.userId, course.id)
+      await enroll(user1.cookies, course.id)
 
       const res = await app.inject({
         method: 'GET',
@@ -811,8 +813,8 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user1.userId, course.id)
-      await enroll(admin.cookies, user2.userId, course.id)
+      await enroll(user1.cookies, course.id)
+      await enroll(user2.cookies, course.id)
 
       const payload = { [q1Id]: q1WrongOptionId, [q2Id]: q2WrongOptionId }
       await submitQuiz(user1.cookies, course.id, payload)
@@ -834,8 +836,8 @@ describe('Quizzes module', () => {
       const course = await createCourse(admin.cookies)
       const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id)
-      await enroll(admin.cookies, user1.userId, course.id)
-      await enroll(admin.cookies, user2.userId, course.id)
+      await enroll(user1.cookies, course.id)
+      await enroll(user2.cookies, course.id)
 
       const payload = { [q1Id]: q1WrongOptionId, [q2Id]: q2WrongOptionId }
       await submitQuiz(user1.cookies, course.id, payload)

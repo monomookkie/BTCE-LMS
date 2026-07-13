@@ -10,7 +10,11 @@ interface AuditParams {
   userAgent?: string
 }
 
-export async function logAudit(prisma: PrismaClient, params: AuditParams): Promise<void> {
+// รับ Prisma.TransactionClient ด้วย — เรียกจากใน $transaction ได้ (เช่น selfEnroll ของ 2C-3)
+export async function logAudit(
+  prisma: PrismaClient | Prisma.TransactionClient,
+  params: AuditParams,
+): Promise<void> {
   await prisma.auditLog.create({
     data: {
       action: params.action,

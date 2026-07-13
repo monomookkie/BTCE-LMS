@@ -341,14 +341,14 @@ describe('Materials module', () => {
         payload: { type: 'LINK', titleEn: 'User Visible Material', titleTh: 'เนื้อหา', url: 'https://example.com' },
       })
 
-      // enroll user
+      // enroll user — course เป็น PUBLIC โดย default → self-enroll ได้ (assignEnrollment ถูกลบใน 2C-3)
       const { user, plainPassword } = await createUser({ role: 'USER' })
       const { cookies: userCookies } = await loginAs(app, user.email, plainPassword)
       await app.inject({
         method: 'POST',
-        url: '/enrollments',
-        headers: { cookie: adminCookies },
-        payload: { userId: user.id, courseId: course.id },
+        url: '/enrollments/self',
+        headers: { cookie: userCookies },
+        payload: { courseId: course.id },
       })
 
       const res = await app.inject({

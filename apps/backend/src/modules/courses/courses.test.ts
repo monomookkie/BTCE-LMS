@@ -706,16 +706,17 @@ describe('Courses module', () => {
     it('accessType-lock: course with an active enrollment → PATCH accessType (PUBLIC→POSITION_BASED) → 400', async () => {
       const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
       const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
-      const { user } = await createUser({ role: 'USER' })
+      const { user, plainPassword: userPw } = await createUser({ role: 'USER' })
+      const { cookies: userCookies } = await loginAs(app, user.email, userPw)
       const created = await createPublishedCourseAs(adminCookies, { accessType: 'PUBLIC' })
 
-      const assignRes = await app.inject({
+      const enrollRes = await app.inject({
         method: 'POST',
-        url: '/enrollments',
-        headers: { cookie: adminCookies },
-        payload: { userId: user.id, courseId: created.id },
+        url: '/enrollments/self',
+        headers: { cookie: userCookies },
+        payload: { courseId: created.id },
       })
-      expect(assignRes.statusCode).toBe(201)
+      expect(enrollRes.statusCode).toBe(201)
 
       const res = await app.inject({
         method: 'PATCH',
@@ -729,7 +730,8 @@ describe('Courses module', () => {
     it('accessType-lock: course with an active enrollment → PATCH accessType (POSITION_BASED→PUBLIC) → 400', async () => {
       const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
       const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
-      const { user } = await createUser({ role: 'USER' })
+      const { user, plainPassword: userPw } = await createUser({ role: 'USER' })
+      const { cookies: userCookies } = await loginAs(app, user.email, userPw)
       const created = (await createCourseAs(adminCookies, { accessType: 'POSITION_BASED' })).json<CourseAdminResponse>()
       await addQuizWithQuestion(adminCookies, created.id)
       const positionId = await createPosition(adminCookies)
@@ -745,14 +747,16 @@ describe('Courses module', () => {
         headers: { cookie: adminCookies },
         payload: { status: 'PUBLISHED' },
       })
+      // user ต้องมี position ตรงกับที่ course ผูกไว้ถึงจะ self-enroll ผ่าน (2C-3 position matching)
+      await prisma.user.update({ where: { id: user.id }, data: { positionId } })
 
-      const assignRes = await app.inject({
+      const enrollRes = await app.inject({
         method: 'POST',
-        url: '/enrollments',
-        headers: { cookie: adminCookies },
-        payload: { userId: user.id, courseId: created.id },
+        url: '/enrollments/self',
+        headers: { cookie: userCookies },
+        payload: { courseId: created.id },
       })
-      expect(assignRes.statusCode).toBe(201)
+      expect(enrollRes.statusCode).toBe(201)
 
       const res = await app.inject({
         method: 'PATCH',
@@ -784,16 +788,17 @@ describe('Courses module', () => {
     it('accessType-lock: enrollment cancelled (soft-deleted) → PATCH accessType → 200 (only active enrollments count)', async () => {
       const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
       const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
-      const { user } = await createUser({ role: 'USER' })
+      const { user, plainPassword: userPw } = await createUser({ role: 'USER' })
+      const { cookies: userCookies } = await loginAs(app, user.email, userPw)
       const created = await createPublishedCourseAs(adminCookies, { accessType: 'PUBLIC' })
 
-      const assignRes = await app.inject({
+      const enrollRes = await app.inject({
         method: 'POST',
-        url: '/enrollments',
-        headers: { cookie: adminCookies },
-        payload: { userId: user.id, courseId: created.id },
+        url: '/enrollments/self',
+        headers: { cookie: userCookies },
+        payload: { courseId: created.id },
       })
-      const enrollment = assignRes.json<{ id: string }>()
+      const enrollment = enrollRes.json<{ id: string }>()
 
       // ยืนยันว่า lock ทำงานตอนยังมี active enrollment
       const lockedRes = await app.inject({
@@ -825,14 +830,15 @@ describe('Courses module', () => {
     it('PATCH accessType to the SAME value with active enrollment → 200 (not a real change, lock does not apply)', async () => {
       const { user: admin, plainPassword: adminPw } = await createUser({ role: 'ADMIN' })
       const { cookies: adminCookies } = await loginAs(app, admin.email, adminPw)
-      const { user } = await createUser({ role: 'USER' })
+      const { user, plainPassword: userPw } = await createUser({ role: 'USER' })
+      const { cookies: userCookies } = await loginAs(app, user.email, userPw)
       const created = await createPublishedCourseAs(adminCookies, { accessType: 'PUBLIC' })
 
       await app.inject({
         method: 'POST',
-        url: '/enrollments',
-        headers: { cookie: adminCookies },
-        payload: { userId: user.id, courseId: created.id },
+        url: '/enrollments/self',
+        headers: { cookie: userCookies },
+        payload: { courseId: created.id },
       })
 
       const res = await app.inject({

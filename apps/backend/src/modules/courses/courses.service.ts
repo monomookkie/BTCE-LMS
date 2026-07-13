@@ -228,13 +228,15 @@ export async function updateCourse(
   // accessType-lock: มี enrollment ที่ active (ไม่นับ soft-deleted) ≥1 → ห้ามเปลี่ยน accessType
   // ทั้ง 2 ทิศ — ถอนหมดแล้วแก้ได้ตามปกติ (ตัดสินใจยืนยันแล้วว่านับเฉพาะ active)
   //
-  // เช็ค + update ใน $transaction เดียวกัน (connection เดียว) กัน race ระหว่าง 2 admin PATCH
-  // พร้อมกัน — ไม่ปิด race กับ selfEnroll ที่แทรกระหว่างกลางได้ 100% (ต้องแก้ที่ selfEnroll เอง
-  // ซึ่งจะถูกเขียนใหม่ทั้งฟังก์ชันใน 2C-3 อยู่แล้ว) แต่แคบ window ที่เป็นไปได้จริงลงมาก
+  // lock แถว Course ด้วย FOR UPDATE ก่อนเช็ค — ปิด race กับ selfEnroll (2C-3) ที่ lock แถวเดียวกัน
+  // เช่นกัน: ฝั่งไหนถึงก่อนจะกันอีกฝั่งรอ commit แล้วอ่านค่าที่ถูก ไม่ใช่แค่ fresh-read คนละ
+  // transaction ซึ่งยังมี window ให้ interleave กันได้ (จุดที่ 2C-2 ปิดไม่สมบูรณ์)
   const changingAccessType = input.accessType != null && input.accessType !== existing.accessType
 
   const course = await prisma.$transaction(async (tx) => {
     if (changingAccessType) {
+      await tx.$queryRaw`SELECT id FROM Course WHERE id = ${id} FOR UPDATE`
+
       const activeEnrollmentCount = await tx.enrollment.count({
         where: { courseId: id, deletedAt: null },
       })
