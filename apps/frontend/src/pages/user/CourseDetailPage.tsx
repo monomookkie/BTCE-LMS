@@ -44,7 +44,6 @@ const quizKey = (id: string) => ['quiz', 'take', id] as const
 const attemptsKey = (id: string) => ['quiz', 'attempts', id] as const
 const surveyKey = (id: string) => ['survey', 'take', id] as const
 const ENROLLMENTS_ME_KEY = ['enrollments', 'me'] as const
-const CERTS_ME_KEY = ['certificates', 'me'] as const
 
 // ─── Material icon map ───────────────────────────────────────────────────────
 
@@ -62,10 +61,10 @@ interface QuizRunnerProps {
   courseId: string
   quiz: QuizForUserResponse
   attemptsUsed: number
-  passScore: number
+  passRequiredCount: number
 }
 
-function QuizRunner({ courseId, quiz, attemptsUsed, passScore }: QuizRunnerProps) {
+function QuizRunner({ courseId, quiz, attemptsUsed, passRequiredCount }: QuizRunnerProps) {
   const { t, i18n } = useTranslation()
   const qc = useQueryClient()
   const toast = useToast()
@@ -86,7 +85,6 @@ function QuizRunner({ courseId, quiz, attemptsUsed, passScore }: QuizRunnerProps
       void qc.invalidateQueries({ queryKey: attemptsKey(courseId) })
       if (attempt.passed) {
         void qc.invalidateQueries({ queryKey: ENROLLMENTS_ME_KEY })
-        void qc.invalidateQueries({ queryKey: CERTS_ME_KEY })
       }
     },
     onError: (err) => {
@@ -187,34 +185,21 @@ function QuizRunner({ courseId, quiz, attemptsUsed, passScore }: QuizRunnerProps
               lastAttempt.passed ? 'text-emerald-700' : 'text-red-700',
             ].join(' ')}
           >
-            {lastAttempt.score}%
+            {lastAttempt.correctCount != null && lastAttempt.totalQuestions != null
+              ? `${lastAttempt.correctCount}/${lastAttempt.totalQuestions}`
+              : '—'}
           </span>
           <div>
             <p className={['text-sm font-semibold', lastAttempt.passed ? 'text-emerald-700' : 'text-red-700'].join(' ')}>
               {lastAttempt.passed ? t('quiz.passed') : t('quiz.failed')}
             </p>
             <p className="text-xs text-slate-500">
-              {t('quiz.passThreshold')}: {passScore}%
+              {t('quiz.passThreshold')}: {passRequiredCount}/{quiz.questions.length}
               {' · '}
               {formatDate(lastAttempt.createdAt, i18n.language)}
             </p>
           </div>
         </div>
-
-        {/* Cert earned banner */}
-        {lastAttempt.passed && (
-          <div className="rounded-lg border border-brand-200 bg-brand-50 p-4">
-            <p className="text-sm font-semibold text-brand-700">
-              🎉 {t('courseDetail.certEarned')}
-            </p>
-            <Link
-              to="/certs"
-              className="mt-1 inline-block text-sm text-brand-600 underline underline-offset-2 hover:text-brand-700"
-            >
-              {t('courseDetail.viewCerts')}
-            </Link>
-          </div>
-        )}
 
         {/* Answer review
             NOTE: isCorrect ไม่แสดง — backend ไม่ส่ง isCorrect ใน attempt response
@@ -598,15 +583,6 @@ export default function CourseDetailPage() {
             <p className="text-sm leading-relaxed text-slate-600">{course.description}</p>
           )}
 
-          <div className="flex flex-wrap gap-4 text-xs text-slate-500">
-            {course.expiryMonths != null && (
-              <span>
-                {t('course.expiryMonths')}:{' '}
-                <strong className="text-slate-700">{course.expiryMonths} {t('course.months')}</strong>
-              </span>
-            )}
-          </div>
-
           {course.paperSavingSheets != null && (
             <p className="rounded-lg bg-emerald-50 px-3 py-2 text-xs text-emerald-700">
               {t('course.paperSaving', { count: course.paperSavingSheets })}
@@ -780,7 +756,9 @@ export default function CourseDetailPage() {
                     {[...attempts].reverse().map((a, i) => (
                       <li key={a.id} className="flex items-center gap-3 text-xs">
                         <span className="w-6 text-slate-400">#{i + 1}</span>
-                        <span className="w-12 font-semibold text-slate-700">{a.score}%</span>
+                        <span className="w-12 font-semibold text-slate-700">
+                          {a.correctCount != null && a.totalQuestions != null ? `${a.correctCount}/${a.totalQuestions}` : '—'}
+                        </span>
                         <StatusBadge type="quiz" status={a.passed ? 'passed' : 'failed'} />
                         <span className="text-slate-400">{formatDate(a.createdAt, i18n.language)}</span>
                       </li>
@@ -795,7 +773,7 @@ export default function CourseDetailPage() {
                   courseId={id}
                   quiz={quiz}
                   attemptsUsed={attempts.length}
-                  passScore={quiz.passScore}
+                  passRequiredCount={quiz.passRequiredCount}
                 />
               </div>
             </div>

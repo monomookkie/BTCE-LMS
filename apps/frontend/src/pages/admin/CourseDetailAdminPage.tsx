@@ -23,6 +23,7 @@ import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Input } from '../../components/ui/Input.js'
+import { FileInput } from '../../components/ui/FileInput.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { Card } from '../../components/ui/Card.js'
@@ -218,18 +219,15 @@ function AddFileModal({ isOpen, onClose, courseId }: AddFileModalProps) {
         {/* File input */}
         <div>
           <label className="text-xs font-medium text-slate-700">{t('adminCourse.fileUpload')} *</label>
-          <input
+          <FileInput
             ref={fileRef}
-            type="file"
             required
             accept={fileType === 'PDF' ? '.pdf' : fileType === 'IMAGE' ? '.jpg,.jpeg,.png,.gif,.webp' : '.doc,.docx,.xlsx,.xls,.ppt,.pptx'}
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-700 hover:file:bg-brand-100"
+            file={file}
+            onChange={setFile}
           />
           {file && (
-            <p className="mt-1 text-xs text-slate-400">
-              {file.name} ({formatBytes(file.size)})
-            </p>
+            <p className="mt-1 text-xs text-slate-400">{formatBytes(file.size)}</p>
           )}
         </div>
 
@@ -516,9 +514,6 @@ export default function CourseDetailAdminPage() {
               {course.titleTh && <p className="text-sm text-slate-400">{course.titleTh}</p>}
               <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
                 <span>{t('adminCourse.categoryEn')}: <strong className="text-slate-700">{course.categoryEn}</strong></span>
-                {course.expiryMonths != null && (
-                  <span>{t('adminCourse.expiryMonths')}: <strong className="text-slate-700">{course.expiryMonths} mo</strong></span>
-                )}
                 {course.enrollmentCloseAt != null && (
                   <span>{t('adminCourse.enrollmentCloseAt')}: <strong className="text-slate-700">{new Date(course.enrollmentCloseAt).toLocaleDateString()}</strong></span>
                 )}

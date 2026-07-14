@@ -44,7 +44,6 @@ const courseFormSchema = z.object({
   categoryTh:           z.string().max(100).optional(),
   descriptionEn:        z.string().max(5000).optional(),
   descriptionTh:        z.string().max(5000).optional(),
-  expiryMonthsRaw:      z.string().optional(),
   enrollmentCloseAtRaw: z.string().optional(),
   paperSavingSheetsRaw: z.string().optional(),
   accessType:           z.enum(['PUBLIC', 'POSITION_BASED']),
@@ -60,7 +59,7 @@ interface CourseFormModalProps {
 }
 
 function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const toast = useToast()
   const qc = useQueryClient()
 
@@ -71,7 +70,7 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
   const [selectedPositionIds, setSelectedPositionIds] = useState<string[]>(originalPositionIds)
 
   const { data: positions } = useQuery({
-    queryKey: ['admin', 'positions'],
+    queryKey: ['admin', 'positions', i18n.language],
     queryFn: listAdminPositions,
   })
 
@@ -100,14 +99,13 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
       categoryTh:           editCourse.categoryTh ?? '',
       descriptionEn:        editCourse.descriptionEn ?? '',
       descriptionTh:        editCourse.descriptionTh ?? '',
-      expiryMonthsRaw:      editCourse.expiryMonths != null ? String(editCourse.expiryMonths) : '',
       enrollmentCloseAtRaw: editCourse.enrollmentCloseAt != null ? editCourse.enrollmentCloseAt.slice(0, 10) : '',
       paperSavingSheetsRaw: editCourse.paperSavingSheets != null ? String(editCourse.paperSavingSheets) : '',
       accessType:           editCourse.accessType,
     } : {
       titleEn: '', titleTh: '', categoryEn: '', categoryTh: '',
       descriptionEn: '', descriptionTh: '',
-      expiryMonthsRaw: '', enrollmentCloseAtRaw: '', paperSavingSheetsRaw: '',
+      enrollmentCloseAtRaw: '', paperSavingSheetsRaw: '',
       accessType: 'PUBLIC',
     },
   })
@@ -121,7 +119,6 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
     ...(values.categoryTh?.trim() ? { categoryTh: values.categoryTh.trim() } : {}),
     ...(values.descriptionEn?.trim() ? { descriptionEn: values.descriptionEn.trim() } : {}),
     ...(values.descriptionTh?.trim() ? { descriptionTh: values.descriptionTh.trim() } : {}),
-    expiryMonths: values.expiryMonthsRaw ? parseInt(values.expiryMonthsRaw) : null,
     enrollmentCloseAt: values.enrollmentCloseAtRaw
       ? new Date(`${values.enrollmentCloseAtRaw}T23:59:59`).toISOString()
       : null,
@@ -175,6 +172,17 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
         return prev.filter((p) => p !== id)
       }
       return [...prev, id]
+    })
+  }
+
+  // เคลียร์ทั้งหมด — ถ้าติด course-position-removal-gate (published + ต้องเหลือ ≥1) ให้เหลือตัวแรกไว้
+  // แทนที่จะเคลียร์จนหมด (พฤติกรรมเดียวกับ toggle ทีละอันที่ล็อกตัวสุดท้ายไว้)
+  const clearPositions = () => {
+    setSelectedPositionIds((prev) => {
+      if (editCourse?.status === 'PUBLISHED' && accessTypeValue === 'POSITION_BASED' && prev.length > 0) {
+        return [prev[0]] as string[]
+      }
+      return []
     })
   }
 
@@ -239,15 +247,7 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
         </div>
 
         {/* Numeric + date fields */}
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-          <Input
-            label={t('adminCourse.expiryMonths')}
-            type="number"
-            min={1}
-            placeholder="—"
-            disabled={isArchived}
-            {...register('expiryMonthsRaw')}
-          />
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label={t('adminCourse.enrollmentCloseAt')}
             type="date"
@@ -289,7 +289,18 @@ function CourseFormModal({ isOpen, onClose, editCourse }: CourseFormModalProps) 
 
         {accessTypeValue === 'POSITION_BASED' && (
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-slate-700">{t('adminCourse.positions')}</label>
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-sm font-medium text-slate-700">{t('adminCourse.positions')}</label>
+              {selectedPositionIds.length > 0 && !isArchived && (
+                <button
+                  type="button"
+                  onClick={clearPositions}
+                  className="text-xs font-medium text-slate-500 hover:text-slate-700"
+                >
+                  {t('adminCourse.clearPositions')}
+                </button>
+              )}
+            </div>
             <p className="text-xs text-slate-500">{t('adminCourse.positionsHelp')}</p>
             {(positions ?? []).length === 0 ? (
               <p className="rounded-xl bg-slate-50 px-4 py-3 text-xs text-slate-500">
@@ -404,7 +415,7 @@ export default function CourseManagementPage() {
     () => [
       {
         key: 'titleEn',
-        header: t('adminCourse.titleEn'),
+        header: t('adminCourse.columnTitle'),
         skeleton: 'text-sub',
         render: (c) => (
           <div>

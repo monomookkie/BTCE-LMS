@@ -34,7 +34,6 @@ model User {
   externalCertificates ExternalCertificate[]
   refreshTokens        RefreshToken[]
   consents             Consent[]
-  notifications        Notification[]
 
   @@index([email])
   @@index([deletedAt])
@@ -45,12 +44,16 @@ model User {
 // structured lookup table แทน User.position free-text เดิม — ให้ course
 // access model (2C-2) ผูก position ได้แม่นยำ (ไม่พึ่ง string matching)
 model Position {
-  id        String    @id @default(cuid())
-  nameEn    String
-  nameTh    String?
-  deletedAt DateTime?
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
+  id           String    @id @default(cuid())
+  nameEn       String
+  nameTh       String?
+  // true = สงวนไว้สำหรับ system/admin ใช้เท่านั้น (เช่น "Administrator") — ไม่ขึ้นให้เลือกในหน้า
+  // self-register สาธารณะ (GET /positions filter ออก) แต่ ADMIN ยัง assign ให้ user อื่นได้ปกติผ่าน
+  // /positions/admin — ไม่มี UI ให้ admin สร้าง/แก้ flag นี้เอง (ตั้งใจ กันสร้างเพิ่มเรื่อยๆ)
+  isSystemOnly Boolean   @default(false)
+  deletedAt    DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   users User[]
   courses CoursePosition[]
@@ -89,7 +92,6 @@ model Course {
   descriptionEn String?      @db.Text
   descriptionTh String?      @db.Text
   status        CourseStatus @default(DRAFT)
-  expiryMonths    Int? // ต้องต่ออายุทุกกี่เดือน (null = ไม่หมดอายุ)
   enrollmentCloseAt DateTime? // ปิดรับลงทะเบียนใหม่หลังวันนี้ (null = ไม่มีกำหนด) — ผู้ที่ลงแล้วเรียนต่อได้ตามปกติ
   paperSavingSheets Int? // จำนวนกระดาษที่ประหยัดได้ต่อผู้เรียน 1 คน (null = ไม่แสดงข้อความ)
   accessType   CourseAccessType @default(PUBLIC) // 2C-2: POSITION_BASED (บังคับ) | PUBLIC (สมัครใจ) — แทน allowSelfEnroll เดิม
@@ -169,7 +171,9 @@ model Quiz {
   courseId    String    @unique
   titleEn     String
   titleTh     String?
-  passScore   Int       @default(80) // เกณฑ์คะแนนผ่าน (%) — ย้ายมาจาก Course (2A)
+  // เกณฑ์ผ่าน = ต้องตอบถูกกี่ข้อ (จำนวนเต็ม ไม่ใช่ %) — เปลี่ยนจาก passScore% เดิมเพื่อให้ admin
+  // ตั้งค่าง่ายขึ้น ("ต้องตอบถูก 8 จาก 10 ข้อ" แทน "ต้องได้ 80%") และตัด rounding ambiguity ตอนเกรด
+  passRequiredCount Int       @default(1)
   maxAttempts Int? // null = ไม่จำกัด
   shuffle     Boolean   @default(true)
   deletedAt   DateTime?
@@ -210,6 +214,10 @@ model QuizAttempt {
   score     Int
   passed    Boolean
   answers   Json // { questionId: optionId } เก็บไว้ทบทวน
+  // ตอบถูกกี่ข้อ/เต็มกี่ข้อ — snapshot ตอนสอบจริง (nullable: attempt เก่าก่อน migration นี้ไม่มีค่า
+  // แสดง "—" แทน ไม่ backfill เดาย้อนหลัง เพราะข้อสอบอาจถูกแก้/ลบไปแล้วหลังจากสอบทำให้คำนวณผิด)
+  correctCount    Int?
+  totalQuestions  Int?
   createdAt DateTime @default(now())
 
   quiz Quiz @relation(fields: [quizId], references: [id])
@@ -369,11 +377,12 @@ model Announcement {
   id          String             @id @default(cuid())
   titleEn     String
   titleTh     String?
-  contentEn   String             @db.Text
+  contentEn   String?            @db.Text
   contentTh   String?            @db.Text
   type        String             @default("INFO")
   status      AnnouncementStatus @default(DRAFT)
   fileKey     String?
+  fileMimeType String?
   link        String?
   publishedAt DateTime?
   createdById String?
@@ -415,16 +424,3 @@ model Consent {
   @@index([userId, type])
 }
 
-model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  title     String
-  body      String?
-  link      String?
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
-
-  user User @relation(fields: [userId], references: [id])
-
-  @@index([userId, readAt])
-}

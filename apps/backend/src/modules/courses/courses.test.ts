@@ -144,13 +144,11 @@ describe('Courses module', () => {
       const res = await createCourseAs(cookies, {
         titleEn: 'Blood Donation Fundamentals',
         categoryEn: 'Clinical',
-        expiryMonths: 12,
       })
 
       expect(res.statusCode).toBe(201)
       const body = res.json<CourseAdminResponse>()
       expect(body.status).toBe('DRAFT')
-      expect(body.expiryMonths).toBe(12)
       expect(body.createdById).toBe(user.id)
 
       const log = await prisma.auditLog.findFirst({
@@ -183,12 +181,11 @@ describe('Courses module', () => {
         method: 'PATCH',
         url: `/courses/${created.id}`,
         headers: { cookie: cookies },
-        payload: { titleEn: 'Updated Title', expiryMonths: 6 },
+        payload: { titleEn: 'Updated Title' },
       })
       expect(res.statusCode).toBe(200)
       const body = res.json<CourseAdminResponse>()
       expect(body.title).toBe('Updated Title') // localized field
-      expect(body.expiryMonths).toBe(6)
       expect(body.version).toBe(created.version + 1)
 
       const log = await prisma.auditLog.findFirst({
@@ -245,7 +242,40 @@ describe('Courses module', () => {
         method: 'POST',
         url: `/courses/${created.id}/quiz`,
         headers: { cookie: cookies },
-        payload: { titleEn: 'Empty Quiz', passScore: 80 },
+        payload: { titleEn: 'Empty Quiz', passRequiredCount: 1 },
+      })
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${created.id}/status`,
+        headers: { cookie: cookies },
+        payload: { status: 'PUBLISHED' },
+      })
+      expect(res.statusCode).toBe(400)
+    })
+
+    it('publish with a quiz whose passRequiredCount exceeds its question count → 400', async () => {
+      const { user, plainPassword } = await createUser({ role: 'ADMIN' })
+      const { cookies } = await loginAs(app, user.email, plainPassword)
+      const created = (await createCourseAs(cookies)).json<CourseAdminResponse>()
+
+      await app.inject({
+        method: 'POST',
+        url: `/courses/${created.id}/quiz`,
+        headers: { cookie: cookies },
+        payload: { titleEn: 'Quiz', passRequiredCount: 5 },
+      })
+      await app.inject({
+        method: 'POST',
+        url: `/courses/${created.id}/quiz/questions`,
+        headers: { cookie: cookies },
+        payload: {
+          textEn: 'Only question',
+          options: [
+            { textEn: 'A', isCorrect: true },
+            { textEn: 'B', isCorrect: false },
+          ],
+        },
       })
 
       const res = await app.inject({

@@ -18,7 +18,7 @@ import {
   setCoursePositions,
   softDeleteCourse,
 } from './courses.service.js'
-import { resolveLocale } from '../../lib/i18n.js'
+import { t, resolveLocale } from '../../lib/i18n.js'
 
 const coursesRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -108,7 +108,7 @@ const coursesRoutes: FastifyPluginAsync = async (app) => {
   }, async (req, reply) => {
     const locale = await resolveLocale(req, app.prisma)
     await softDeleteCourse(app.prisma, req.params.id, req.user.id, locale, req.ip)
-    return reply.send({ message: 'Course deleted' })
+    return reply.send({ message: t('success.course.deleted', undefined, locale) })
   })
 }
 

@@ -24,7 +24,6 @@ const COURSE_SELECT = {
   descriptionEn: true,
   descriptionTh: true,
   status: true,
-  expiryMonths: true,
   enrollmentCloseAt: true,
   paperSavingSheets: true,
   accessType: true,
@@ -46,7 +45,6 @@ type CourseRecord = {
   descriptionEn: string | null
   descriptionTh: string | null
   status: 'DRAFT' | 'PUBLISHED' | 'ARCHIVED'
-  expiryMonths: number | null
   enrollmentCloseAt: Date | null
   paperSavingSheets: number | null
   accessType: 'POSITION_BASED' | 'PUBLIC'
@@ -71,7 +69,6 @@ function toCourseAdminShape(course: CourseRecord, locale: Locale): CourseAdminRe
     descriptionEn: course.descriptionEn ?? null,
     descriptionTh: course.descriptionTh ?? null,
     status: course.status,
-    expiryMonths: course.expiryMonths,
     enrollmentCloseAt: course.enrollmentCloseAt?.toISOString() ?? null,
     paperSavingSheets: course.paperSavingSheets,
     accessType: course.accessType,
@@ -234,7 +231,6 @@ export async function createCourse(
       categoryTh: input.categoryTh ?? null,
       descriptionEn: input.descriptionEn ?? null,
       descriptionTh: input.descriptionTh ?? null,
-      ...(input.expiryMonths != null && { expiryMonths: input.expiryMonths }),
       ...(input.enrollmentCloseAt != null && { enrollmentCloseAt: new Date(input.enrollmentCloseAt) }),
       ...(input.paperSavingSheets != null && { paperSavingSheets: input.paperSavingSheets }),
       accessType: input.accessType,
@@ -296,7 +292,6 @@ export async function updateCourse(
         ...('categoryTh' in input && { categoryTh: input.categoryTh ?? null }),
         ...('descriptionEn' in input && { descriptionEn: input.descriptionEn ?? null }),
         ...('descriptionTh' in input && { descriptionTh: input.descriptionTh ?? null }),
-        ...('expiryMonths' in input && { expiryMonths: input.expiryMonths ?? null }),
         ...('enrollmentCloseAt' in input && {
           enrollmentCloseAt: input.enrollmentCloseAt != null ? new Date(input.enrollmentCloseAt) : null,
         }),
@@ -343,6 +338,12 @@ export async function updateCourseStatus(
       : 0
     if (!quiz || questionCount === 0) {
       throw badRequest(t('error.course.quizRequiredToPublish', undefined, locale))
+    }
+
+    // เกณฑ์ผ่าน (passRequiredCount) ต้องไม่เกินจำนวนคำถามจริง — กัน publish quiz ที่ไม่มีทาง
+    // สอบผ่านได้เลย (เช่นตั้งไว้ตอนยังไม่มีคำถามครบ แล้วลืมกลับมาแก้)
+    if (quiz.passRequiredCount > questionCount) {
+      throw badRequest(t('error.quiz.passRequiredCountExceedsQuestions', { passRequiredCount: quiz.passRequiredCount, questionCount }, locale))
     }
 
     // POSITION_BASED ต้องผูก position ไว้อย่างน้อย 1 อัน ถึง publish ได้ — คู่กับ quiz-gate ด้านบน

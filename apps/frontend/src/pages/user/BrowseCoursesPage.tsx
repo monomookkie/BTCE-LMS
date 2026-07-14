@@ -151,11 +151,6 @@ export default function BrowseCoursesPage() {
                 </div>
 
                 <div className="mt-auto space-y-1 text-xs text-slate-500">
-                  {course.expiryMonths != null && (
-                    <p>
-                      {t('course.expiryMonths')}: {course.expiryMonths} {t('course.months')}
-                    </p>
-                  )}
                   {course.paperSavingSheets != null && (
                     <p className="text-emerald-600">
                       {t('course.paperSaving', { count: course.paperSavingSheets })}

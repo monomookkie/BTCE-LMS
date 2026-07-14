@@ -79,7 +79,6 @@ describe('serializeByRole() — ใช้ coursePublicResponseSchema / courseAdm
     status: 'PUBLISHED' as const,
     enrollmentCloseAt: null,
     paperSavingSheets: null,
-    expiryMonths: null,
     accessType: 'PUBLIC' as const,
     positions: [],
     createdById: null,
