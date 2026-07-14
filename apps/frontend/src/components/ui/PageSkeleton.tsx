@@ -1,6 +1,7 @@
 import { Skeleton } from './Skeleton.js'
 import { StatCardSkeleton } from './StatCard.js'
 import { Card } from './Card.js'
+import { LOGO_URL } from '../../lib/branding.js'
 
 type PageSkeletonVariant = 'app' | 'content' | 'auth' | 'dashboard' | 'courses' | 'table'
 
@@ -12,17 +13,31 @@ interface PageSkeletonProps {
 // แต่ละ variant ประมาณโครง layout ของกลุ่มหน้านั้นให้ใกล้เคียงกับ skeleton ละเอียดที่หน้านั้นแสดงเองหลัง mount
 // เพื่อไม่ให้เห็นการกระพริบ 2 จังหวะตอน transition จาก route-level เข้าสู่ per-page skeleton
 export function PageSkeleton({ variant = 'content' }: PageSkeletonProps) {
+  // 'app' คือ fallback ของ RootRedirect (เช็ค useAuth() ตอนเปิดแอปครั้งแรกก่อนรู้ว่าจะเด้งไป /login หรือ /dashboard)
+  // ทำหน้าตาให้เหมือน static splash ใน index.html เป๊ะๆ (โลโก้ + วงแหวนหมุนบนพื้น navy gradient เดียวกัน)
+  // ไม่งั้นตอน React เข้ามาแทนที่ splash แล้วจะเห็นเปลี่ยนจากโลโก้สวยๆ เป็นจุดเทาๆ ธรรมดาแวบหนึ่งก่อนเข้าหน้าจริง
   if (variant === 'app') {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <Skeleton className="h-10 w-10 rounded-full" />
+      <div
+        className="flex min-h-screen items-center justify-center"
+        style={{ background: 'linear-gradient(135deg,#061523,#0D1B2A,#1A3A5C,#1A56DB)' }}
+      >
+        <div className="relative flex h-[72px] w-[72px] items-center justify-center">
+          <div className="absolute inset-0 animate-spin rounded-full border-[3px] border-white/15 border-t-white" />
+          <img src={LOGO_URL} alt="" className="h-[52px] w-[52px] animate-pulse rounded-[11px] object-contain" />
+        </div>
       </div>
     )
   }
 
+  // ต้องมี background gradient เดียวกับหน้า Login/Register/PrivacyPolicy จริง (ไม่ใช่พึ่งพื้นหลัง body เฉยๆ)
+  // ไม่งั้นตอน lazy chunk ของหน้ากำลังโหลด (Suspense fallback) จะเห็นเป็นพื้นขาวโล่งก่อนสลับเป็นหน้าจริง
   if (variant === 'auth') {
     return (
-      <div className="flex min-h-screen items-center justify-center p-4">
+      <div
+        className="flex min-h-screen items-center justify-center p-4"
+        style={{ background: 'linear-gradient(135deg,#061523,#0D1B2A,#1A3A5C,#1A56DB)' }}
+      >
         <div className="w-full max-w-md overflow-hidden rounded-2xl bg-white shadow-xl">
           <div className="space-y-3 px-8 py-6">
             <Skeleton className="h-5 w-40 bg-slate-300" />

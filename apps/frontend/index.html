@@ -2,15 +2,97 @@
 <html lang="th">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/png" href="https://res.cloudinary.com/datpuaarj/image/upload/v1784013121/branding/logo.png" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <title>BTEC LMS</title>
+
+    <!-- PWA — "Add to Home Screen" (icon + standalone launch, no offline/service worker) -->
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#0D1B2A" />
+
+    <!-- iOS Safari ไม่อ่าน manifest.json เต็มรูปแบบ — ต้องใส่ apple-* tag แยกเพื่อให้ Add to Home Screen ได้ไอคอน/ชื่อ/โหมด standalone ถูกต้อง -->
+    <link rel="apple-touch-icon" href="/icon-180.png" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="BTEC LMS" />
+
+    <!-- iOS launch screen (apple-touch-startup-image) — ต้องเป็นไฟล์ same-origin (ไม่ใช่ URL ต่างโดเมนอย่าง
+         Cloudinary) ถึงจะให้ iOS fetch/cache ตอน "Add to Home Screen" ได้เชื่อถือได้ — ดาวน์โหลดมาเก็บไว้ใน
+         public/splash/ ล่วงหน้าแล้ว ครอบคลุม iPhone SE ถึง 16 Pro Max และ iPad ทุกรุ่นที่ยังขายอยู่ปัจจุบัน -->
+    <link rel="apple-touch-startup-image" media="(device-width: 320px) and (device-height: 568px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-640x1136.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 667px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-750x1334.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 736px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/splash-1242x2208.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 375px) and (device-height: 812px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/splash-1125x2436.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-828x1792.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 414px) and (device-height: 896px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/splash-1242x2688.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 390px) and (device-height: 844px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/splash-1170x2532.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 393px) and (device-height: 852px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/splash-1179x2556.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 428px) and (device-height: 926px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/splash-1284x2778.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 430px) and (device-height: 932px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/splash-1290x2796.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 440px) and (device-height: 956px) and (-webkit-device-pixel-ratio: 3) and (orientation: portrait)" href="/splash/splash-1320x2868.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-1536x2048.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 810px) and (device-height: 1080px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-1620x2160.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 820px) and (device-height: 1180px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-1640x2360.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-1668x2224.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 834px) and (device-height: 1194px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-1668x2388.png" />
+    <link rel="apple-touch-startup-image" media="(device-width: 1024px) and (device-height: 1366px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)" href="/splash/splash-2048x2732.png" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,300;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,300;1,9..40,400;1,9..40,500&display=swap" rel="stylesheet" />
+
+    <!-- เผื่อจอขาวโล่งตอนเปิดครั้งแรก (โดยเฉพาะ PWA standalone ที่ไม่มี browser UI/progress bar ให้เห็นว่ากำลังโหลด) —
+         ตั้งพื้นหลัง+โลโก้ไว้ตรงนี้เป็น static HTML ไม่ต้องรอ JS bundle โหลดเสร็จก่อน React จะเข้ามาแทนที่เนื้อหาใน #root เองอัตโนมัติตอน mount -->
+    <style>
+      html, body { background: #0D1B2A; }
+      #splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, #061523, #0D1B2A, #1A3A5C, #1A56DB);
+      }
+      #splash .splash-mark {
+        position: relative;
+        width: 72px;
+        height: 72px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+      }
+      #splash .splash-ring {
+        position: absolute;
+        inset: 0;
+        border-radius: 50%;
+        border: 3px solid rgba(255, 255, 255, 0.15);
+        border-top-color: #ffffff;
+        animation: splash-spin 0.9s linear infinite;
+      }
+      #splash img {
+        width: 52px;
+        height: 52px;
+        border-radius: 11px;
+        object-fit: contain;
+        animation: splash-pulse 1.6s ease-in-out infinite;
+      }
+      @keyframes splash-spin {
+        to { transform: rotate(360deg); }
+      }
+      @keyframes splash-pulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.55; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div id="splash">
+        <div class="splash-mark">
+          <div class="splash-ring"></div>
+          <img src="data:image/png;base64,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" alt="" />
+        </div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

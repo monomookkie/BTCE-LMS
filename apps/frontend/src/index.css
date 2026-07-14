@@ -9,3 +9,17 @@
     font-size: 16px;
   }
 }
+
+/* iOS Safari (phone + iPad) auto-zooms the page on focus of any form field whose
+   computed font-size is below 16px — most inputs here use text-xs/text-sm (12-14px).
+   Tailwind v3's `@layer` is compiled away (not emitted as native CSS cascade layers),
+   so plain specificity rules apply — a bare tag selector here loses to Tailwind's
+   `.text-sm` class utilities regardless of source order. !important is required to
+   win. Scoped to <=1024px so desktop keeps the smaller, denser admin-table type. */
+@media (max-width: 1024px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}
