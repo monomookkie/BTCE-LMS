@@ -32,7 +32,6 @@
     "fastify-plugin": "^4.5.1",
     "fastify-type-provider-zod": "^2.0.0",
     "pino": "^9.4.0",
-    "resend": "^6.16.0",
     "zod": "^3.23.0"
   },
   "devDependencies": {
