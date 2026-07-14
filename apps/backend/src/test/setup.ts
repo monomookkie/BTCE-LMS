@@ -11,7 +11,6 @@ beforeEach(async () => {
   await prisma.$transaction([
     prisma.auditLog.deleteMany(),
     prisma.consent.deleteMany(),
-    prisma.notification.deleteMany(),
     prisma.quizAttempt.deleteMany(),
     prisma.surveyResponse.deleteMany(), // FK → survey
     prisma.surveyQuestion.deleteMany(), // FK → survey

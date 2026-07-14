@@ -3,7 +3,6 @@ import { useTranslation } from 'react-i18next'
 import { Menu, PanelLeftClose, PanelLeftOpen } from 'lucide-react'
 import { LanguageSwitcher } from '../LanguageSwitcher.js'
 import { useAuth } from '../../hooks/useAuth.js'
-import { NotificationBell } from './NotificationBell.js'
 
 interface TopBarProps {
   onMenuClick: () => void
@@ -39,15 +38,15 @@ export function TopBar({ onMenuClick, isSidebarCollapsed, onSidebarToggle }: Top
         <button
           className="shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 md:hidden"
           onClick={onMenuClick}
-          aria-label="Open sidebar"
+          aria-label={t('common.openSidebar')}
         >
           <Menu size={18} />
         </button>
         <button
           className="hidden shrink-0 rounded-md p-1.5 text-slate-500 hover:bg-slate-100 hover:text-slate-700 md:inline-flex"
           onClick={onSidebarToggle}
-          aria-label={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
-          title={isSidebarCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-label={isSidebarCollapsed ? t('common.expandSidebar') : t('common.collapseSidebar')}
+          title={isSidebarCollapsed ? t('common.expandSidebar') : t('common.collapseSidebar')}
         >
           {isSidebarCollapsed ? <PanelLeftOpen size={18} /> : <PanelLeftClose size={18} />}
         </button>
@@ -57,11 +56,9 @@ export function TopBar({ onMenuClick, isSidebarCollapsed, onSidebarToggle }: Top
         </div>
       </div>
 
-      {/* Right: lang switcher + bell */}
+      {/* Right: lang switcher */}
       <div className="flex shrink-0 items-center gap-2.5">
         <LanguageSwitcher isAuthenticated={!!user} />
-
-        <NotificationBell />
       </div>
     </header>
   )

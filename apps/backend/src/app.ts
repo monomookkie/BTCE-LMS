@@ -24,7 +24,6 @@ import surveysRoutes from './modules/surveys/surveys.routes.js'
 import certificatesRoutes from './modules/certificates/certificates.routes.js'
 import reportsRoutes from './modules/reports/reports.routes.js'
 import announcementsRoutes from './modules/announcements/announcements.routes.js'
-import notificationsRoutes from './modules/notifications/notifications.routes.js'
 
 export async function buildApp() {
   const app = Fastify({
@@ -91,7 +90,6 @@ export async function buildApp() {
   await app.register(certificatesRoutes)
   await app.register(reportsRoutes)
   await app.register(announcementsRoutes)
-  await app.register(notificationsRoutes, { prefix: '/notifications' })
 
   return app
 }
