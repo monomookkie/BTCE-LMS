@@ -8,6 +8,8 @@ import { PageSkeleton } from './components/ui/PageSkeleton.js'
 import LoginPage from './pages/auth/LoginPage.js'
 import RegisterPage from './pages/auth/RegisterPage.js'
 
+const PrivacyPolicyPage = lazy(() => import('./pages/PrivacyPolicyPage.js'))
+
 const ProfilePage = lazy(() => import('./pages/profile/ProfilePage.js'))
 const UserDashboardPage = lazy(() => import('./pages/user/UserDashboardPage.js'))
 const BrowseCoursesPage = lazy(() => import('./pages/user/BrowseCoursesPage.js'))
@@ -37,6 +39,14 @@ export default function App() {
       <Route path="/" element={<RootRedirect />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/register" element={<RegisterPage />} />
+      <Route
+        path="/privacy-policy"
+        element={
+          <Suspense fallback={<PageSkeleton variant="auth" />}>
+            <PrivacyPolicyPage />
+          </Suspense>
+        }
+      />
 
       {/* Authenticated (any role) — wrapped in AppLayout */}
       <Route element={<RequireAuth />}>

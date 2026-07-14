@@ -1,4 +1,4 @@
-import type { ChangePasswordInput, UpdateProfileInput, UserResponse } from '@btec-lms/shared'
+import type { ChangePasswordInput, UpdateProfileInput, UserResponse, ConsentInput } from '@btec-lms/shared'
 import { apiFetch } from '../lib/api.js'
 
 export function patchProfile(body: Omit<UpdateProfileInput, 'language'>): Promise<UserResponse> {
@@ -7,4 +7,8 @@ export function patchProfile(body: Omit<UpdateProfileInput, 'language'>): Promis
 
 export function changePassword(body: ChangePasswordInput): Promise<void> {
   return apiFetch<void>('/auth/change-password', { method: 'POST', json: body })
+}
+
+export function recordConsent(body: ConsentInput): Promise<{ message: 'ok' }> {
+  return apiFetch<{ message: 'ok' }>('/users/me/consent', { method: 'POST', json: body })
 }
