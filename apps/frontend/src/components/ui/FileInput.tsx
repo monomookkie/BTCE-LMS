@@ -31,7 +31,7 @@ export const FileInput = forwardRef<HTMLInputElement, FileInputProps>(function F
       <Button type="button" variant="outline" size="sm" onClick={() => innerRef.current?.click()}>
         {t('common.chooseFile')}
       </Button>
-      <span className="truncate text-sm text-slate-500">
+      <span className="min-w-0 flex-1 truncate text-sm text-slate-500">
         {file ? file.name : t('common.noFileChosen')}
       </span>
       <input

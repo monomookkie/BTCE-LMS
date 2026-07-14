@@ -470,20 +470,22 @@ export default function CourseManagementPage() {
               <Button
                 size="sm"
                 variant="outline"
+                title={t('adminCourse.publish')}
                 onClick={() => setStatusTarget({ course: c, next: 'PUBLISHED' })}
               >
                 <Globe size={13} />
-                {t('adminCourse.publish')}
+                <span className="hidden sm:inline">{t('adminCourse.publish')}</span>
               </Button>
             )}
             {isAdmin && c.status === 'PUBLISHED' && (
               <Button
                 size="sm"
                 variant="ghost"
+                title={t('adminCourse.archive')}
                 onClick={() => setStatusTarget({ course: c, next: 'ARCHIVED' })}
               >
                 <Archive size={13} />
-                {t('adminCourse.archive')}
+                <span className="hidden sm:inline">{t('adminCourse.archive')}</span>
               </Button>
             )}
             {c.status === 'ARCHIVED' && (

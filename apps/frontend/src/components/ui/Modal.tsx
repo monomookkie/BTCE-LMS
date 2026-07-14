@@ -50,7 +50,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
       />
       <div
         className={[
-          'relative w-full rounded-lg bg-white shadow-xl',
+          'relative flex max-h-[90vh] w-full flex-col rounded-lg bg-white shadow-xl',
           sizeClasses[size],
           isOpen ? 'animate-modal-in' : 'animate-modal-out',
         ].join(' ')}
@@ -58,7 +58,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
         aria-modal="true"
       >
         {(title || !hideCloseButton) && (
-          <div className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
+          <div className="flex shrink-0 items-center justify-between border-b border-slate-100 px-4 py-3">
             {title && <h2 className="text-base font-semibold text-slate-800">{title}</h2>}
             {!hideCloseButton && (
               <button
@@ -71,7 +71,7 @@ export function Modal({ isOpen, onClose, title, children, size = 'md', hideClose
             )}
           </div>
         )}
-        <div className="px-4 py-3.5">{children}</div>
+        <div className="overflow-y-auto px-4 py-3.5">{children}</div>
       </div>
     </div>,
     document.body,

@@ -89,7 +89,7 @@ function QuizSettingsModal({ isOpen, onClose, courseId, quiz }: QuizSettingsModa
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={quiz ? t('quizEditor.editQuiz') : t('quizEditor.createQuiz')} size="md">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label={`${t('quizEditor.quizTitleEn')} *`} error={errors.titleEn?.message} {...register('titleEn')} />
           <Input label={t('quizEditor.quizTitleTh')} {...register('titleTh')} />
         </div>
@@ -196,7 +196,7 @@ function AddQuestionModal({ isOpen, onClose, courseId }: AddQuestionModalProps) 
   return (
     <Modal isOpen={isOpen} onClose={handleClose} title={t('quizEditor.addQuestion')} size="lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label={`${t('quizEditor.questionTextEn')} *`} error={errors.textEn?.message} {...register('textEn')} />
           <Input label={t('quizEditor.questionTextTh')} {...register('textTh')} />
         </div>
@@ -216,7 +216,7 @@ function AddQuestionModal({ isOpen, onClose, courseId }: AddQuestionModalProps) 
               >
                 {correctIndex === index ? <CheckCircle2 size={18} /> : <Circle size={18} />}
               </button>
-              <div className="grid flex-1 grid-cols-2 gap-2">
+              <div className="grid flex-1 grid-cols-1 gap-2 sm:grid-cols-2">
                 <Input
                   placeholder={`${t('quizEditor.optionTextEn')} *`}
                   error={errors.options?.[index]?.textEn?.message}
@@ -411,30 +411,32 @@ function AddOptionRow({ courseId, questionId, disabled }: AddOptionRowProps) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-xl border border-slate-100 p-2">
+    <div className="flex flex-col gap-2 rounded-xl border border-slate-100 p-2 sm:flex-row sm:items-center">
       <input
         autoFocus
         value={textEn}
         onChange={(e) => setTextEn(e.target.value)}
         placeholder={`${t('quizEditor.optionTextEn')} *`}
-        className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
+        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
       />
       <input
         value={textTh}
         onChange={(e) => setTextTh(e.target.value)}
         placeholder={t('quizEditor.optionTextTh')}
-        className="flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
+        className="min-w-0 flex-1 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1.5 text-sm focus:border-brand-500 focus:bg-white focus:outline-none"
       />
-      <Button size="sm" variant="ghost" type="button" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
-      <Button
-        size="sm"
-        type="button"
-        isLoading={mutation.isPending}
-        disabled={!textEn.trim()}
-        onClick={() => mutation.mutate()}
-      >
-        {t('common.save')}
-      </Button>
+      <div className="flex shrink-0 justify-end gap-2">
+        <Button size="sm" variant="ghost" type="button" onClick={() => setOpen(false)}>{t('common.cancel')}</Button>
+        <Button
+          size="sm"
+          type="button"
+          isLoading={mutation.isPending}
+          disabled={!textEn.trim()}
+          onClick={() => mutation.mutate()}
+        >
+          {t('common.save')}
+        </Button>
+      </div>
     </div>
   )
 }

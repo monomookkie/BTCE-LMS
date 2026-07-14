@@ -280,10 +280,8 @@ function ByUserTab() {
             : ''
           return <span className={r.quizPassed ? 'text-emerald-600' : 'text-amber-600'}>{label}{score}</span>
         } },
-      { key: 'completedAt', header: t('reports.completedAtColumn'), width: '14%', skeleton: 'text',
+      { key: 'completedAt', header: t('reports.completedAtColumn'), width: '28%', skeleton: 'text',
         render: (r) => r.completedAt ? new Date(r.completedAt).toLocaleDateString() : '—' },
-      { key: 'dueAt', header: t('reports.dueAtColumn'), width: '14%', skeleton: 'text',
-        render: (r) => r.dueAt ? new Date(r.dueAt).toLocaleDateString() : '—' },
     ],
     [t],
   )
@@ -395,7 +393,7 @@ function ComplianceTab({ courseFilter, setCourseFilter, statusFilter, setStatusF
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           {summaryLoading ? (
             Array.from({ length: 2 }).map((_, i) => <StatCardSkeleton key={i} />)
           ) : (
@@ -469,7 +467,7 @@ export default function ReportsPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-slate-800">{t('reports.title')}</h1>
         {tab === 'compliance' && (
           <Button

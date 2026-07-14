@@ -95,7 +95,7 @@ function AddLinkModal({ isOpen, onClose, courseId }: AddLinkModalProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('adminCourse.addLink')} size="md">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           {(['LINK', 'VIDEO'] as const).map((tp) => (
             <label key={tp} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50">
               <input type="radio" value={tp} className="accent-brand-500" {...register('type')} />
@@ -103,7 +103,7 @@ function AddLinkModal({ isOpen, onClose, courseId }: AddLinkModalProps) {
             </label>
           ))}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label={`${t('adminCourse.titleEn')} *`} error={errors.titleEn?.message} {...register('titleEn')} />
           <Input label={t('adminCourse.titleTh')} {...register('titleTh')} />
         </div>
@@ -153,11 +153,13 @@ function AddFileModal({ isOpen, onClose, courseId }: AddFileModalProps) {
     setIsUploading(true)
     setProgress(0)
 
+    // field ที่ไม่ใช่ file ต้องมาก่อน 'file' เสมอ — backend ใช้ req.file() (fastify-multipart)
+    // ซึ่ง data.fields จะไม่ครบถ้า field มาหลัง part ของไฟล์ในสตรีม (ทำให้ type/titleEn เป็น undefined)
     const fd = new FormData()
-    fd.append('file', file)
     fd.append('type', fileType)
     fd.append('titleEn', titleEn.trim())
     if (titleTh.trim()) fd.append('titleTh', titleTh.trim())
+    fd.append('file', file)
 
     try {
       await uploadFileMaterial(courseId, fd, setProgress)
@@ -196,7 +198,7 @@ function AddFileModal({ isOpen, onClose, courseId }: AddFileModalProps) {
         </div>
 
         {/* Titles */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
             <label className="text-xs font-medium text-slate-700">{t('adminCourse.titleEn')} *</label>
             <input
@@ -313,7 +315,7 @@ function EditMaterialModal({ isOpen, onClose, courseId, material }: EditMaterial
       size="sm"
     >
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label={`${t('adminCourse.titleEn')} *`} error={errors.titleEn?.message} {...register('titleEn')} />
           <Input label={t('adminCourse.titleTh')} {...register('titleTh')} />
         </div>
@@ -377,8 +379,8 @@ function MaterialRow({ material, index, total, onMoveUp, onMoveDown, onEdit, onD
         )}
       </div>
 
-      {/* Type badge */}
-      <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-500">
+      {/* Type badge — ซ่อนบนจอแคบ เพราะไอคอนซ้ายมือสื่อความหมายซ้ำอยู่แล้ว และแถวนี้แน่นเกินไปบนมือถือ */}
+      <span className="hidden shrink-0 rounded-md bg-slate-100 px-2 py-0.5 text-xs text-slate-500 sm:inline-block">
         {t(`material.types.${material.type}` as never) as string}
       </span>
 
@@ -508,10 +510,10 @@ export default function CourseDetailAdminPage() {
             </div>
           </div>
         ) : course ? (
-          <div className="flex items-start justify-between">
-            <div>
-              <h1 className="text-xl font-bold text-slate-800">{course.titleEn}</h1>
-              {course.titleTh && <p className="text-sm text-slate-400">{course.titleTh}</p>}
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+            <div className="min-w-0">
+              <h1 className="break-words text-xl font-bold text-slate-800">{course.titleEn}</h1>
+              {course.titleTh && <p className="break-words text-sm text-slate-400">{course.titleTh}</p>}
               <div className="mt-2 flex flex-wrap gap-4 text-xs text-slate-500">
                 <span>{t('adminCourse.categoryEn')}: <strong className="text-slate-700">{course.categoryEn}</strong></span>
                 {course.enrollmentCloseAt != null && (
@@ -520,7 +522,7 @@ export default function CourseDetailAdminPage() {
               </div>
             </div>
             {isArchived && (
-              <span className="rounded-lg bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
+              <span className="shrink-0 self-start rounded-lg bg-slate-100 px-3 py-1 text-xs font-medium text-slate-500">
                 {t('course.status.ARCHIVED')}
               </span>
             )}
