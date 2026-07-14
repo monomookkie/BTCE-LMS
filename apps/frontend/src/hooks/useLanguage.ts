@@ -1,8 +1,10 @@
 import { useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useQueryClient } from '@tanstack/react-query'
 import type { SupportedLocale } from '../i18n/index.js'
 import { persistLanguage } from '../i18n/index.js'
 import { apiFetch } from '../lib/api.js'
+import { AUTH_QUERY_KEY } from './useAuth.js'
 
 interface UseLanguageOptions {
   isAuthenticated?: boolean
@@ -15,6 +17,7 @@ interface UseLanguageReturn {
 
 export function useLanguage({ isAuthenticated = false }: UseLanguageOptions = {}): UseLanguageReturn {
   const { i18n } = useTranslation()
+  const qc = useQueryClient()
 
   const changeLanguage = useCallback(
     async (lang: SupportedLocale) => {
@@ -33,8 +36,14 @@ export function useLanguage({ isAuthenticated = false }: UseLanguageOptions = {}
       }
       // 3. สลับ UI — ตอนนี้ backend sync เสร็จแล้ว (หรือ fail แบบ non-blocking) query ที่ refetch ตามมาจะได้ค่าใหม่ถูกต้อง
       await i18n.changeLanguage(lang)
+      // 4. auth/me query key ไม่ผูกกับ i18n.language (ไม่งั้น login/logout mutation ต้อง setQueryData หลาย key)
+      // และตั้ง refetchOnMount: false ไว้เพื่อไม่ให้ re-fetch ทุก SPA navigation — ต้อง invalidate เองตรงนี้
+      // ไม่งั้น user.position (localized field) ค้างภาษาเดิมจนกว่าจะ reload หน้าหรือ staleTime (5 นาที) หมดอายุ
+      if (isAuthenticated) {
+        void qc.invalidateQueries({ queryKey: AUTH_QUERY_KEY })
+      }
     },
-    [i18n, isAuthenticated],
+    [i18n, isAuthenticated, qc],
   )
 
   return {

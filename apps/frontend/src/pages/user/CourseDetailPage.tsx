@@ -7,7 +7,6 @@ import {
   CheckCircle2,
   Circle,
   ExternalLink,
-  Download,
   FileText,
   Play,
   Image,
@@ -38,11 +37,13 @@ import { GatedMaterialLink } from '../../components/course/GatedMaterialLink.js'
 
 // ─── Query key factories ─────────────────────────────────────────────────────
 
-const courseKey = (id: string) => ['courses', id] as const
-const materialsKey = (id: string) => ['materials', id] as const
-const quizKey = (id: string) => ['quiz', 'take', id] as const
+// ต่อ locale เข้า queryKey ของทุกอันที่ response มี localized field (title/content/ข้อสอบ/แบบสำรวจ) —
+// ไม่งั้นสลับภาษาแล้ว cache ค้างภาษาเดิมจนกว่าจะ reload หน้า (attemptsKey ไม่ต่อ เพราะมีแต่คะแนน/สถานะ ไม่มี localized field)
+const courseKey = (id: string, locale: string) => ['courses', id, locale] as const
+const materialsKey = (id: string, locale: string) => ['materials', id, locale] as const
+const quizKey = (id: string, locale: string) => ['quiz', 'take', id, locale] as const
 const attemptsKey = (id: string) => ['quiz', 'attempts', id] as const
-const surveyKey = (id: string) => ['survey', 'take', id] as const
+const surveyKey = (id: string, locale: string) => ['survey', 'take', id, locale] as const
 const ENROLLMENTS_ME_KEY = ['enrollments', 'me'] as const
 
 // ─── Material icon map ───────────────────────────────────────────────────────
@@ -267,7 +268,7 @@ function SurveyRunner({ courseId, survey, isCompleted }: SurveyRunnerProps) {
     onSuccess: () => {
       setSubmitted(true)
       void qc.invalidateQueries({ queryKey: ENROLLMENTS_ME_KEY })
-      void qc.invalidateQueries({ queryKey: surveyKey(courseId) })
+      void qc.invalidateQueries({ queryKey: ['survey', 'take', courseId] })
     },
     onError: (err) => {
       toast.error(err instanceof ApiError ? err.message : t('common.error'))
@@ -277,13 +278,13 @@ function SurveyRunner({ courseId, survey, isCompleted }: SurveyRunnerProps) {
   // ตอบไปแล้ว (จาก server) หรือเพิ่งตอบเสร็จรอบนี้ (local, กันฟอร์มโผล่ค้างระหว่างรอ refetch)
   if (survey.alreadySubmitted || submitted) {
     return (
-      <div className="rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-        <p className="text-sm font-semibold text-emerald-700">
+      <div>
+        <p className="text-sm font-medium text-slate-700">
           {t('surveyTake.thankYou')}
         </p>
         {isCompleted && (
-          <p className="mt-1 text-sm text-emerald-600">
-            🎉 {t('surveyTake.courseCompleted')}
+          <p className="mt-1 text-sm text-slate-500">
+            {t('surveyTake.courseCompleted')}
           </p>
         )}
       </div>
@@ -448,7 +449,7 @@ export default function CourseDetailPage() {
   // ── Queries ──────────────────────────────────────────────────────────────
 
   const { data: course, isLoading: courseLoad, isError: courseErr } = useQuery({
-    queryKey: courseKey(id),
+    queryKey: courseKey(id, i18n.language),
     queryFn: () => getCourse(id),
     enabled: id !== '',
     staleTime: 60_000,
@@ -468,7 +469,7 @@ export default function CourseDetailPage() {
   const isEnrolled = !enrollLoad && enrollment != null
 
   const { data: materials, isLoading: matLoad, isError: matErr } = useQuery({
-    queryKey: materialsKey(id),
+    queryKey: materialsKey(id, i18n.language),
     queryFn: () => listMaterials(id),
     enabled: isEnrolled,
     staleTime: 60_000,
@@ -477,7 +478,7 @@ export default function CourseDetailPage() {
 
   // Preload quiz — /take ไม่มี isCorrect (backend strip ผ่าน response schema)
   const { data: quiz, isError: quizErr, error: quizError } = useQuery({
-    queryKey: quizKey(id),
+    queryKey: quizKey(id, i18n.language),
     queryFn: () => getQuizForTaking(id),
     enabled: isEnrolled,
     staleTime: 300_000,
@@ -493,7 +494,7 @@ export default function CourseDetailPage() {
 
   // survey เป็น optional ต่อ course — 404 แปลว่า course นี้ไม่มี survey เลย (ไม่ต้องแสดง section)
   const { data: survey, isError: surveyErr, error: surveyError } = useQuery({
-    queryKey: surveyKey(id),
+    queryKey: surveyKey(id, i18n.language),
     queryFn: () => getSurveyForTaking(id),
     enabled: isEnrolled,
     staleTime: 60_000,
@@ -559,7 +560,7 @@ export default function CourseDetailPage() {
   // ── Render ───────────────────────────────────────────────────────────────
 
   return (
-    <div className="space-y-6 p-6">
+    <div className="space-y-6 p-4 sm:p-6">
       {/* Back */}
       <Link
         to="/courses"
@@ -666,7 +667,6 @@ export default function CourseDetailPage() {
 
               // enrollment null (ไม่ควรเกิด — ทั้ง query ถูก gate ด้วย isEnrolled อยู่แล้ว) — fallback แบบไม่ gate
               const href = material.signedUrl ?? material.url ?? null
-              const isFile = material.type === 'PDF' || material.type === 'IMAGE' || material.type === 'DOC'
 
               return (
                 <li key={material.id} className="flex items-center gap-3 py-3">
@@ -690,10 +690,8 @@ export default function CourseDetailPage() {
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline"
                       >
-                        {isFile
-                          ? <><Download size={12} />{t('courseDetail.download')}</>
-                          : <><ExternalLink size={12} />{t('courseDetail.open')}</>
-                        }
+                        <ExternalLink size={12} />
+                        {t('courseDetail.open')}
                       </a>
                     )}
 
@@ -754,13 +752,13 @@ export default function CourseDetailPage() {
                   </h4>
                   <ul className="space-y-1.5">
                     {[...attempts].reverse().map((a, i) => (
-                      <li key={a.id} className="flex items-center gap-3 text-xs">
-                        <span className="w-6 text-slate-400">#{i + 1}</span>
-                        <span className="w-12 font-semibold text-slate-700">
+                      <li key={a.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                        <span className="w-6 shrink-0 text-slate-400">#{i + 1}</span>
+                        <span className="w-12 shrink-0 font-semibold text-slate-700">
                           {a.correctCount != null && a.totalQuestions != null ? `${a.correctCount}/${a.totalQuestions}` : '—'}
                         </span>
                         <StatusBadge type="quiz" status={a.passed ? 'passed' : 'failed'} />
-                        <span className="text-slate-400">{formatDate(a.createdAt, i18n.language)}</span>
+                        <span className="min-w-0 shrink text-slate-400">{formatDate(a.createdAt, i18n.language)}</span>
                       </li>
                     ))}
                   </ul>
