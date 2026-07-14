@@ -26,5 +26,9 @@ Thumbs.db
 .claude/
 CLAUDE.md
 BTEC-LMS-v2-Development-Plan.md
-BTEC-LMS-v2-Frontend-Architecture
+BTEC-LMS-v2-Frontend-Architecture.md
+DEPLOY-CHECKLIST.md
+
+# Logo — proprietary asset, must not be pushed to GitHub
+apps/frontend/public/logo.png
 
