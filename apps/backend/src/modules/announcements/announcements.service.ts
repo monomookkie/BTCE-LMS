@@ -6,6 +6,7 @@ import type {
   AnnouncementListAdmin,
   CreateAnnouncementInput,
   UpdateAnnouncementInput,
+  LatestAnnouncementResponse,
 } from '@btec-lms/shared'
 import {
   announcementPublicResponseSchema,
@@ -13,7 +14,7 @@ import {
 } from '@btec-lms/shared'
 import { serializeByRole } from '../../lib/roleResponse.js'
 import { logAudit } from '../../lib/audit.js'
-import { notFound } from '../../lib/errors.js'
+import { notFound, badRequest } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
 import type { StorageProvider } from '../../lib/storage.js'
 import type { AnnouncementListQuery } from './announcements.schema.js'
@@ -24,11 +25,12 @@ type AnnouncementRecord = {
   id: string
   titleEn: string
   titleTh: string | null
-  contentEn: string
+  contentEn: string | null
   contentTh: string | null
   type: string
   status: 'DRAFT' | 'PUBLISHED'
   fileKey: string | null
+  fileMimeType: string | null
   link: string | null
   publishedAt: Date | null
   createdById: string | null
@@ -45,6 +47,7 @@ const ANNOUNCEMENT_SELECT = {
   type: true,
   status: true,
   fileKey: true,
+  fileMimeType: true,
   link: true,
   publishedAt: true,
   createdById: true,
@@ -59,12 +62,18 @@ function toAdminShape(
   locale: Locale,
   storage: StorageProvider,
 ): AnnouncementAdminResponse {
+  // content เป็น "ข้อความเพิ่มเติม" ไม่บังคับ — ถ้าทั้ง en/th ไม่มีเลยให้เป็น null (ไม่ใช่ '')
+  const content =
+    a.contentEn != null || a.contentTh != null
+      ? localizeField(a.contentEn ?? '', a.contentTh, locale)
+      : null
+
   return {
     id: a.id,
     title: localizeField(a.titleEn, a.titleTh, locale),
-    content: localizeField(a.contentEn, a.contentTh, locale),
+    content,
     type: a.type,
-    fileSignedUrl: a.fileKey != null ? storage.getSignedUrl(a.fileKey) : null,
+    fileSignedUrl: a.fileKey != null ? storage.getSignedUrl(a.fileKey, undefined, a.fileMimeType) : null,
     link: a.link ?? null,
     publishedAt: a.publishedAt?.toISOString() ?? null,
     createdAt: a.createdAt.toISOString(),
@@ -123,6 +132,26 @@ export async function listAnnouncements(
   return { data, total, page, limit } as AnnouncementListPublic | AnnouncementListAdmin
 }
 
+// ─── getLatestAnnouncement ────────────────────────────────────────────────────
+// ล่าสุดที่ PUBLISHED เท่านั้น (publishedAt desc) — คืน public shape เสมอไม่ว่า role ไหน
+// เพราะใช้กับ dashboard board + login popup ของ USER เท่านั้น ไม่ใช่หน้า admin
+// null เมื่อไม่มีประกาศ PUBLISHED เลย (ระบบยังไม่เคย publish อะไร)
+
+export async function getLatestAnnouncement(
+  prisma: PrismaClient,
+  locale: Locale,
+  storage: StorageProvider,
+): Promise<LatestAnnouncementResponse> {
+  const row = await prisma.announcement.findFirst({
+    where: { deletedAt: null, status: 'PUBLISHED' },
+    select: ANNOUNCEMENT_SELECT,
+    orderBy: { publishedAt: 'desc' },
+  })
+  if (!row) return null
+
+  return serializeAnnouncement(row as AnnouncementRecord, 'USER', locale, storage) as AnnouncementPublicResponse
+}
+
 // ─── getAnnouncement ──────────────────────────────────────────────────────────
 // USER → only PUBLISHED; ADMIN → any status
 
@@ -151,6 +180,7 @@ export async function createAnnouncement(
   actorId: string,
   input: CreateAnnouncementInput,
   fileKey: string | null,
+  fileMimeType: string | null,
   locale: Locale,
   storage: StorageProvider,
   ip?: string,
@@ -161,11 +191,12 @@ export async function createAnnouncement(
     data: {
       titleEn: input.titleEn,
       titleTh: input.titleTh ?? null,
-      contentEn: input.contentEn,
+      contentEn: input.contentEn ?? null,
       contentTh: input.contentTh ?? null,
       type: input.type,
       status: input.status,
       fileKey,
+      fileMimeType,
       link: input.link ?? null,
       publishedAt,
       createdById: actorId,
@@ -198,9 +229,14 @@ export async function updateAnnouncement(
 ): Promise<AnnouncementAdminResponse> {
   const existing = await prisma.announcement.findFirst({
     where: { id, deletedAt: null },
-    select: { id: true, status: true, publishedAt: true },
+    select: { id: true, status: true, publishedAt: true, fileKey: true },
   })
   if (!existing) throw notFound(t('error.announcement.notFound', undefined, locale))
+
+  // ต้องมีรูปภาพถึง publish ได้ — PATCH ไม่รองรับแนบไฟล์ใหม่ (multipart) เลยเช็คจาก fileKey เดิมที่มีอยู่แล้วเท่านั้น
+  if (input.status === 'PUBLISHED' && existing.status === 'DRAFT' && !existing.fileKey) {
+    throw badRequest(t('error.announcement.imageRequiredToPublish', undefined, locale))
+  }
 
   // publishedAt: ตั้งเมื่อเปลี่ยนจาก DRAFT → PUBLISHED เท่านั้น
   let publishedAt: Date | null | undefined = undefined

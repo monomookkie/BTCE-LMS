@@ -12,8 +12,8 @@ export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>
 
 const announcementBaseFields = {
   id: z.string().cuid(),
-  title: z.string(),    // localized
-  content: z.string(),  // localized
+  title: z.string(),           // localized
+  content: z.string().nullable(), // localized — "ข้อความเพิ่มเติม" ไม่บังคับ (รูปภาพคือเนื้อหาหลัก)
   type: z.string(),
   fileSignedUrl: z.string().nullable(),
   link: z.string().nullable(),
@@ -30,7 +30,7 @@ export const announcementAdminResponseSchema = z.object({
   ...announcementBaseFields,
   titleEn: z.string(),
   titleTh: z.string().nullable(),
-  contentEn: z.string(),
+  contentEn: z.string().nullable(),
   contentTh: z.string().nullable(),
   status: announcementStatusSchema,
   fileKey: z.string().nullable(),
@@ -57,13 +57,19 @@ export const announcementListAdminSchema = z.object({
 })
 export type AnnouncementListAdmin = z.infer<typeof announcementListAdminSchema>
 
+// GET /announcements/latest — null เมื่อไม่มีประกาศ PUBLISHED เลย (ใช้กับ dashboard board + login popup)
+export const latestAnnouncementResponseSchema = announcementPublicResponseSchema.nullable()
+export type LatestAnnouncementResponse = z.infer<typeof latestAnnouncementResponseSchema>
+
 // ─── Input schemas ────────────────────────────────────────────────────────────
 
 // POST — parsed from multipart fields
+// contentEn: "ข้อความเพิ่มเติม" ไม่บังคับ — รูปภาพ (file) คือเนื้อหาหลัก และบังคับเมื่อ status=PUBLISHED
+// (เช็คที่ route handler เพราะ file มาจาก multipart part แยกจาก field ธรรมดา ไม่ใช่ผ่าน schema นี้)
 export const createAnnouncementInputSchema = z.object({
   titleEn: z.string().min(1).max(255),
   titleTh: z.string().max(255).optional(),
-  contentEn: z.string().min(1),
+  contentEn: z.string().optional(),
   contentTh: z.string().optional(),
   type: announcementTypeSchema.default('INFO'),
   link: z.string().url().optional(),
@@ -75,7 +81,7 @@ export type CreateAnnouncementInput = z.infer<typeof createAnnouncementInputSche
 export const updateAnnouncementInputSchema = z.object({
   titleEn: z.string().min(1).max(255).optional(),
   titleTh: z.string().max(255).nullable().optional(),
-  contentEn: z.string().min(1).optional(),
+  contentEn: z.string().nullable().optional(),
   contentTh: z.string().nullable().optional(),
   type: announcementTypeSchema.optional(),
   link: z.string().url().nullable().optional(),

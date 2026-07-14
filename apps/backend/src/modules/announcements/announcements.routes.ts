@@ -9,19 +9,20 @@ import {
 import {
   listAnnouncements,
   getAnnouncement,
+  getLatestAnnouncement,
   createAnnouncement,
   updateAnnouncement,
   deleteAnnouncement,
 } from './announcements.service.js'
+import { latestAnnouncementResponseSchema } from '@btec-lms/shared'
 import { getStorage } from '../../lib/storage.js'
 import { badRequest } from '../../lib/errors.js'
 import { t, resolveLocale } from '../../lib/i18n.js'
 import { createAnnouncementInputSchema } from '@btec-lms/shared'
 import { randomUUID } from 'node:crypto'
 
-// PDF + image only (ห้าม zip/exe/etc.)
+// รูปภาพเท่านั้น — board/popup render เป็น <img> ตรง ๆ (ตัด PDF ออกเพราะ render ไม่ได้)
 const ALLOWED_ANNOUNCEMENT_MIME = [
-  'application/pdf',
   'image/jpeg',
   'image/png',
   'image/webp',
@@ -43,6 +44,19 @@ const announcementsRoutes: FastifyPluginAsync = async (app) => {
     return listAnnouncements(app.prisma, req.user.role, req.query, locale, getStorage())
   })
 
+  // ─── GET /announcements/latest ────────────────────────────────────────────────
+  // ประกาศ PUBLISHED ล่าสุด (public shape เสมอ) — ใช้กับ dashboard board + login popup
+  // registered ก่อน /:id เพื่อความชัดเจน (static route ชนะ parametric อยู่แล้วไม่ว่าลำดับไหน)
+  server.get('/announcements/latest', {
+    preHandler: [app.verifyJwt],
+    schema: {
+      response: { 200: latestAnnouncementResponseSchema },
+    },
+  }, async (req) => {
+    const locale = await resolveLocale(req, app.prisma)
+    return getLatestAnnouncement(app.prisma, locale, getStorage())
+  })
+
   // ─── GET /announcements/:id ───────────────────────────────────────────────────
   // USER: only PUBLISHED (service returns 404 for DRAFT); ADMIN: any status
   server.get('/announcements/:id', {
@@ -55,8 +69,8 @@ const announcementsRoutes: FastifyPluginAsync = async (app) => {
     return getAnnouncement(app.prisma, req.params.id, req.user.role, locale, getStorage())
   })
 
-  // ─── POST /announcements — multipart (file optional) ─────────────────────────
-  // ADMIN only; file: PDF or image ≤ 5 MB (global multipart limit)
+  // ─── POST /announcements — multipart (image required to publish) ─────────────
+  // ADMIN only; file: image ≤ 5 MB (global multipart limit) — บังคับต้องมีถ้า status=PUBLISHED
   // 10/min per-route cap: กัน ADMIN account ถูก compromise แล้ว abuse storage
   server.post('/announcements', {
     config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
@@ -69,6 +83,7 @@ const announcementsRoutes: FastifyPluginAsync = async (app) => {
 
     const fields: Record<string, string> = {}
     let fileKey: string | null = null
+    let fileMimeType: string | null = null
 
     for await (const part of req.parts()) {
       if (part.type === 'file') {
@@ -81,6 +96,7 @@ const announcementsRoutes: FastifyPluginAsync = async (app) => {
         const filename = ext ? `${randomUUID()}.${ext}` : randomUUID()
         const result = await getStorage().upload(buffer, 'announcements', filename, part.mimetype)
         fileKey = result.fileKey
+        fileMimeType = result.mimeType
       } else {
         fields[part.fieldname] = part.value as string
       }
@@ -99,11 +115,17 @@ const announcementsRoutes: FastifyPluginAsync = async (app) => {
       throw badRequest(t('error.announcement.invalidMetadata', { detail: parsed.error.message }, locale))
     }
 
+    // รูปภาพคือเนื้อหาหลักของ board/popup — บังคับต้องมีก่อน publish ได้ (DRAFT ยังไม่บังคับ)
+    if (parsed.data.status === 'PUBLISHED' && fileKey == null) {
+      throw badRequest(t('error.announcement.imageRequiredToPublish', undefined, locale))
+    }
+
     const announcement = await createAnnouncement(
       app.prisma,
       req.user.id,
       parsed.data,
       fileKey,
+      fileMimeType,
       locale,
       getStorage(),
       req.ip,

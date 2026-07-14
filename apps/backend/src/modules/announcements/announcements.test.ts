@@ -31,6 +31,14 @@ function buildMultipart(
 
 // ─── Suite ────────────────────────────────────────────────────────────────────
 
+// fake image ใช้แนบตอน publish (บังคับต้องมีรูปถึง publish ได้)
+const FAKE_IMAGE = {
+  fieldname: 'file',
+  filename: 'notice.jpg',
+  mimetype: 'image/jpeg',
+  content: Buffer.from('GIF89a'),
+}
+
 describe('Announcements module', () => {
   let app: TestApp
   let adminCookies: string
@@ -111,9 +119,33 @@ describe('Announcements module', () => {
     expect(res.statusCode).toBe(400)
   })
 
-  it('returns 400 when contentEn is missing', async () => {
-    const res = await createAnnouncement({ titleEn: 'Title' })
+  it('creates successfully when contentEn is missing (optional caption)', async () => {
+    const res = await createAnnouncement(
+      { titleEn: 'No caption', status: 'PUBLISHED' },
+      adminCookies,
+      FAKE_IMAGE,
+    )
+    expect(res.statusCode).toBe(201)
+    const body = res.json<{ content: string | null }>()
+    expect(body.content).toBeNull()
+  })
+
+  it('returns 400 when publishing without an image', async () => {
+    const res = await createAnnouncement({
+      titleEn: 'No image',
+      contentEn: 'Body',
+      status: 'PUBLISHED',
+    })
     expect(res.statusCode).toBe(400)
+  })
+
+  it('DRAFT can be created without an image (not required until publish)', async () => {
+    const res = await createAnnouncement({
+      titleEn: 'Draft no image',
+      contentEn: 'Body',
+      status: 'DRAFT',
+    })
+    expect(res.statusCode).toBe(201)
   })
 
   it('returns 400 when file MIME is not allowed', async () => {
@@ -159,11 +191,11 @@ describe('Announcements module', () => {
   })
 
   it('ADMIN creates PUBLISHED announcement — publishedAt is set', async () => {
-    const res = await createAnnouncement({
-      titleEn: 'Public notice',
-      contentEn: 'Public body',
-      status: 'PUBLISHED',
-    })
+    const res = await createAnnouncement(
+      { titleEn: 'Public notice', contentEn: 'Public body', status: 'PUBLISHED' },
+      adminCookies,
+      FAKE_IMAGE,
+    )
     expect(res.statusCode).toBe(201)
     const body = res.json<{ status: string; publishedAt: string | null }>()
     expect(body.status).toBe('PUBLISHED')
@@ -175,7 +207,11 @@ describe('Announcements module', () => {
   it('USER sees only PUBLISHED in list, not DRAFT', async () => {
     // seed 1 draft + 1 published
     await createAnnouncement({ titleEn: 'Draft A', contentEn: 'D', status: 'DRAFT' })
-    await createAnnouncement({ titleEn: 'Pub B', contentEn: 'P', status: 'PUBLISHED' })
+    await createAnnouncement(
+      { titleEn: 'Pub B', contentEn: 'P', status: 'PUBLISHED' },
+      adminCookies,
+      FAKE_IMAGE,
+    )
 
     const res = await app.inject({
       method: 'GET',
@@ -194,7 +230,11 @@ describe('Announcements module', () => {
 
   it('ADMIN sees DRAFT + PUBLISHED in list, gets admin shape', async () => {
     await createAnnouncement({ titleEn: 'Draft X', contentEn: 'D', status: 'DRAFT' })
-    await createAnnouncement({ titleEn: 'Pub Y', contentEn: 'P', status: 'PUBLISHED' })
+    await createAnnouncement(
+      { titleEn: 'Pub Y', contentEn: 'P', status: 'PUBLISHED' },
+      adminCookies,
+      FAKE_IMAGE,
+    )
 
     const res = await app.inject({
       method: 'GET',
@@ -230,13 +270,17 @@ describe('Announcements module', () => {
   })
 
   it('USER gets PUBLISHED announcement with public shape (no raw En/Th fields)', async () => {
-    const createRes = await createAnnouncement({
-      titleEn: 'Public one',
-      titleTh: 'สาธารณะ',
-      contentEn: 'Content',
-      contentTh: 'เนื้อหา',
-      status: 'PUBLISHED',
-    })
+    const createRes = await createAnnouncement(
+      {
+        titleEn: 'Public one',
+        titleTh: 'สาธารณะ',
+        contentEn: 'Content',
+        contentTh: 'เนื้อหา',
+        status: 'PUBLISHED',
+      },
+      adminCookies,
+      FAKE_IMAGE,
+    )
     const { id } = createRes.json<{ id: string }>()
 
     const res = await app.inject({
@@ -302,12 +346,16 @@ describe('Announcements module', () => {
     const { cookies: thCookies } = await loginAs(app, thUser.email, 'TestPass1!')
 
     // สร้าง announcement ที่ titleTh ว่าง (no Th translation)
-    const createRes = await createAnnouncement({
-      titleEn: 'English title only',
-      contentEn: 'Content EN only',
-      // titleTh not provided → null in DB
-      status: 'PUBLISHED',
-    })
+    const createRes = await createAnnouncement(
+      {
+        titleEn: 'English title only',
+        contentEn: 'Content EN only',
+        // titleTh not provided → null in DB
+        status: 'PUBLISHED',
+      },
+      adminCookies,
+      FAKE_IMAGE,
+    )
     const { id } = createRes.json<{ id: string }>()
 
     const res = await app.inject({
@@ -338,13 +386,17 @@ describe('Announcements module', () => {
     })
     const { cookies: thCookies } = await loginAs(app, thUser.email, 'TestPass1!')
 
-    const createRes = await createAnnouncement({
-      titleEn: 'EN title',
-      titleTh: 'หัวข้อภาษาไทย',
-      contentEn: 'EN body',
-      contentTh: 'เนื้อหาภาษาไทย',
-      status: 'PUBLISHED',
-    })
+    const createRes = await createAnnouncement(
+      {
+        titleEn: 'EN title',
+        titleTh: 'หัวข้อภาษาไทย',
+        contentEn: 'EN body',
+        contentTh: 'เนื้อหาภาษาไทย',
+        status: 'PUBLISHED',
+      },
+      adminCookies,
+      FAKE_IMAGE,
+    )
     const { id } = createRes.json<{ id: string }>()
 
     const res = await app.inject({
@@ -393,11 +445,12 @@ describe('Announcements module', () => {
   // ─── PATCH: publish / unpublish ───────────────────────────────────────────
 
   it('PATCH: publish a DRAFT → status becomes PUBLISHED, publishedAt set', async () => {
-    const createRes = await createAnnouncement({
-      titleEn: 'To publish',
-      contentEn: 'Body',
-      status: 'DRAFT',
-    })
+    // DRAFT แต่แนบรูปไว้แล้ว — PATCH publish ต้องเช็ค fileKey เดิม (PATCH เองแนบไฟล์ใหม่ไม่ได้)
+    const createRes = await createAnnouncement(
+      { titleEn: 'To publish', contentEn: 'Body', status: 'DRAFT' },
+      adminCookies,
+      FAKE_IMAGE,
+    )
     const { id } = createRes.json<{ id: string }>()
 
     const res = await app.inject({
@@ -412,12 +465,29 @@ describe('Announcements module', () => {
     expect(body.publishedAt).not.toBeNull()
   })
 
-  it('PATCH: unpublish (PUBLISHED → DRAFT) → publishedAt cleared', async () => {
+  it('PATCH: returns 400 when publishing a DRAFT that has no image', async () => {
     const createRes = await createAnnouncement({
-      titleEn: 'To unpublish',
+      titleEn: 'No image draft',
       contentEn: 'Body',
-      status: 'PUBLISHED',
+      status: 'DRAFT',
     })
+    const { id } = createRes.json<{ id: string }>()
+
+    const res = await app.inject({
+      method: 'PATCH',
+      url: `/announcements/${id}`,
+      headers: { cookie: adminCookies },
+      payload: { status: 'PUBLISHED' },
+    })
+    expect(res.statusCode).toBe(400)
+  })
+
+  it('PATCH: unpublish (PUBLISHED → DRAFT) → publishedAt cleared', async () => {
+    const createRes = await createAnnouncement(
+      { titleEn: 'To unpublish', contentEn: 'Body', status: 'PUBLISHED' },
+      adminCookies,
+      FAKE_IMAGE,
+    )
     const { id } = createRes.json<{ id: string }>()
 
     const res = await app.inject({
@@ -490,11 +560,11 @@ describe('Announcements module', () => {
   })
 
   it('deleted announcement excluded from list', async () => {
-    const createRes = await createAnnouncement({
-      titleEn: 'Will be deleted',
-      contentEn: 'Body',
-      status: 'PUBLISHED',
-    })
+    const createRes = await createAnnouncement(
+      { titleEn: 'Will be deleted', contentEn: 'Body', status: 'PUBLISHED' },
+      adminCookies,
+      FAKE_IMAGE,
+    )
     const { id } = createRes.json<{ id: string }>()
 
     await app.inject({

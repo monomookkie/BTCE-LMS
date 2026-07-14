@@ -7,6 +7,11 @@ import { ApiError } from '../lib/api.js'
 
 export const AUTH_QUERY_KEY = ['auth', 'me'] as const
 
+// ตั้งครั้งเดียวตอน login/register สำเร็จ — AnnouncementPopup (mount ใน AppLayout) อ่านค่านี้แค่ครั้งแรกที่
+// mount แล้ว clear ทันที เพื่อไม่ให้เด้งซ้ำตอน SPA navigate ไปมาในหน้าเดิม (แต่เด้งใหม่ทุกครั้งที่ login จริง
+// เพราะ flag นี้อยู่แค่ใน memory ของ query client หายไปเองตอน reload หน้า)
+export const ANNOUNCEMENT_POPUP_PENDING_KEY = ['announcementPopupPending'] as const
+
 export function useAuth() {
   const query = useQuery({
     queryKey: AUTH_QUERY_KEY,
@@ -32,6 +37,7 @@ export function useLoginMutation() {
     onSuccess: (user: MeResponse) => {
       // sync i18n ก่อน setQueryData — ให้ UI เปลี่ยนภาษาก่อน redirect
       void i18next.changeLanguage(user.language)
+      qc.setQueryData(ANNOUNCEMENT_POPUP_PENDING_KEY, true)
       // setQueryData triggers re-render ของ LoginPage → <Navigate> จัดการ redirect เอง
       // ไม่ใช้ navigate() ตรงนี้เพราะจะ race กับ React render cycle (RequireAuth อาจเห็น user=null ชั่วคราว)
       qc.setQueryData(AUTH_QUERY_KEY, user)
@@ -47,6 +53,7 @@ export function useRegisterMutation() {
     onSuccess: (user: MeResponse) => {
       // auto-login pattern เดียวกับ useLoginMutation — server ออก cookie มาแล้ว
       void i18next.changeLanguage(user.language)
+      qc.setQueryData(ANNOUNCEMENT_POPUP_PENDING_KEY, true)
       qc.setQueryData(AUTH_QUERY_KEY, user)
     },
   })

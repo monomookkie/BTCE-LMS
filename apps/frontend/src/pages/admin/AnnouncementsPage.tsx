@@ -17,6 +17,7 @@ import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Input } from '../../components/ui/Input.js'
 import { Select } from '../../components/ui/Select.js'
+import { FileInput } from '../../components/ui/FileInput.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
@@ -25,14 +26,15 @@ import { DataTable } from '../../components/ui/DataTable.js'
 import { PAGE_SIZE } from '../../lib/constants.js'
 
 const TYPES: AnnouncementType[] = ['INFO', 'WARNING', 'URGENT']
-const ALLOWED_FILE_MIME = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+const ALLOWED_FILE_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 // ─── Form schema ──────────────────────────────────────────────────────────────
+// contentEn: "ข้อความเพิ่มเติม" ไม่บังคับ — รูปภาพคือเนื้อหาหลักของประกาศตอนนี้
 
 const announcementFormSchema = z.object({
   titleEn: z.string().min(1).max(255),
   titleTh: z.string().max(255).optional(),
-  contentEn: z.string().min(1),
+  contentEn: z.string().optional(),
   contentTh: z.string().optional(),
   type: z.enum(['INFO', 'WARNING', 'URGENT']),
   link: z.string().max(500).optional(),
@@ -64,7 +66,7 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
     defaultValues: editAnnouncement ? {
       titleEn: editAnnouncement.titleEn,
       titleTh: editAnnouncement.titleTh ?? '',
-      contentEn: editAnnouncement.contentEn,
+      contentEn: editAnnouncement.contentEn ?? '',
       contentTh: editAnnouncement.contentTh ?? '',
       type: editAnnouncement.type as AnnouncementType,
       link: editAnnouncement.link ?? '',
@@ -73,8 +75,7 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
     },
   })
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const f = e.target.files?.[0] ?? null
+  const handleFileChange = (f: File | null) => {
     if (f && !ALLOWED_FILE_MIME.includes(f.type)) {
       setFileError(t('adminAnnouncement.fileTypeError'))
       setFile(null)
@@ -85,13 +86,19 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
   }
 
   const onSubmit = async (values: AnnouncementFormValues, status: 'DRAFT' | 'PUBLISHED') => {
+    // สร้างใหม่ต้องมีรูปเสมอ (ไม่ใช่แค่ตอน publish) — เพราะ PATCH แนบไฟล์เพิ่มทีหลังไม่ได้
+    // ถ้าปล่อยให้สร้างแบบไม่มีรูปได้ จะกลายเป็น draft ที่ publish ไม่ได้ตลอดกาล
+    if (!editAnnouncement && !file) {
+      setFileError(t('adminAnnouncement.fileRequired'))
+      return
+    }
     try {
       if (editAnnouncement) {
         // PATCH — file replacement not supported by backend; text/status fields only
         await updateAnnouncement(editAnnouncement.id, {
           titleEn: values.titleEn,
           titleTh: values.titleTh?.trim() ? values.titleTh.trim() : null,
-          contentEn: values.contentEn,
+          contentEn: values.contentEn?.trim() ? values.contentEn.trim() : null,
           contentTh: values.contentTh?.trim() ? values.contentTh.trim() : null,
           type: values.type,
           link: values.link?.trim() ? values.link.trim() : null,
@@ -101,7 +108,7 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
         const formData = new FormData()
         formData.set('titleEn', values.titleEn)
         if (values.titleTh?.trim()) formData.set('titleTh', values.titleTh.trim())
-        formData.set('contentEn', values.contentEn)
+        if (values.contentEn?.trim()) formData.set('contentEn', values.contentEn.trim())
         if (values.contentTh?.trim()) formData.set('contentTh', values.contentTh.trim())
         formData.set('type', values.type)
         if (values.link?.trim()) formData.set('link', values.link.trim())
@@ -126,6 +133,18 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
       size="lg"
     >
       <form onSubmit={handleSubmit((v) => onSubmit(v, editAnnouncement?.status ?? 'DRAFT'))} className="space-y-5">
+        {editAnnouncement ? (
+          <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-500">
+            {t('adminAnnouncement.fileEditNote')}
+          </p>
+        ) : (
+          <div className="flex flex-col gap-1">
+            <label className="text-sm font-medium text-slate-700">{t('adminAnnouncement.file')} *</label>
+            <FileInput accept={ALLOWED_FILE_MIME.join(',')} file={file} onChange={handleFileChange} />
+            {fileError && <p className="text-xs text-red-500">{fileError}</p>}
+          </div>
+        )}
+
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Input
             label={`${t('adminAnnouncement.titleEn')} *`}
@@ -137,18 +156,17 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('adminAnnouncement.contentEn')} *</label>
+            <label className="text-sm font-medium text-slate-700">{t('adminAnnouncement.contentEn')}</label>
             <textarea
-              rows={4}
+              rows={3}
               className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
               {...register('contentEn')}
             />
-            {errors.contentEn && <p className="text-xs text-red-500">{errors.contentEn.message}</p>}
           </div>
           <div className="flex flex-col gap-1">
             <label className="text-sm font-medium text-slate-700">{t('adminAnnouncement.contentTh')}</label>
             <textarea
-              rows={4}
+              rows={3}
               className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-2.5 text-sm text-slate-800 placeholder:text-slate-400 focus:border-brand-500 focus:bg-white focus:outline-none focus:ring-2 focus:ring-brand-500/20"
               {...register('contentTh')}
             />
@@ -164,29 +182,16 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
                 label={t('adminAnnouncement.type')}
                 value={field.value}
                 onChange={field.onChange}
-                options={TYPES.map((ty) => ({ value: ty, label: ty }))}
+                options={[
+                  { value: 'INFO', label: t('adminAnnouncement.typeInfo') },
+                  { value: 'WARNING', label: t('adminAnnouncement.typeWarning') },
+                  { value: 'URGENT', label: t('adminAnnouncement.typeUrgent') },
+                ]}
               />
             )}
           />
           <Input label={t('adminAnnouncement.link')} placeholder="https://..." {...register('link')} />
         </div>
-
-        {editAnnouncement ? (
-          <p className="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-500">
-            {t('adminAnnouncement.fileEditNote')}
-          </p>
-        ) : (
-          <div className="flex flex-col gap-1">
-            <label className="text-sm font-medium text-slate-700">{t('adminAnnouncement.file')}</label>
-            <input
-              type="file"
-              accept={ALLOWED_FILE_MIME.join(',')}
-              onChange={handleFileChange}
-              className="text-sm text-slate-600"
-            />
-            {fileError && <p className="text-xs text-red-500">{fileError}</p>}
-          </div>
-        )}
 
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
           <Button variant="ghost" type="button" onClick={onClose}>
@@ -247,7 +252,7 @@ export default function AnnouncementsPage() {
     () => [
       {
         key: 'titleEn',
-        header: t('adminAnnouncement.titleEn'),
+        header: t('adminAnnouncement.columnTitle'),
         skeleton: 'text-sub',
         render: (a) => (
           <div>
@@ -259,7 +264,7 @@ export default function AnnouncementsPage() {
       { key: 'type', header: t('adminAnnouncement.type'), width: '12%', skeleton: 'text' },
       { key: 'status', header: t('adminCourse.status'), width: '12%', skeleton: 'pill',
         render: (a) => <StatusBadge type="announcement" status={a.status} /> },
-      { key: 'createdAt', header: t('certificate.issued'), width: '14%', skeleton: 'text',
+      { key: 'createdAt', header: t('adminAnnouncement.createdAt'), width: '14%', skeleton: 'text',
         render: (a) => new Date(a.createdAt).toLocaleDateString() },
       {
         key: 'actions',
