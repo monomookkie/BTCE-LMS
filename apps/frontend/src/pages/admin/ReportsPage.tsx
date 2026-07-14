@@ -1,14 +1,15 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { Users, BookOpen, Download, CheckCircle2, Percent } from 'lucide-react'
-import type { ComplianceRow, CourseCommentRow, UserReportRow } from '@btec-lms/shared'
+import { Users, BookOpen, Upload, CheckCircle2, Percent } from 'lucide-react'
+import type { ComplianceRow, CourseCommentRow, UserReportRow, CoursePassedUserRow } from '@btec-lms/shared'
 import {
   getDashboardSummary,
   getComplianceList,
   downloadComplianceCsv,
   getCourseReport,
   getCourseComments,
+  getCoursePassedUsers,
   getUserReport,
   type EnrollmentStatus,
 } from '../../api/reports.js'
@@ -19,6 +20,7 @@ import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Select } from '../../components/ui/Select.js'
 import { Card } from '../../components/ui/Card.js'
+import { Modal } from '../../components/ui/Modal.js'
 import { StatCard, StatCardSkeleton } from '../../components/ui/StatCard.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
 import type { Column } from '../../components/ui/DataTable.js'
@@ -27,12 +29,90 @@ import { PAGE_SIZE } from '../../lib/constants.js'
 
 const STATUSES: EnrollmentStatus[] = ['ASSIGNED', 'IN_PROGRESS', 'COMPLETED', 'EXPIRED']
 
+// ─── By Course tab — Enrolled / Passed drill-down modals ───────────────────
+
+interface CourseListModalProps {
+  isOpen: boolean
+  onClose: () => void
+  courseId: string
+}
+
+function EnrolledModal({ isOpen, onClose, courseId }: CourseListModalProps) {
+  const { t } = useTranslation()
+  const [page, setPage] = useState(1)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['reports', 'by-course', 'enrolled', courseId, page],
+    queryFn: () => getComplianceList({ courseId, page, limit: PAGE_SIZE }),
+    enabled: isOpen,
+  })
+
+  const columns = useMemo<Column<ComplianceRow>[]>(
+    () => [
+      { key: 'userName', header: t('user.name'), skeleton: 'text' },
+      { key: 'enrollmentStatus', header: t('enrollment.label'), width: '25%', skeleton: 'pill',
+        render: (r) => <StatusBadge type="enrollment" status={r.enrollmentStatus} /> },
+      { key: 'progress', header: t('enrollment.progress'), width: '15%', align: 'right', skeleton: 'text',
+        render: (r) => `${r.progress}%` },
+    ],
+    [t],
+  )
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={t('reports.enrolledListTitle')} size="lg">
+      <DataTable<ComplianceRow>
+        columns={columns}
+        data={data?.data ?? []}
+        keyField="enrollmentId"
+        isLoading={isLoading}
+        emptyMessage={t('reports.noRows')}
+        pagination={{ page, pageSize: PAGE_SIZE, total: data?.total ?? 0, onPageChange: setPage }}
+      />
+    </Modal>
+  )
+}
+
+function PassedModal({ isOpen, onClose, courseId }: CourseListModalProps) {
+  const { t } = useTranslation()
+  const [page, setPage] = useState(1)
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['reports', 'by-course', 'passed', courseId, page],
+    queryFn: () => getCoursePassedUsers(courseId, { page, limit: PAGE_SIZE }),
+    enabled: isOpen,
+  })
+
+  const columns = useMemo<Column<CoursePassedUserRow>[]>(
+    () => [
+      { key: 'userName', header: t('user.name'), skeleton: 'text' },
+      { key: 'correctCount', header: t('reports.quizBestScore'), width: '25%', align: 'right', skeleton: 'text',
+        render: (r) => r.correctCount != null && r.totalQuestions != null ? `${r.correctCount}/${r.totalQuestions}` : '—' },
+    ],
+    [t],
+  )
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={t('reports.passedListTitle')} size="lg">
+      <DataTable<CoursePassedUserRow>
+        columns={columns}
+        data={data?.data ?? []}
+        keyField="userId"
+        isLoading={isLoading}
+        emptyMessage={t('reports.noPassedUsers')}
+        pagination={{ page, pageSize: PAGE_SIZE, total: data?.total ?? 0, onPageChange: setPage }}
+      />
+    </Modal>
+  )
+}
+
 // ─── By Course tab ──────────────────────────────────────────────────────────
 
 function ByCourseTab() {
   const { t } = useTranslation()
   const [courseId, setCourseId] = useState('')
   const [commentsPage, setCommentsPage] = useState(1)
+  const [enrolledOpen, setEnrolledOpen] = useState(false)
+  const [passedOpen, setPassedOpen] = useState(false)
 
   const { data: courses } = useQuery({
     queryKey: ['admin', 'courses', 'all-for-filter'],
@@ -77,8 +157,22 @@ function ByCourseTab() {
               Array.from({ length: 3 }).map((_, i) => <StatCardSkeleton key={i} />)
             ) : (
               <>
-                <StatCard label={t('reports.enrollmentCount')} value={report?.enrollmentCount ?? 0} icon={<Users size={20} />} />
-                <StatCard label={t('reports.passCount')} value={report?.passCount ?? 0} icon={<CheckCircle2 size={20} />} />
+                <button type="button" className="text-left" onClick={() => setEnrolledOpen(true)}>
+                  <StatCard
+                    label={t('reports.enrollmentCount')}
+                    value={report?.enrollmentCount ?? 0}
+                    icon={<Users size={20} />}
+                    className="cursor-pointer transition-shadow hover:shadow-md"
+                  />
+                </button>
+                <button type="button" className="text-left" onClick={() => setPassedOpen(true)}>
+                  <StatCard
+                    label={t('reports.passCount')}
+                    value={report?.passCount ?? 0}
+                    icon={<CheckCircle2 size={20} />}
+                    className="cursor-pointer transition-shadow hover:shadow-md"
+                  />
+                </button>
                 <StatCard
                   label={t('reports.passRate')}
                   value={report?.passRate != null ? `${report.passRate}%` : '—'}
@@ -87,6 +181,9 @@ function ByCourseTab() {
               </>
             )}
           </div>
+
+          <EnrolledModal isOpen={enrolledOpen} onClose={() => setEnrolledOpen(false)} courseId={courseId} />
+          <PassedModal isOpen={passedOpen} onClose={() => setPassedOpen(false)} courseId={courseId} />
 
           {!reportLoading && report?.hasSurvey && (
             <Card header={<h2 className="font-semibold text-slate-700">{t('reports.satisfaction')}</h2>}>
@@ -157,7 +254,8 @@ function ByUserTab() {
 
   const { data: users } = useQuery({
     queryKey: ['admin', 'users', 'all-for-filter'],
-    queryFn: () => listAdminUsers({ limit: 200 }),
+    // limit: 100 คือ max ที่ paginationQuerySchema (shared) อนุญาต — ส่งเกินนี้ backend 400 ทันที
+    queryFn: () => listAdminUsers({ limit: 100 }),
   })
 
   const { data: report, isLoading } = useQuery({
@@ -177,7 +275,9 @@ function ByUserTab() {
         render: (r) => {
           if (r.quizPassed == null) return <span className="text-slate-400">{t('reports.quizNoQuiz')}</span>
           const label = r.quizPassed ? t('reports.quizPassed') : t('reports.quizNotPassed')
-          const score = r.quizBestScore != null ? ` (${r.quizBestScore})` : ''
+          const score = r.quizCorrectCount != null && r.quizTotalQuestions != null
+            ? ` (${r.quizCorrectCount}/${r.quizTotalQuestions})`
+            : ''
           return <span className={r.quizPassed ? 'text-emerald-600' : 'text-amber-600'}>{label}{score}</span>
         } },
       { key: 'completedAt', header: t('reports.completedAtColumn'), width: '14%', skeleton: 'text',
@@ -374,7 +474,7 @@ export default function ReportsPage() {
         {tab === 'compliance' && (
           <Button
             variant="outline"
-            leftIcon={<Download size={15} />}
+            leftIcon={<Upload size={15} />}
             isLoading={exportMutation.isPending}
             onClick={() => exportMutation.mutate()}
           >

@@ -28,10 +28,12 @@ async function createCourse(adminCookies: string): Promise<{ id: string }> {
 }
 
 // สร้าง quiz + 2 คำถาม แล้ว publish course ท้ายสุด (2A: publish ต้องมี quiz ≥1 คำถามก่อน)
+// default passRequiredCount=2 (ต้องตอบถูกทั้ง 2 ข้อ) — เทียบเท่า passScore=80% เดิมที่ 2 ข้อ
+// (1/2=50%<80% ตก, 2/2=100%>=80% ผ่าน)
 async function createQuizWithQuestions(
   adminCookies: string,
   courseId: string,
-  opts: { maxAttempts?: number | null; shuffle?: boolean; passScore?: number; publish?: boolean } = {},
+  opts: { maxAttempts?: number | null; shuffle?: boolean; passRequiredCount?: number; publish?: boolean } = {},
 ) {
   // create quiz
   const quizRes = await app.inject({
@@ -40,7 +42,7 @@ async function createQuizWithQuestions(
     headers: { cookie: adminCookies },
     payload: {
       titleEn: 'Test Quiz',
-      passScore: opts.passScore ?? 80,
+      passRequiredCount: opts.passRequiredCount ?? 2,
       maxAttempts: opts.maxAttempts ?? null,
       shuffle: opts.shuffle ?? false,
     },
@@ -265,6 +267,64 @@ describe('Quizzes module', () => {
       expect(res.json().maxAttempts).toBe(5)
     })
 
+    it('updates passRequiredCount within question count → 200', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      await createQuizWithQuestions(admin.cookies, course.id) // 2 questions, publishes by default
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+        payload: { passRequiredCount: 1 },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().passRequiredCount).toBe(1)
+    })
+
+    it('updates passRequiredCount exceeding current question count → 400', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      await createQuizWithQuestions(admin.cookies, course.id) // 2 questions
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+        payload: { passRequiredCount: 5 },
+      })
+      expect(res.statusCode).toBe(400)
+
+      // ยืนยันว่าไม่ถูกเขียนทับ (ยังเป็นค่าเดิม)
+      const quiz = (await app.inject({
+        method: 'GET',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+      })).json()
+      expect(quiz.passRequiredCount).not.toBe(5)
+    })
+
+    it('sets passRequiredCount before any questions exist → 200 (no total to validate against yet)', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      const createRes = await app.inject({
+        method: 'POST',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+        payload: { titleEn: 'Empty Quiz', passRequiredCount: 10, shuffle: false },
+      })
+      expect(createRes.statusCode).toBe(201)
+
+      const res = await app.inject({
+        method: 'PATCH',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+        payload: { passRequiredCount: 20 },
+      })
+      expect(res.statusCode).toBe(200)
+      expect(res.json().passRequiredCount).toBe(20)
+    })
+
     it('soft-deletes quiz → 404 on subsequent GET', async () => {
       const admin = await setup('ADMIN')
       const course = await createCourse(admin.cookies)
@@ -288,7 +348,9 @@ describe('Quizzes module', () => {
     it('soft-deletes question → question gone, other questions remain', async () => {
       const admin = await setup('ADMIN')
       const course = await createCourse(admin.cookies)
-      const { q1Id } = await createQuizWithQuestions(admin.cookies, course.id)
+      // passRequiredCount=1 — เหลือ 1 คำถามหลังลบยังพอสำหรับเกณฑ์ผ่าน ไม่ชน gate ใหม่ (ไม่ใช่
+      // จุดที่ test นี้ต้องการทดสอบ — แค่ต้องการยืนยันว่าลบคำถามได้ปกติ)
+      const { q1Id } = await createQuizWithQuestions(admin.cookies, course.id, { passRequiredCount: 1 })
 
       await app.inject({
         method: 'DELETE',
@@ -325,7 +387,9 @@ describe('Quizzes module', () => {
     it('DELETE the last remaining question on a PUBLISHED course → 400', async () => {
       const admin = await setup('ADMIN')
       const course = await createCourse(admin.cookies)
-      const { q1Id, q2Id } = await createQuizWithQuestions(admin.cookies, course.id) // publishes by default
+      // passRequiredCount=1 — เหลือ 1 คำถามพอสำหรับเกณฑ์ผ่านหลังลบ q1 (test นี้ต้องการทดสอบ
+      // "ลบคำถามสุดท้าย" gate โดยเฉพาะ ไม่ใช่ passRequiredCount gate)
+      const { q1Id, q2Id } = await createQuizWithQuestions(admin.cookies, course.id, { passRequiredCount: 1 }) // publishes by default
 
       // ลบ q1 ก่อน — เหลือ q2 อีก 1 ข้อ ต้องผ่าน
       const firstDel = await app.inject({
@@ -342,6 +406,28 @@ describe('Quizzes module', () => {
         headers: { cookie: admin.cookies },
       })
       expect(secondDel.statusCode).toBe(400)
+    })
+
+    it('DELETE a question that would drop remaining count below passRequiredCount on a PUBLISHED course → 400', async () => {
+      const admin = await setup('ADMIN')
+      const course = await createCourse(admin.cookies)
+      // default passRequiredCount=2 — ต้องมีทั้ง 2 คำถามถึงจะสอบผ่านได้ ลบข้อไหนก็ตกเกณฑ์นี้ทันที
+      const { q1Id } = await createQuizWithQuestions(admin.cookies, course.id) // publishes by default
+
+      const res = await app.inject({
+        method: 'DELETE',
+        url: `/courses/${course.id}/quiz/questions/${q1Id}`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(res.statusCode).toBe(400)
+
+      // ยืนยันว่าคำถามยังไม่ถูกลบจริง
+      const quiz = (await app.inject({
+        method: 'GET',
+        url: `/courses/${course.id}/quiz`,
+        headers: { cookie: admin.cookies },
+      })).json()
+      expect(quiz.questions).toHaveLength(2)
     })
 
     it('DELETE quiz/question on a DRAFT course → still allowed (gate only applies to PUBLISHED)', async () => {
@@ -497,7 +583,7 @@ describe('Quizzes module', () => {
   // ── Auto-grade ────────────────────────────────────────────────────────────
 
   describe('Auto-grade', () => {
-    it('all correct → score=100, passed=true (passScore=80)', async () => {
+    it('all correct → score=100, passed=true (passRequiredCount=2)', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
@@ -514,7 +600,42 @@ describe('Quizzes module', () => {
       expect(res.json().passed).toBe(true)
     })
 
-    it('half correct, passScore=80 → score=50, passed=false', async () => {
+    it('response includes correctCount/totalQuestions alongside score% (2 correct out of 2)', async () => {
+      const admin = await setup('ADMIN')
+      const user = await setup('USER')
+      const course = await createCourse(admin.cookies)
+      const { q1Id, q1CorrectOptionId, q2Id, q2CorrectOptionId } =
+        await createQuizWithQuestions(admin.cookies, course.id)
+      await enroll(user.cookies, course.id)
+
+      const res = await submitQuiz(user.cookies, course.id, {
+        [q1Id]: q1CorrectOptionId,
+        [q2Id]: q2CorrectOptionId,
+      })
+      expect(res.statusCode).toBe(201)
+      const body = res.json<{ correctCount: number; totalQuestions: number }>()
+      expect(body.correctCount).toBe(2)
+      expect(body.totalQuestions).toBe(2)
+    })
+
+    it('half correct → correctCount=1, totalQuestions=2', async () => {
+      const admin = await setup('ADMIN')
+      const user = await setup('USER')
+      const course = await createCourse(admin.cookies)
+      const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
+        await createQuizWithQuestions(admin.cookies, course.id)
+      await enroll(user.cookies, course.id)
+
+      const res = await submitQuiz(user.cookies, course.id, {
+        [q1Id]: q1CorrectOptionId,
+        [q2Id]: q2WrongOptionId,
+      })
+      const body = res.json<{ correctCount: number; totalQuestions: number }>()
+      expect(body.correctCount).toBe(1)
+      expect(body.totalQuestions).toBe(2)
+    })
+
+    it('half correct, passRequiredCount=2 (default) → score=50, passed=false', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
@@ -531,12 +652,12 @@ describe('Quizzes module', () => {
       expect(res.json().passed).toBe(false)
     })
 
-    it('half correct, passScore=50 → score=50, passed=true (boundary >=)', async () => {
+    it('half correct, passRequiredCount=1 → passed=true (boundary >=, exactly meets requirement)', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
-        await createQuizWithQuestions(admin.cookies, course.id, { passScore: 50 })
+        await createQuizWithQuestions(admin.cookies, course.id, { passRequiredCount: 1 })
       await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
@@ -544,17 +665,18 @@ describe('Quizzes module', () => {
         [q2Id]: q2WrongOptionId,
       })
       expect(res.statusCode).toBe(201)
-      expect(res.json().score).toBe(50)
-      expect(res.json().passed).toBe(true) // score (50) >= passScore (50)
+      const body = res.json<{ correctCount: number; passed: boolean }>()
+      expect(body.correctCount).toBe(1)
+      expect(body.passed).toBe(true) // correctCount (1) >= passRequiredCount (1)
     })
 
-    it('score = quiz.passScore - 1 exactly → passed=false (precise off-by-one boundary)', async () => {
+    it('correctCount one below passRequiredCount → passed=false (precise off-by-one boundary)', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
-      // passScore=51: score=50 (1 of 2 correct) is exactly passScore-1
+      // passRequiredCount=2: correctCount=1 (1 of 2 correct) is exactly passRequiredCount-1
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
-        await createQuizWithQuestions(admin.cookies, course.id, { passScore: 51 })
+        await createQuizWithQuestions(admin.cookies, course.id, { passRequiredCount: 2 })
       await enroll(user.cookies, course.id)
 
       const res = await submitQuiz(user.cookies, course.id, {
@@ -562,8 +684,9 @@ describe('Quizzes module', () => {
         [q2Id]: q2WrongOptionId,
       })
       expect(res.statusCode).toBe(201)
-      expect(res.json().score).toBe(50)
-      expect(res.json().passed).toBe(false) // score (50) = passScore (51) - 1 → strictly below
+      const body = res.json<{ correctCount: number; passed: boolean }>()
+      expect(body.correctCount).toBe(1)
+      expect(body.passed).toBe(false) // correctCount (1) < passRequiredCount (2) → strictly below
     })
 
     it('all wrong → score=0, passed=false', async () => {
@@ -744,7 +867,7 @@ describe('Quizzes module', () => {
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
-        await createQuizWithQuestions(admin.cookies, course.id, { passScore: 50 })
+        await createQuizWithQuestions(admin.cookies, course.id, { passRequiredCount: 1 })
       const enrollment = await enroll(user.cookies, course.id)
 
       // progress stays at default 0
@@ -753,7 +876,7 @@ describe('Quizzes module', () => {
         [q2Id]: q2WrongOptionId,
       })
       expect(res.statusCode).toBe(201)
-      expect(res.json().passed).toBe(true) // score=50 >= passScore=50
+      expect(res.json().passed).toBe(true) // correctCount=1 >= passRequiredCount=1
 
       const updated = await prisma.enrollment.findUnique({
         where: { id: enrollment.id },

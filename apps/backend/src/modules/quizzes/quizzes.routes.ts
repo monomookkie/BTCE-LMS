@@ -34,7 +34,7 @@ import {
   submitQuiz,
   getAttempts,
 } from './quizzes.service.js'
-import { resolveLocale } from '../../lib/i18n.js'
+import { t, resolveLocale } from '../../lib/i18n.js'
 
 const quizzesRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -92,7 +92,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
   }, async (req, reply) => {
     const locale = await resolveLocale(req, app.prisma)
     await deleteQuiz(app.prisma, req.params.courseId, req.user.id, locale, req.ip)
-    return reply.send({ message: 'Quiz deleted' })
+    return reply.send({ message: t('success.quiz.deleted', undefined, locale) })
   })
 
   // ── Admin: Question CRUD ──────────────────────────────────────────────────
@@ -150,7 +150,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       locale,
       req.ip,
     )
-    return reply.send({ message: 'Question deleted' })
+    return reply.send({ message: t('success.question.deleted', undefined, locale) })
   })
 
   // ── Admin: Option CRUD ────────────────────────────────────────────────────
@@ -218,7 +218,7 @@ const quizzesRoutes: FastifyPluginAsync = async (app) => {
       locale,
       req.ip,
     )
-    return reply.send({ message: 'Option deleted' })
+    return reply.send({ message: t('success.option.deleted', undefined, locale) })
   })
 
   // ── User: Take + Submit ───────────────────────────────────────────────────

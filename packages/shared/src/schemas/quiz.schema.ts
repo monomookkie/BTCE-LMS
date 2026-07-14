@@ -44,7 +44,8 @@ export const quizAdminResponseSchema = z.object({
   title: z.string(),       // localized
   titleEn: z.string(),     // raw
   titleTh: z.string().nullable(),
-  passScore: z.number().int(),
+  // เกณฑ์ผ่าน = ต้องตอบถูกกี่ข้อ (จำนวนเต็ม) — เปลี่ยนจาก passScore% เดิม
+  passRequiredCount: z.number().int(),
   maxAttempts: z.number().int().nullable(),
   shuffle: z.boolean(),
   questions: z.array(questionAdminSchema),
@@ -55,7 +56,7 @@ export const quizForUserResponseSchema = z.object({
   id: z.string().cuid(),
   courseId: z.string().cuid(),
   title: z.string(),
-  passScore: z.number().int(),
+  passRequiredCount: z.number().int(),
   maxAttempts: z.number().int().nullable(),
   questions: z.array(questionForUserSchema),
 })
@@ -65,7 +66,7 @@ export const quizForUserResponseSchema = z.object({
 export const createQuizInputSchema = z.object({
   titleEn: z.string().min(1).max(200),
   titleTh: z.string().max(200).optional(),
-  passScore: z.number().int().min(0).max(100).default(80),
+  passRequiredCount: z.number().int().min(0).default(1),
   maxAttempts: z.number().int().positive().nullable().optional(),
   shuffle: z.boolean().default(true),
 })
@@ -73,7 +74,7 @@ export const createQuizInputSchema = z.object({
 export const updateQuizInputSchema = z.object({
   titleEn: z.string().min(1).max(200).optional(),
   titleTh: z.string().max(200).nullable().optional(),
-  passScore: z.number().int().min(0).max(100).optional(),
+  passRequiredCount: z.number().int().min(0).optional(),
   maxAttempts: z.number().int().positive().nullable().optional(),
   shuffle: z.boolean().optional(),
 })
@@ -122,6 +123,9 @@ export const quizAttemptResponseSchema = z.object({
   userId: z.string().cuid(),
   score: z.number().int(),
   passed: z.boolean(),
+  // ตอบถูกกี่ข้อ/เต็มกี่ข้อ — null สำหรับ attempt เก่าก่อน migration นี้ (ไม่ backfill เดา)
+  correctCount: z.number().int().nullable(),
+  totalQuestions: z.number().int().nullable(),
   answers: z.record(z.string(), z.string()),
   createdAt: z.string().datetime(),
 })

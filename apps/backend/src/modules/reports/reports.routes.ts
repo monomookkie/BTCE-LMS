@@ -6,6 +6,7 @@ import {
   courseReportSchema,
   courseCommentsListSchema,
   userReportSchema,
+  coursePassedUsersListSchema,
 } from '@btec-lms/shared'
 import {
   complianceQuerySchema,
@@ -13,6 +14,7 @@ import {
   courseReportQuerySchema,
   courseCommentsQuerySchema,
   userReportQuerySchema,
+  coursePassedUsersQuerySchema,
 } from './reports.schema.js'
 import {
   getDashboardSummary,
@@ -21,6 +23,7 @@ import {
   getCourseReport,
   getCourseComments,
   getUserReport,
+  getCoursePassedUsers,
 } from './reports.service.js'
 import { resolveLocale } from '../../lib/i18n.js'
 
@@ -102,6 +105,18 @@ const reportsRoutes: FastifyPluginAsync = async (app) => {
   }, async (req) => {
     const locale = await resolveLocale(req, app.prisma)
     return getCourseComments(app.prisma, req.query, req.user.id, locale, req.ip)
+  })
+
+  // ─── GET /reports/by-course/passed — ADMIN (named list, not anonymous — see service comment) ──
+  server.get('/reports/by-course/passed', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      querystring: coursePassedUsersQuerySchema,
+      response: { 200: coursePassedUsersListSchema },
+    },
+  }, async (req) => {
+    const locale = await resolveLocale(req, app.prisma)
+    return getCoursePassedUsers(app.prisma, req.query, req.user.id, locale, req.ip)
   })
 
   // ─── GET /reports/by-user — ADMIN (enrollment list, mandatory/optional split) ──────

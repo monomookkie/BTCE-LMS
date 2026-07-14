@@ -44,7 +44,7 @@ const QUIZ_USER_SELECT = {
   courseId: true,
   titleEn: true,
   titleTh: true,
-  passScore: true,
+  passRequiredCount: true,
   maxAttempts: true,
   shuffle: true,
   questions: {
@@ -72,7 +72,7 @@ type QuizWithQuestionsAdmin = {
   courseId: string
   titleEn: string
   titleTh: string | null
-  passScore: number
+  passRequiredCount: number
   maxAttempts: number | null
   shuffle: boolean
   questions: Array<{
@@ -89,7 +89,7 @@ type QuizWithQuestionsUser = {
   courseId: string
   titleEn: string
   titleTh: string | null
-  passScore: number
+  passRequiredCount: number
   maxAttempts: number | null
   shuffle: boolean
   questions: Array<{
@@ -109,7 +109,7 @@ function toQuizAdminResponse(quiz: QuizWithQuestionsAdmin, locale: Locale): Quiz
     title: localizeField(quiz.titleEn, quiz.titleTh, locale),
     titleEn: quiz.titleEn,
     titleTh: quiz.titleTh ?? null,
-    passScore: quiz.passScore,
+    passRequiredCount: quiz.passRequiredCount,
     maxAttempts: quiz.maxAttempts,
     shuffle: quiz.shuffle,
     questions: quiz.questions.map((q) => ({
@@ -145,7 +145,7 @@ function toQuizForUserResponse(quiz: QuizWithQuestionsUser, locale: Locale): Qui
     id: quiz.id,
     courseId: quiz.courseId,
     title: localizeField(quiz.titleEn, quiz.titleTh, locale),
-    passScore: quiz.passScore,
+    passRequiredCount: quiz.passRequiredCount,
     maxAttempts: quiz.maxAttempts,
     questions,
   }
@@ -157,6 +157,8 @@ function toAttemptResponse(a: {
   userId: string
   score: number
   passed: boolean
+  correctCount: number | null
+  totalQuestions: number | null
   answers: unknown
   createdAt: Date
 }): QuizAttemptResponse {
@@ -166,6 +168,8 @@ function toAttemptResponse(a: {
     userId: a.userId,
     score: a.score,
     passed: a.passed,
+    correctCount: a.correctCount,
+    totalQuestions: a.totalQuestions,
     answers: a.answers as Record<string, string>,
     createdAt: a.createdAt.toISOString(),
   }
@@ -210,7 +214,7 @@ export async function createQuiz(
       courseId,
       titleEn: input.titleEn,
       titleTh: input.titleTh ?? null,
-      passScore: input.passScore,
+      passRequiredCount: input.passRequiredCount,
       maxAttempts: input.maxAttempts ?? null,
       shuffle: input.shuffle,
     },
@@ -252,12 +256,21 @@ export async function updateQuiz(
 ): Promise<QuizAdminResponse> {
   const existing = await requireActiveQuiz(prisma, courseId, locale)
 
+  // ตั้ง passRequiredCount เกินจำนวนคำถามที่มีอยู่จริงไม่ได้ (ถ้ามีคำถามแล้ว) — กันตั้งเกณฑ์ที่
+  // ไม่มีทางสอบผ่านได้เลย เช็คทันทีตอนแก้ไข ไม่ต้องรอไปเจอตอน publish/ลบคำถามทีหลัง (UX ดีกว่า)
+  if (input.passRequiredCount != null) {
+    const questionCount = await prisma.question.count({ where: { quizId: existing.id, deletedAt: null } })
+    if (questionCount > 0 && input.passRequiredCount > questionCount) {
+      throw badRequest(t('error.quiz.passRequiredCountExceedsQuestions', { passRequiredCount: input.passRequiredCount, questionCount }, locale))
+    }
+  }
+
   const quiz = await prisma.quiz.update({
     where: { id: existing.id },
     data: {
       ...(input.titleEn != null && { titleEn: input.titleEn }),
       ...('titleTh' in input && { titleTh: input.titleTh ?? null }),
-      ...(input.passScore != null && { passScore: input.passScore }),
+      ...(input.passRequiredCount != null && { passRequiredCount: input.passRequiredCount }),
       ...('maxAttempts' in input && { maxAttempts: input.maxAttempts ?? null }),
       ...(input.shuffle != null && { shuffle: input.shuffle }),
     },
@@ -409,6 +422,7 @@ export async function deleteQuestion(
   if (!question) throw notFound(t('error.question.notFound', undefined, locale))
 
   // published course ต้องมี quiz ≥1 คำถามเสมอ (2A invariant) — กันลบคำถามสุดท้าย
+  // + ลบแล้วเหลือน้อยกว่า passRequiredCount ไม่ได้เช่นกัน (กันเกิด quiz ที่ไม่มีทางสอบผ่าน)
   const course = await prisma.course.findFirst({ where: { id: courseId }, select: { status: true } })
   if (course?.status === 'PUBLISHED') {
     const remaining = await prisma.question.count({
@@ -416,6 +430,9 @@ export async function deleteQuestion(
     })
     if (remaining === 0) {
       throw badRequest(t('error.quiz.cannotRemoveFromPublished', undefined, locale))
+    }
+    if (remaining < quiz.passRequiredCount) {
+      throw badRequest(t('error.quiz.cannotRemoveBelowPassRequiredCount', { remaining, passRequiredCount: quiz.passRequiredCount }, locale))
     }
   }
 
@@ -590,13 +607,13 @@ export async function submitQuiz(
   })
   if (!enrollment) throw forbidden(t('error.enrollment.notEnrolled', undefined, locale))
 
-  // 2. ดึง quiz + quiz.passScore (ย้ายมาจาก course.passScore — 2A)
+  // 2. ดึง quiz + quiz.passRequiredCount (จำนวนข้อที่ต้องตอบถูก — แทน passScore% เดิม)
   const quizWithCourse = await prisma.quiz.findFirst({
     where: { courseId, deletedAt: null },
     select: {
       id: true,
       maxAttempts: true,
-      passScore: true,
+      passRequiredCount: true,
       questions: {
         where: { deletedAt: null },
         select: {
@@ -649,17 +666,20 @@ export async function submitQuiz(
   }
 
   const total = questionMap.size
+  // score% ยังคำนวณเก็บไว้เป็นข้อมูลอ้างอิง (แสดงในบาง context) แต่ pass/fail เทียบจำนวนข้อตรงๆ
+  // แล้ว (correct >= passRequiredCount) ไม่ผ่าน % ปัดเศษอีกต่อไป — ตัด rounding ambiguity ออก
   const score = total === 0 ? 0 : Math.round((correct / total) * 100)
-  const passScore = quizWithCourse.passScore
-  const passed = score >= passScore
+  const passed = correct >= quizWithCourse.passRequiredCount
 
-  // 7. บันทึก attempt
+  // 7. บันทึก attempt — correctCount/totalQuestions เก็บไว้โชว์ "ตอบถูกกี่ข้อ/เต็มกี่ข้อ" แทน % อย่างเดียว
   const attempt = await prisma.quizAttempt.create({
     data: {
       quizId: quizWithCourse.id,
       userId,
       score,
       passed,
+      correctCount: correct,
+      totalQuestions: total,
       answers: input.answers as object,
     },
   })

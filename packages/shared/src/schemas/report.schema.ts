@@ -76,6 +76,27 @@ export const courseReportSchema = z.object({
 export type RatingStat = z.infer<typeof ratingStatSchema>
 export type CourseReport = z.infer<typeof courseReportSchema>
 
+// รายชื่อคนที่สอบผ่าน — ไม่ใช่ context anonymous (ต่างจาก comments) เพราะเป็นสถานะสอบผ่าน/ตก
+// ไม่ใช่ความเห็นส่วนตัว และ Compliance tab ก็โชว์ userName คู่กับ enrollment อยู่แล้วเป็นปกติ
+export const coursePassedUserRowSchema = z.object({
+  userId: z.string().cuid(),
+  userName: z.string(),
+  // ตอบถูกกี่ข้อ/เต็มกี่ข้อของ attempt ที่คะแนนสูงสุด — null ถ้า attempt นั้นเก่ากว่า migration
+  // correctCount/totalQuestions (ไม่ backfill เดา) แสดง "—" แทนฝั่ง frontend
+  correctCount: z.number().int().nullable(),
+  totalQuestions: z.number().int().nullable(),
+})
+
+export const coursePassedUsersListSchema = z.object({
+  data: z.array(coursePassedUserRowSchema),
+  total: z.number().int(),
+  page: z.number().int(),
+  limit: z.number().int(),
+})
+
+export type CoursePassedUserRow = z.infer<typeof coursePassedUserRowSchema>
+export type CoursePassedUsersList = z.infer<typeof coursePassedUsersListSchema>
+
 // Anonymous by design (PDPA) — ห้ามมี userId/userName/createdAt แม้แต่ field เดียว
 // (createdAt ตัดออกเพราะ timestamp ละเอียด + คอมเมนต์น้อย = เดาตัวตนได้จาก cross-reference กับ enrollment)
 export const courseCommentRowSchema = z.object({
@@ -105,7 +126,10 @@ const userReportRowSchema = z.object({
   progress: z.number().int(),
   // null = course นี้ไม่มี quiz (ไม่ใช่ "ยังไม่สอบ"); false = มี quiz แต่ยังไม่ผ่าน/ยังไม่สอบ
   quizPassed: z.boolean().nullable(),
-  quizBestScore: z.number().int().nullable(), // คะแนนสูงสุดจากทุก attempt, null ถ้ายังไม่เคยสอบหรือไม่มี quiz
+  // ตอบถูกกี่ข้อ/เต็มกี่ข้อของ attempt ที่คะแนนสูงสุด — null ถ้ายังไม่เคยสอบ/ไม่มี quiz/attempt
+  // นั้นเก่ากว่า migration correctCount (ไม่ backfill เดา) แสดง "—" แทนฝั่ง frontend
+  quizCorrectCount: z.number().int().nullable(),
+  quizTotalQuestions: z.number().int().nullable(),
   completedAt: z.string().nullable(),
   dueAt: z.string().nullable(),
 })

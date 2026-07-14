@@ -440,21 +440,33 @@ describe('Reports module', () => {
 
   // ─── item 4: By Course / By User report helpers ───────────────────────────
 
-  async function seedCourseWithQuiz(passScore = 80) {
+  async function seedCourseWithQuiz(passRequiredCount = 1) {
     const course = await prisma.course.create({
       data: { titleEn: `Course-${randomUUID().slice(0, 6)}`, categoryEn: 'Safety', status: 'PUBLISHED' },
       select: { id: true },
     })
     const quiz = await prisma.quiz.create({
-      data: { courseId: course.id, titleEn: 'Quiz', passScore },
+      data: { courseId: course.id, titleEn: 'Quiz', passRequiredCount },
       select: { id: true },
     })
     return { courseId: course.id, quizId: quiz.id }
   }
 
-  async function seedQuizAttempt(quizId: string, userId: string, opts: { score: number; passed: boolean }) {
+  async function seedQuizAttempt(
+    quizId: string,
+    userId: string,
+    opts: { score: number; passed: boolean; correctCount?: number; totalQuestions?: number },
+  ) {
     return prisma.quizAttempt.create({
-      data: { quizId, userId, score: opts.score, passed: opts.passed, answers: {} },
+      data: {
+        quizId,
+        userId,
+        score: opts.score,
+        passed: opts.passed,
+        answers: {},
+        ...(opts.correctCount != null && { correctCount: opts.correctCount }),
+        ...(opts.totalQuestions != null && { totalQuestions: opts.totalQuestions }),
+      },
     })
   }
 
@@ -602,6 +614,103 @@ describe('Reports module', () => {
       const countBefore = await prisma.auditLog.count({ where: { action: 'REPORT_BY_COURSE_VIEW', actorId: admin.userId } })
 
       await app.inject({ method: 'GET', url: `/reports/by-course?courseId=${courseId}`, headers: { cookie: admin.cookies } })
+
+      const countAfter = await prisma.auditLog.count({ where: { action: 'REPORT_BY_COURSE_VIEW', actorId: admin.userId } })
+      expect(countAfter).toBe(countBefore + 1)
+    })
+  })
+
+  // ─── 6b. GET /reports/by-course/passed — named list (not anonymous) ───────
+
+  describe('GET /reports/by-course/passed', () => {
+    it('RBAC: USER → 403, unauthenticated → 401', async () => {
+      const { courseId } = await seedCourseWithQuiz()
+      const user = await makeRegularUser()
+      expect(
+        (await app.inject({ method: 'GET', url: `/reports/by-course/passed?courseId=${courseId}`, headers: { cookie: user.cookies } })).statusCode,
+      ).toBe(403)
+      expect(
+        (await app.inject({ method: 'GET', url: `/reports/by-course/passed?courseId=${courseId}` })).statusCode,
+      ).toBe(401)
+    })
+
+    it('nonexistent courseId → 404', async () => {
+      const admin = await makeAdmin()
+      const res = await app.inject({
+        method: 'GET',
+        url: `/reports/by-course/passed?courseId=${'c'.repeat(25)}`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(res.statusCode).toBe(404)
+    })
+
+    it('returns userName + correctCount/totalQuestions (of the best-scoring attempt) for users who passed, excludes non-passers', async () => {
+      const admin = await makeAdmin()
+      const { courseId, quizId } = await seedCourseWithQuiz()
+      const passer = await makeRegularUser()
+      const failer = await makeRegularUser()
+      await seedQuizAttempt(quizId, passer.userId, { score: 60, passed: false, correctCount: 3, totalQuestions: 5 })
+      await seedQuizAttempt(quizId, passer.userId, { score: 95, passed: true, correctCount: 19, totalQuestions: 20 })
+      await seedQuizAttempt(quizId, failer.userId, { score: 50, passed: false, correctCount: 2, totalQuestions: 4 })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/reports/by-course/passed?courseId=${courseId}`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(res.statusCode).toBe(200)
+      const body = res.json<{ data: { userId: string; userName: string; correctCount: number | null; totalQuestions: number | null }[]; total: number }>()
+      expect(body.total).toBe(1)
+      const row = body.data.find((r) => r.userId === passer.userId)
+      expect(row).toBeDefined()
+      // ต้องเป็นของ attempt คะแนนสูงสุด (score=95) ไม่ใช่ attempt แรกที่ passed
+      expect(row!.correctCount).toBe(19)
+      expect(row!.totalQuestions).toBe(20)
+      expect(body.data.some((r) => r.userId === failer.userId)).toBe(false)
+    })
+
+    it('legacy attempt without correctCount/totalQuestions → shows null (not backfilled)', async () => {
+      const admin = await makeAdmin()
+      const { courseId, quizId } = await seedCourseWithQuiz()
+      const passer = await makeRegularUser()
+      // ไม่ส่ง correctCount/totalQuestions — จำลอง attempt เก่าก่อน migration นี้
+      await seedQuizAttempt(quizId, passer.userId, { score: 90, passed: true })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/reports/by-course/passed?courseId=${courseId}`,
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<{ data: { userId: string; correctCount: number | null; totalQuestions: number | null }[] }>()
+      const row = body.data.find((r) => r.userId === passer.userId)
+      expect(row!.correctCount).toBeNull()
+      expect(row!.totalQuestions).toBeNull()
+    })
+
+    it('pagination: page/limit respected', async () => {
+      const admin = await makeAdmin()
+      const { courseId, quizId } = await seedCourseWithQuiz()
+      for (let i = 0; i < 3; i++) {
+        const u = await makeRegularUser()
+        await seedQuizAttempt(quizId, u.userId, { score: 90, passed: true })
+      }
+
+      const res = await app.inject({
+        method: 'GET',
+        url: `/reports/by-course/passed?courseId=${courseId}&page=1&limit=2`,
+        headers: { cookie: admin.cookies },
+      })
+      const body = res.json<{ data: unknown[]; total: number; page: number; limit: number }>()
+      expect(body.total).toBe(3)
+      expect(body.data).toHaveLength(2)
+    })
+
+    it('creates REPORT_BY_COURSE_VIEW audit log', async () => {
+      const admin = await makeAdmin()
+      const { courseId } = await seedCourseWithQuiz()
+      const countBefore = await prisma.auditLog.count({ where: { action: 'REPORT_BY_COURSE_VIEW', actorId: admin.userId } })
+
+      await app.inject({ method: 'GET', url: `/reports/by-course/passed?courseId=${courseId}`, headers: { cookie: admin.cookies } })
 
       const countAfter = await prisma.auditLog.count({ where: { action: 'REPORT_BY_COURSE_VIEW', actorId: admin.userId } })
       expect(countAfter).toBe(countBefore + 1)
@@ -793,12 +902,13 @@ describe('Reports module', () => {
         url: `/reports/by-user?userId=${target.userId}`,
         headers: { cookie: admin.cookies },
       })
-      const body = res.json<{ optional: { quizPassed: boolean | null; quizBestScore: number | null }[] }>()
+      const body = res.json<{ optional: { quizPassed: boolean | null; quizCorrectCount: number | null; quizTotalQuestions: number | null }[] }>()
       expect(body.optional[0]!.quizPassed).toBeNull()
-      expect(body.optional[0]!.quizBestScore).toBeNull()
+      expect(body.optional[0]!.quizCorrectCount).toBeNull()
+      expect(body.optional[0]!.quizTotalQuestions).toBeNull()
     })
 
-    it('quizPassed = false + quizBestScore = null when quiz exists but user never attempted', async () => {
+    it('quizPassed = false + quizCorrectCount/quizTotalQuestions = null when quiz exists but user never attempted', async () => {
       const admin = await makeAdmin()
       const target = await makeRegularUser()
       const { courseId } = await seedCourseWithQuiz()
@@ -809,28 +919,30 @@ describe('Reports module', () => {
         url: `/reports/by-user?userId=${target.userId}`,
         headers: { cookie: admin.cookies },
       })
-      const body = res.json<{ optional: { quizPassed: boolean | null; quizBestScore: number | null }[] }>()
+      const body = res.json<{ optional: { quizPassed: boolean | null; quizCorrectCount: number | null; quizTotalQuestions: number | null }[] }>()
       expect(body.optional[0]!.quizPassed).toBe(false)
-      expect(body.optional[0]!.quizBestScore).toBeNull()
+      expect(body.optional[0]!.quizCorrectCount).toBeNull()
+      expect(body.optional[0]!.quizTotalQuestions).toBeNull()
     })
 
-    it('quizBestScore = max score across attempts, quizPassed = true if ANY attempt passed', async () => {
+    it('quizCorrectCount/quizTotalQuestions come from the highest-scoring attempt, quizPassed = true if ANY attempt passed', async () => {
       const admin = await makeAdmin()
       const target = await makeRegularUser()
       const { courseId, quizId } = await seedCourseWithQuiz()
       await prisma.enrollment.create({ data: { userId: target.userId, courseId, status: 'COMPLETED', progress: 100 } })
-      await seedQuizAttempt(quizId, target.userId, { score: 60, passed: false })
-      await seedQuizAttempt(quizId, target.userId, { score: 95, passed: true })
-      await seedQuizAttempt(quizId, target.userId, { score: 70, passed: false })
+      await seedQuizAttempt(quizId, target.userId, { score: 60, passed: false, correctCount: 6, totalQuestions: 10 })
+      await seedQuizAttempt(quizId, target.userId, { score: 95, passed: true, correctCount: 19, totalQuestions: 20 })
+      await seedQuizAttempt(quizId, target.userId, { score: 70, passed: false, correctCount: 7, totalQuestions: 10 })
 
       const res = await app.inject({
         method: 'GET',
         url: `/reports/by-user?userId=${target.userId}`,
         headers: { cookie: admin.cookies },
       })
-      const body = res.json<{ optional: { quizPassed: boolean; quizBestScore: number }[] }>()
+      const body = res.json<{ optional: { quizPassed: boolean; quizCorrectCount: number; quizTotalQuestions: number }[] }>()
       expect(body.optional[0]!.quizPassed).toBe(true)
-      expect(body.optional[0]!.quizBestScore).toBe(95)
+      expect(body.optional[0]!.quizCorrectCount).toBe(19)
+      expect(body.optional[0]!.quizTotalQuestions).toBe(20)
     })
 
     it('creates REPORT_BY_USER_VIEW audit log', async () => {

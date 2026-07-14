@@ -208,6 +208,30 @@ describe('Auth module', () => {
       expect(res.statusCode).toBe(400)
     })
 
+    it('positionId of an isSystemOnly position (e.g. "Administrator") → 400, even bypassing the UI dropdown directly', async () => {
+      const systemPosition = await prisma.position.create({
+        data: { nameEn: `SystemOnly-${Date.now()}-${Math.random()}`, isSystemOnly: true },
+      })
+      const email = `register-systemonly-${Date.now()}@redcross.or.th`
+
+      const res = await app.inject({
+        method: 'POST',
+        url: '/auth/register',
+        payload: {
+          name: 'Sneaky Staff',
+          email,
+          password: 'ValidPass1!',
+          department: 'Blood Bank Division',
+          positionId: systemPosition.id,
+        },
+      })
+      expect(res.statusCode).toBe(400)
+
+      // ต้องไม่มี user ถูกสร้างขึ้นจากการพยายามนี้
+      const dbUser = await prisma.user.findUnique({ where: { email } })
+      expect(dbUser).toBeNull()
+    })
+
     it('duplicate email → 409 with generic message (no enumeration)', async () => {
       const email = `dup-${Date.now()}@redcross.or.th`
       await createUser({ email })

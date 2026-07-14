@@ -40,6 +40,14 @@ describe('Positions module', () => {
       const body = res.json<Array<{ name: string }>>()
       expect(body.some((p) => p.name === 'Retired Position')).toBe(false)
     })
+
+    it('excludes isSystemOnly positions (e.g. "Administrator") — must not be selectable at self-register', async () => {
+      await prisma.position.create({ data: { nameEn: 'System Reserved', isSystemOnly: true } })
+
+      const res = await app.inject({ method: 'GET', url: '/positions' })
+      const body = res.json<Array<{ name: string }>>()
+      expect(body.some((p) => p.name === 'System Reserved')).toBe(false)
+    })
   })
 
   describe('GET /positions/admin', () => {
@@ -55,6 +63,20 @@ describe('Positions module', () => {
       expect(res.statusCode).toBe(200)
       const found = res.json<Array<{ nameEn: string; nameTh: string | null }>>().find((p) => p.nameEn === 'Technician')
       expect(found?.nameTh).toBe('ช่างเทคนิค')
+    })
+
+    it('ADMIN still sees isSystemOnly positions (assignable to other users via UserDirectoryPage)', async () => {
+      const admin = await setup('ADMIN')
+      await prisma.position.create({ data: { nameEn: 'System Reserved Admin View', isSystemOnly: true } })
+
+      const res = await app.inject({
+        method: 'GET',
+        url: '/positions/admin',
+        headers: { cookie: admin.cookies },
+      })
+      const found = res.json<Array<{ nameEn: string; isSystemOnly: boolean }>>().find((p) => p.nameEn === 'System Reserved Admin View')
+      expect(found).toBeDefined()
+      expect(found?.isSystemOnly).toBe(true)
     })
 
     it('USER denied → 403', async () => {

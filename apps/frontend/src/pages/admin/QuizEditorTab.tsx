@@ -35,7 +35,7 @@ type QuizOption = QuizQuestion['options'][number]
 const quizSettingsSchema = z.object({
   titleEn: z.string().min(1).max(200),
   titleTh: z.string().max(200).optional(),
-  passScore: z.coerce.number().int().min(0).max(100),
+  passRequiredCount: z.coerce.number().int().min(0),
   maxAttemptsRaw: z.string(),
   shuffle: z.boolean(),
 })
@@ -60,11 +60,11 @@ function QuizSettingsModal({ isOpen, onClose, courseId, quiz }: QuizSettingsModa
         ? {
             titleEn: quiz.titleEn,
             titleTh: quiz.titleTh ?? '',
-            passScore: quiz.passScore,
+            passRequiredCount: quiz.passRequiredCount,
             maxAttemptsRaw: quiz.maxAttempts != null ? String(quiz.maxAttempts) : '',
             shuffle: quiz.shuffle,
           }
-        : { titleEn: '', titleTh: '', passScore: 80, maxAttemptsRaw: '', shuffle: true },
+        : { titleEn: '', titleTh: '', passRequiredCount: 1, maxAttemptsRaw: '', shuffle: true },
     })
 
   const onSubmit = async (values: QuizSettingsValues) => {
@@ -72,7 +72,7 @@ function QuizSettingsModal({ isOpen, onClose, courseId, quiz }: QuizSettingsModa
     const body = {
       titleEn: values.titleEn,
       ...(values.titleTh?.trim() ? { titleTh: values.titleTh.trim() } : {}),
-      passScore: values.passScore,
+      passRequiredCount: values.passRequiredCount,
       maxAttempts,
       shuffle: values.shuffle,
     }
@@ -94,12 +94,17 @@ function QuizSettingsModal({ isOpen, onClose, courseId, quiz }: QuizSettingsModa
           <Input label={t('quizEditor.quizTitleTh')} {...register('titleTh')} />
         </div>
         <Input
-          label={`${t('quizEditor.passScore')} (%)`}
+          label={
+            quiz && quiz.questions.length > 0
+              ? `${t('quizEditor.passRequiredCount')} (${t('quizEditor.outOfQuestions', { count: quiz.questions.length })})`
+              : t('quizEditor.passRequiredCount')
+          }
           type="number"
           min={0}
-          max={100}
-          error={errors.passScore?.message}
-          {...register('passScore')}
+          max={quiz && quiz.questions.length > 0 ? quiz.questions.length : undefined}
+          helperText={!quiz || quiz.questions.length === 0 ? t('quizEditor.passRequiredCountHelpNoQuestions') : undefined}
+          error={errors.passRequiredCount?.message}
+          {...register('passRequiredCount')}
         />
         <Input
           label={t('quizEditor.maxAttempts')}
@@ -704,7 +709,7 @@ export default function QuizEditorTab({ courseId, isArchived }: QuizEditorTabPro
             <h3 className="font-semibold text-slate-800">{quiz.titleEn}</h3>
             {quiz.titleTh && <p className="text-sm text-slate-400">{quiz.titleTh}</p>}
             <div className="mt-2 flex gap-4 text-xs text-slate-500">
-              <span>{t('quizEditor.passScore')}: <strong className="text-slate-700">{quiz.passScore}%</strong></span>
+              <span>{t('quizEditor.passRequiredCount')}: <strong className="text-slate-700">{quiz.passRequiredCount}/{quiz.questions.length}</strong></span>
               <span>{t('quizEditor.maxAttempts')}: <strong className="text-slate-700">{quiz.maxAttempts ?? '∞'}</strong></span>
               <span>{t('quizEditor.shuffle')}: <strong className="text-slate-700">{quiz.shuffle ? t('common.yes') : t('common.no')}</strong></span>
             </div>

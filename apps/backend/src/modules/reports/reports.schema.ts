@@ -43,6 +43,13 @@ export const userReportQuerySchema = z.object({
   userId: z.string().cuid(),
 })
 
+export const coursePassedUsersQuerySchema = z.object({
+  courseId: z.string().cuid(),
+  page: z.coerce.number().int().min(1).default(1),
+  limit: z.coerce.number().int().min(1).max(100).default(20),
+})
+
 export type CourseReportQuery = z.infer<typeof courseReportQuerySchema>
 export type CourseCommentsQuery = z.infer<typeof courseCommentsQuerySchema>
 export type UserReportQuery = z.infer<typeof userReportQuerySchema>
+export type CoursePassedUsersQuery = z.infer<typeof coursePassedUsersQuerySchema>

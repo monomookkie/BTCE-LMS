@@ -15,6 +15,9 @@ export const positionAdminResponseSchema = z.object({
   nameTh: z.string().nullable(),
   userCount: z.number().int(),
   courseCount: z.number().int(),
+  // สงวนไว้เฉพาะ ADMIN assign เอง — ไม่ขึ้นในหน้า self-register สาธารณะ (GET /positions filter ออก)
+  // ไม่มี field นี้ใน create/updatePositionInputSchema — แก้ได้เฉพาะทาง backend/seed เท่านั้น (ตั้งใจ)
+  isSystemOnly: z.boolean(),
 })
 
 export const createPositionInputSchema = z.object({

@@ -9,6 +9,7 @@ import type {
   CourseCommentRow,
   UserReport,
   UserReportRow,
+  CoursePassedUsersList,
 } from '@btec-lms/shared'
 import { logAudit } from '../../lib/audit.js'
 import { notFound } from '../../lib/errors.js'
@@ -17,6 +18,7 @@ import type {
   ComplianceQuery,
   ComplianceExportQuery,
   CourseCommentsQuery,
+  CoursePassedUsersQuery,
 } from './reports.schema.js'
 
 // ─── getDashboardSummary ──────────────────────────────────────────────────────
@@ -326,6 +328,81 @@ export async function getCourseReport(
   }
 }
 
+// ─── getCoursePassedUsers (item 4 follow-up) ────────────────────────────────
+// รายชื่อคนที่สอบผ่าน — ไม่ anonymous (ต่างจาก getCourseComments) เพราะสถานะสอบผ่าน/คะแนน
+// ไม่ใช่ความเห็นส่วนตัว และ Compliance tab ก็โชว์ userName คู่กับ enrollment อยู่แล้วเป็นปกติ
+
+export async function getCoursePassedUsers(
+  prisma: PrismaClient,
+  query: CoursePassedUsersQuery,
+  requesterId: string,
+  locale: Locale = 'en',
+  ip?: string,
+): Promise<CoursePassedUsersList> {
+  const { courseId, page, limit } = query
+
+  const course = await prisma.course.findFirst({ where: { id: courseId, deletedAt: null }, select: { id: true } })
+  if (!course) throw notFound(t('error.course.notFound', undefined, locale))
+
+  // best attempt ต้องดูจากทุก attempt ของ user นั้น (ไม่ใช่แค่ attempt ที่ passed) — เอา attempt
+  // คะแนนสูงสุดมาโชว์ correctCount/totalQuestions ของ attempt นั้น (null ถ้า attempt เก่ากว่า
+  // migration correctCount — ไม่ backfill เดา)
+  const attempts = await prisma.quizAttempt.findMany({
+    where: { quiz: { courseId } },
+    select: { userId: true, score: true, passed: true, correctCount: true, totalQuestions: true },
+  })
+
+  const bestByUserId = new Map<string, { score: number; correctCount: number | null; totalQuestions: number | null }>()
+  const passedUserIds = new Set<string>()
+  for (const a of attempts) {
+    if (a.passed) passedUserIds.add(a.userId)
+    const cur = bestByUserId.get(a.userId)
+    // tie-break: ถ้าคะแนนเท่ากัน แต่ attempt เดิมไม่มี correctCount (legacy ก่อน migration นี้)
+    // และ attempt ใหม่มี → ใช้ตัวใหม่แทน กันโชว์ "—" ทั้งที่จริงมีข้อมูลละเอียดกว่าอยู่แล้ว
+    const isBetter = !cur || a.score > cur.score || (a.score === cur.score && cur.correctCount == null && a.correctCount != null)
+    if (isBetter) {
+      bestByUserId.set(a.userId, { score: a.score, correctCount: a.correctCount, totalQuestions: a.totalQuestions })
+    }
+  }
+
+  const allPassedIds = [...passedUserIds]
+  const total = allPassedIds.length
+
+  const users = allPassedIds.length > 0
+    ? await prisma.user.findMany({
+        where: { id: { in: allPassedIds }, deletedAt: null },
+        select: { id: true, name: true },
+        orderBy: { name: 'asc' },
+        skip: (page - 1) * limit,
+        take: limit,
+      })
+    : []
+
+  await logAudit(prisma, {
+    actorId: requesterId,
+    action: 'REPORT_BY_COURSE_VIEW',
+    targetType: 'Course',
+    targetId: courseId,
+    metadata: { section: 'passedUsers', total },
+    ...(ip != null && { ip }),
+  })
+
+  return {
+    data: users.map((u) => {
+      const best = bestByUserId.get(u.id)
+      return {
+        userId: u.id,
+        userName: u.name,
+        correctCount: best?.correctCount ?? null,
+        totalQuestions: best?.totalQuestions ?? null,
+      }
+    }),
+    total,
+    page,
+    limit,
+  }
+}
+
 // ─── getCourseComments (item 4) ─────────────────────────────────────────────
 // PDPA: anonymous by design — ไม่ query userId เลย (defense-in-depth ตั้งแต่ระดับ Prisma select
 // ไม่ใช่แค่ strip ที่ response) และไม่คืน createdAt (timestamp ละเอียด + คอมเมนต์น้อย = เดาตัวตนได้
@@ -432,15 +509,24 @@ export async function getUserReport(
   const attempts = quizIds.length > 0
     ? await prisma.quizAttempt.findMany({
         where: { quizId: { in: quizIds }, userId },
-        select: { quizId: true, score: true, passed: true },
+        select: { quizId: true, score: true, passed: true, correctCount: true, totalQuestions: true },
       })
     : []
-  const attemptStatByQuizId = new Map<string, { passed: boolean; bestScore: number }>()
+  const attemptStatByQuizId = new Map<string, {
+    passed: boolean
+    bestScore: number
+    correctCount: number | null
+    totalQuestions: number | null
+  }>()
   for (const a of attempts) {
     const cur = attemptStatByQuizId.get(a.quizId)
+    // tie-break: คะแนนเท่ากันแต่ attempt เดิมไม่มี correctCount (legacy) + attempt ใหม่มี → ใช้ตัวใหม่
+    const isNewBest = !cur || a.score > cur.bestScore || (a.score === cur.bestScore && cur.correctCount == null && a.correctCount != null)
     attemptStatByQuizId.set(a.quizId, {
       passed: (cur?.passed ?? false) || a.passed,
       bestScore: Math.max(cur?.bestScore ?? 0, a.score),
+      correctCount: isNewBest ? a.correctCount : (cur?.correctCount ?? null),
+      totalQuestions: isNewBest ? a.totalQuestions : (cur?.totalQuestions ?? null),
     })
   }
 
@@ -456,7 +542,8 @@ export async function getUserReport(
       status: e.status,
       progress: e.progress,
       quizPassed: quizId != null ? (attemptStat?.passed ?? false) : null,
-      quizBestScore: quizId != null ? (attemptStat?.bestScore ?? null) : null,
+      quizCorrectCount: quizId != null ? (attemptStat?.correctCount ?? null) : null,
+      quizTotalQuestions: quizId != null ? (attemptStat?.totalQuestions ?? null) : null,
       completedAt: e.completedAt?.toISOString() ?? null,
       dueAt: e.dueAt?.toISOString() ?? null,
     }

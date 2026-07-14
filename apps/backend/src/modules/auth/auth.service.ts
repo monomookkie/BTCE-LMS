@@ -149,9 +149,12 @@ export async function registerUser(
   if (input.positionId != null) {
     const position = await prisma.position.findFirst({
       where: { id: input.positionId, deletedAt: null },
-      select: { id: true },
+      select: { id: true, isSystemOnly: true },
     })
     if (!position) throw badRequest(t('error.position.notFound', undefined, locale))
+    // isSystemOnly (เช่น "Administrator") ถูกซ่อนจาก dropdown ของหน้า register อยู่แล้ว
+    // (GET /positions filter ออก) — เช็คซ้ำที่ backend กัน bypass ผ่าน API ตรงๆ (DevTools ฯลฯ)
+    if (position.isSystemOnly) throw badRequest(t('error.position.systemOnly', undefined, locale))
   }
 
   const user = await prisma.user.create({
