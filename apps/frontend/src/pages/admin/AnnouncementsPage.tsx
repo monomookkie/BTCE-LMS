@@ -1,11 +1,11 @@
 import { useState, useMemo } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { useForm, Controller } from 'react-hook-form'
+import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import { Plus, Edit2, Trash2, Globe, EyeOff } from 'lucide-react'
-import type { AnnouncementAdminResponse, AnnouncementType } from '@btec-lms/shared'
+import type { AnnouncementAdminResponse } from '@btec-lms/shared'
 import {
   listAdminAnnouncements,
   createAnnouncement,
@@ -16,7 +16,6 @@ import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Input } from '../../components/ui/Input.js'
-import { Select } from '../../components/ui/Select.js'
 import { FileInput } from '../../components/ui/FileInput.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
@@ -25,7 +24,6 @@ import type { Column } from '../../components/ui/DataTable.js'
 import { DataTable } from '../../components/ui/DataTable.js'
 import { PAGE_SIZE } from '../../lib/constants.js'
 
-const TYPES: AnnouncementType[] = ['INFO', 'WARNING', 'URGENT']
 const ALLOWED_FILE_MIME = ['image/jpeg', 'image/png', 'image/webp']
 
 // ─── Form schema ──────────────────────────────────────────────────────────────
@@ -36,7 +34,6 @@ const announcementFormSchema = z.object({
   titleTh: z.string().max(255).optional(),
   contentEn: z.string().optional(),
   contentTh: z.string().optional(),
-  type: z.enum(['INFO', 'WARNING', 'URGENT']),
   link: z.string().max(500).optional(),
 })
 type AnnouncementFormValues = z.infer<typeof announcementFormSchema>
@@ -58,7 +55,6 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
 
   const {
     register,
-    control,
     handleSubmit,
     formState: { errors, isSubmitting },
   } = useForm<AnnouncementFormValues>({
@@ -68,10 +64,9 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
       titleTh: editAnnouncement.titleTh ?? '',
       contentEn: editAnnouncement.contentEn ?? '',
       contentTh: editAnnouncement.contentTh ?? '',
-      type: editAnnouncement.type as AnnouncementType,
       link: editAnnouncement.link ?? '',
     } : {
-      titleEn: '', titleTh: '', contentEn: '', contentTh: '', type: 'INFO', link: '',
+      titleEn: '', titleTh: '', contentEn: '', contentTh: '', link: '',
     },
   })
 
@@ -100,7 +95,6 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
           titleTh: values.titleTh?.trim() ? values.titleTh.trim() : null,
           contentEn: values.contentEn?.trim() ? values.contentEn.trim() : null,
           contentTh: values.contentTh?.trim() ? values.contentTh.trim() : null,
-          type: values.type,
           link: values.link?.trim() ? values.link.trim() : null,
         })
         toast.success(t('adminAnnouncement.announcementUpdated'))
@@ -110,7 +104,6 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
         if (values.titleTh?.trim()) formData.set('titleTh', values.titleTh.trim())
         if (values.contentEn?.trim()) formData.set('contentEn', values.contentEn.trim())
         if (values.contentTh?.trim()) formData.set('contentTh', values.contentTh.trim())
-        formData.set('type', values.type)
         if (values.link?.trim()) formData.set('link', values.link.trim())
         formData.set('status', status)
         if (file) formData.set('file', file)
@@ -173,25 +166,7 @@ function AnnouncementFormModal({ isOpen, onClose, editAnnouncement }: FormModalP
           </div>
         </div>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <Controller
-            name="type"
-            control={control}
-            render={({ field }) => (
-              <Select
-                label={t('adminAnnouncement.type')}
-                value={field.value}
-                onChange={field.onChange}
-                options={[
-                  { value: 'INFO', label: t('adminAnnouncement.typeInfo') },
-                  { value: 'WARNING', label: t('adminAnnouncement.typeWarning') },
-                  { value: 'URGENT', label: t('adminAnnouncement.typeUrgent') },
-                ]}
-              />
-            )}
-          />
-          <Input label={t('adminAnnouncement.link')} placeholder="https://..." {...register('link')} />
-        </div>
+        <Input label={t('adminAnnouncement.link')} placeholder="https://..." {...register('link')} />
 
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
           <Button variant="ghost" type="button" onClick={onClose}>
@@ -261,7 +236,6 @@ export default function AnnouncementsPage() {
           </div>
         ),
       },
-      { key: 'type', header: t('adminAnnouncement.type'), width: '12%', skeleton: 'text' },
       { key: 'status', header: t('adminCourse.status'), width: '12%', skeleton: 'pill',
         render: (a) => <StatusBadge type="announcement" status={a.status} /> },
       { key: 'createdAt', header: t('adminAnnouncement.createdAt'), width: '14%', skeleton: 'text',
@@ -278,14 +252,14 @@ export default function AnnouncementsPage() {
               <Edit2 size={14} />
             </Button>
             {a.status === 'DRAFT' ? (
-              <Button size="sm" variant="outline" onClick={() => setStatusTarget({ announcement: a, next: 'PUBLISHED' })}>
+              <Button size="sm" variant="outline" title={t('adminAnnouncement.publish')} onClick={() => setStatusTarget({ announcement: a, next: 'PUBLISHED' })}>
                 <Globe size={13} />
-                {t('adminAnnouncement.publish')}
+                <span className="hidden sm:inline">{t('adminAnnouncement.publish')}</span>
               </Button>
             ) : (
-              <Button size="sm" variant="ghost" onClick={() => setStatusTarget({ announcement: a, next: 'DRAFT' })}>
+              <Button size="sm" variant="ghost" title={t('adminAnnouncement.unpublish')} onClick={() => setStatusTarget({ announcement: a, next: 'DRAFT' })}>
                 <EyeOff size={13} />
-                {t('adminAnnouncement.unpublish')}
+                <span className="hidden sm:inline">{t('adminAnnouncement.unpublish')}</span>
               </Button>
             )}
             <Button

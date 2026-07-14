@@ -107,7 +107,6 @@ const announcementsRoutes: FastifyPluginAsync = async (app) => {
       titleTh: fields['titleTh'] ?? undefined,
       contentEn: fields['contentEn'],
       contentTh: fields['contentTh'] ?? undefined,
-      type: fields['type'] ?? undefined,
       link: fields['link'] ?? undefined,
       status: fields['status'] ?? undefined,
     })

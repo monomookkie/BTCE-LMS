@@ -27,7 +27,6 @@ type AnnouncementRecord = {
   titleTh: string | null
   contentEn: string | null
   contentTh: string | null
-  type: string
   status: 'DRAFT' | 'PUBLISHED'
   fileKey: string | null
   fileMimeType: string | null
@@ -44,7 +43,6 @@ const ANNOUNCEMENT_SELECT = {
   titleTh: true,
   contentEn: true,
   contentTh: true,
-  type: true,
   status: true,
   fileKey: true,
   fileMimeType: true,
@@ -72,7 +70,6 @@ function toAdminShape(
     id: a.id,
     title: localizeField(a.titleEn, a.titleTh, locale),
     content,
-    type: a.type,
     fileSignedUrl: a.fileKey != null ? storage.getSignedUrl(a.fileKey, undefined, a.fileMimeType) : null,
     link: a.link ?? null,
     publishedAt: a.publishedAt?.toISOString() ?? null,
@@ -193,7 +190,6 @@ export async function createAnnouncement(
       titleTh: input.titleTh ?? null,
       contentEn: input.contentEn ?? null,
       contentTh: input.contentTh ?? null,
-      type: input.type,
       status: input.status,
       fileKey,
       fileMimeType,
@@ -253,7 +249,6 @@ export async function updateAnnouncement(
       ...(input.titleTh !== undefined && { titleTh: input.titleTh }),
       ...(input.contentEn !== undefined && { contentEn: input.contentEn }),
       ...(input.contentTh !== undefined && { contentTh: input.contentTh }),
-      ...(input.type !== undefined && { type: input.type }),
       ...(input.link !== undefined && { link: input.link }),
       ...(input.status !== undefined && { status: input.status }),
       ...(publishedAt !== undefined && { publishedAt }),

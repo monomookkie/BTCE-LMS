@@ -1,9 +1,6 @@
 import { z } from 'zod'
 
-// ─── Announcement type enum ───────────────────────────────────────────────────
-
-export const announcementTypeSchema = z.enum(['INFO', 'WARNING', 'URGENT'])
-export type AnnouncementType = z.infer<typeof announcementTypeSchema>
+// ─── Announcement status enum ─────────────────────────────────────────────────
 
 export const announcementStatusSchema = z.enum(['DRAFT', 'PUBLISHED'])
 export type AnnouncementStatus = z.infer<typeof announcementStatusSchema>
@@ -14,7 +11,6 @@ const announcementBaseFields = {
   id: z.string().cuid(),
   title: z.string(),           // localized
   content: z.string().nullable(), // localized — "ข้อความเพิ่มเติม" ไม่บังคับ (รูปภาพคือเนื้อหาหลัก)
-  type: z.string(),
   fileSignedUrl: z.string().nullable(),
   link: z.string().nullable(),
   publishedAt: z.string().datetime().nullable(),
@@ -71,7 +67,6 @@ export const createAnnouncementInputSchema = z.object({
   titleTh: z.string().max(255).optional(),
   contentEn: z.string().optional(),
   contentTh: z.string().optional(),
-  type: announcementTypeSchema.default('INFO'),
   link: z.string().url().optional(),
   status: announcementStatusSchema.default('DRAFT'),
 })
@@ -83,7 +78,6 @@ export const updateAnnouncementInputSchema = z.object({
   titleTh: z.string().max(255).nullable().optional(),
   contentEn: z.string().nullable().optional(),
   contentTh: z.string().nullable().optional(),
-  type: announcementTypeSchema.optional(),
   link: z.string().url().nullable().optional(),
   status: announcementStatusSchema.optional(),
 })

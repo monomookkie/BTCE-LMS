@@ -379,7 +379,6 @@ model Announcement {
   titleTh     String?
   contentEn   String?            @db.Text
   contentTh   String?            @db.Text
-  type        String             @default("INFO")
   status      AnnouncementStatus @default(DRAFT)
   fileKey     String?
   fileMimeType String?
