@@ -32,7 +32,10 @@ export function TopBar({ onMenuClick, isSidebarCollapsed, onSidebarToggle }: Top
   const title: string = titleKey ? (t(titleKey as never) as string) : ''
 
   return (
-    <header className="sticky top-0 z-10 flex h-12 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3.5">
+    <header
+      className="sticky top-0 z-10 flex min-h-12 items-center justify-between gap-2 border-b border-slate-200 bg-white px-3.5"
+      style={{ paddingTop: 'env(safe-area-inset-top)' }}
+    >
       {/* Left: hamburger (mobile) + status dot + page title */}
       <div className="flex min-w-0 items-center gap-2.5">
         <button

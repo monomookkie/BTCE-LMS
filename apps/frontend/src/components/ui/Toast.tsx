@@ -104,7 +104,13 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={addToast}>
       {children}
       {createPortal(
-        <div className="fixed right-4 top-4 z-[100] flex w-80 flex-col gap-2">
+        <div
+          className="fixed z-[100] flex w-80 flex-col gap-2"
+          style={{
+            top: 'max(1rem, env(safe-area-inset-top))',
+            right: 'max(1rem, env(safe-area-inset-right))',
+          }}
+        >
           {toasts.map((toast) => (
             <SingleToast key={toast.id} toast={toast} onRemove={removeToast} />
           ))}

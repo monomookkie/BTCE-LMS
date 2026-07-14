@@ -13,6 +13,7 @@ import {
 import { useAuth, useLogoutMutation } from '../../hooks/useAuth.js'
 import { LOGO_URL } from '../../lib/branding.js'
 import { Avatar } from '../ui/Avatar.js'
+import { Tooltip } from '../ui/Tooltip.js'
 import type { LucideIcon } from 'lucide-react'
 
 interface NavItem {
@@ -67,13 +68,15 @@ export function Sidebar({ onNavigate, isCollapsed = false }: SidebarProps) {
         isCollapsed ? 'w-14' : 'w-60',
       ].join(' ')}
     >
-      {/* Logo */}
+      {/* Logo — pt เผื่อ safe-area-inset-top เพราะ mobile drawer นี้ fixed inset-y-0 เต็มจอ
+          ตอนเปิดเป็น PWA แบบ standalone (viewport-fit=cover) จะโดน notch/status bar ทับถ้าไม่กันไว้ */}
       <div
         className={[
           'flex shrink-0 items-center border-b border-white/10',
           isCollapsed ? 'py-3' : 'py-4',
           isCollapsed ? 'justify-center px-2' : 'gap-3 px-3.5',
         ].join(' ')}
+        style={{ paddingTop: `max(env(safe-area-inset-top), ${isCollapsed ? '0.75rem' : '1rem'})` }}
       >
         <img
           src={LOGO_URL}
@@ -110,82 +113,88 @@ export function Sidebar({ onNavigate, isCollapsed = false }: SidebarProps) {
           {nav.map((item) => {
             return (
               <li key={item.path}>
-                <NavLink
-                  to={item.path}
-                  onClick={onNavigate}
-                  title={isCollapsed ? (t(item.labelKey as never) as string) : undefined}
-                  className={({ isActive }) =>
-                    [
-                      'flex items-center overflow-hidden rounded-md py-2 text-sm font-medium transition-colors',
-                      isCollapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
-                      isActive
-                        ? 'bg-brand-500/20 text-white'
-                        : 'text-white/70 hover:bg-white/10 hover:text-white',
-                    ].join(' ')
-                  }
-                >
-                  <item.Icon size={16} className="shrink-0" />
-                  <span
-                    aria-hidden={isCollapsed}
-                    className={[
-                      'overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
-                      collapseLabelClass,
-                    ].join(' ')}
+                <Tooltip label={t(item.labelKey as never) as string} disabled={!isCollapsed}>
+                  <NavLink
+                    to={item.path}
+                    onClick={onNavigate}
+                    className={({ isActive }) =>
+                      [
+                        'flex items-center overflow-hidden rounded-md py-2 text-sm font-medium transition-colors',
+                        isCollapsed ? 'justify-center px-2' : 'gap-2.5 px-3',
+                        isActive
+                          ? 'bg-brand-500/20 text-white'
+                          : 'text-white/70 hover:bg-white/10 hover:text-white',
+                      ].join(' ')
+                    }
                   >
-                    {t(item.labelKey as never) as string}
-                  </span>
-                </NavLink>
+                    <item.Icon size={16} className="shrink-0" />
+                    <span
+                      aria-hidden={isCollapsed}
+                      className={[
+                        'overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
+                        collapseLabelClass,
+                      ].join(' ')}
+                    >
+                      {t(item.labelKey as never) as string}
+                    </span>
+                  </NavLink>
+                </Tooltip>
               </li>
             )
           })}
         </ul>
       </nav>
 
-      {/* User + Logout */}
+      {/* User + Logout — pb เผื่อ safe-area-inset-bottom (home indicator) ด้วยเหตุผลเดียวกับ logo header ด้านบน */}
       {user && (
-        <div className={['shrink-0 border-t border-white/10 py-2.5', isCollapsed ? 'px-2' : 'px-2.5'].join(' ')}>
-          <Link
-            to="/profile"
-            onClick={onNavigate}
-            title={isCollapsed ? user.name : undefined}
-            className={[
-              'flex items-center rounded-md border border-white/10 bg-white/5 py-2 transition-colors hover:border-white/20 hover:bg-white/10',
-              isCollapsed ? 'justify-center px-1' : 'gap-2 px-2',
-            ].join(' ')}
-          >
-            <Avatar name={user.name} size="md" />
-            <div
-              aria-hidden={isCollapsed}
+        <div
+          className={['shrink-0 border-t border-white/10 py-2.5', isCollapsed ? 'px-2' : 'px-2.5'].join(' ')}
+          style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.625rem)' }}
+        >
+          <Tooltip label={user.name} disabled={!isCollapsed}>
+            <Link
+              to="/profile"
+              onClick={onNavigate}
               className={[
-                'min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
-                collapseLabelClass,
+                'flex items-center rounded-md border border-white/10 bg-white/5 py-2 transition-colors hover:border-white/20 hover:bg-white/10',
+                isCollapsed ? 'justify-center px-1' : 'gap-2 px-2',
               ].join(' ')}
             >
-              <p className="truncate text-xs font-semibold text-white">{user.name}</p>
-              <p className="truncate text-xs text-white/50">{user.position ?? roleLabel}</p>
-            </div>
-          </Link>
+              <Avatar name={user.name} size="md" />
+              <div
+                aria-hidden={isCollapsed}
+                className={[
+                  'min-w-0 overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
+                  collapseLabelClass,
+                ].join(' ')}
+              >
+                <p className="truncate text-xs font-semibold text-white">{user.name}</p>
+                <p className="truncate text-xs text-white/50">{user.position ?? roleLabel}</p>
+              </div>
+            </Link>
+          </Tooltip>
           <div className="my-2 border-t border-white/10" />
-          <button
-            onClick={() => logout.mutate()}
-            disabled={logout.isPending}
-            title={isCollapsed ? t('auth.logout') : undefined}
-            className={[
-              'flex w-full items-center rounded-md py-1.5 text-sm font-medium text-white/60 transition-colors hover:bg-red-500/10 hover:text-red-100 disabled:opacity-60',
-              isCollapsed ? 'justify-center px-2' : 'gap-2 px-2.5',
-            ].join(' ')}
-          >
-            <LogOut size={15} />
-            <span
-              aria-hidden={isCollapsed}
+          <Tooltip label={t('auth.logout')} disabled={!isCollapsed}>
+            <button
+              onClick={() => logout.mutate()}
+              disabled={logout.isPending}
               className={[
-                'overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
-                collapseLabelClass,
+                'flex w-full items-center rounded-md py-1.5 text-sm font-medium text-white/60 transition-colors hover:bg-red-500/10 hover:text-red-100 disabled:opacity-60',
+                isCollapsed ? 'justify-center px-2' : 'gap-2 px-2.5',
               ].join(' ')}
             >
-              {t('auth.logout')}
-            </span>
-          </button>
+              <LogOut size={15} />
+              <span
+                aria-hidden={isCollapsed}
+                className={[
+                  'overflow-hidden whitespace-nowrap transition-[max-width,opacity,transform] duration-200 ease-out',
+                  collapseLabelClass,
+                ].join(' ')}
+              >
+                {t('auth.logout')}
+              </span>
+            </button>
+          </Tooltip>
         </div>
       )}
     </aside>
