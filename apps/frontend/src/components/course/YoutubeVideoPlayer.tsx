@@ -99,6 +99,7 @@ export function YoutubeVideoPlayer({
   const maxWatchedSecondsRef = useRef(0)
   const durationRef = useRef(0)
   const pollHandleRef = useRef<number | null>(null)
+  const lastTickAtRef = useRef(Date.now())
   const tickCountRef = useRef(0)
   const lastSentPercentRef = useRef(initialWatchedPercent)
   const [displayPercent, setDisplayPercent] = useState(initialWatchedPercent)
@@ -129,16 +130,33 @@ export function YoutubeVideoPlayer({
 
   const startPolling = useCallback(() => {
     if (pollHandleRef.current != null) return
+    lastTickAtRef.current = Date.now() // reset กัน elapsed พองจากช่วงที่ pause/ยังไม่เริ่ม poll
     pollHandleRef.current = window.setInterval(() => {
       const player = playerRef.current
       if (player == null) return
 
-      const duration = durationRef.current || player.getDuration()
+      // duration: เชื่อค่าที่มากกว่าเสมอ (ไม่ใช่ "ค่าแรกที่ไม่ใช่ 0 ชนะตลอดกาล") — คลิปสั้นบางทีตอน onReady
+      // ยัง metadata โหลดไม่เสร็จ ได้ duration ต่ำกว่าจริงเล็กน้อย ถ้า lock ทันทีจะทำให้ percent ชน 100%
+      // ก่อนเล่นจบจริง แล้วดันไปชน seek-guard ถี่ขึ้นตอนใกล้จบ (ดูคอมเมนต์ seek-guard ด้านล่าง)
+      const liveDuration = player.getDuration()
+      const duration = liveDuration > durationRef.current ? liveDuration : durationRef.current
       durationRef.current = duration
       const current = player.getCurrentTime()
 
+      // buffer ยืดตามเวลาจริงที่ผ่านไประหว่าง tick — เผื่อ tick หลุด/ดีเลย์ (tab ไปอยู่เบื้องหลัง, GC, จอจบวิดีโอ
+      // ของ YouTube เอง) ไม่งั้น current จะดูเหมือน "กระโดด" เกิน buffer คงที่ทั้งที่เล่นต่อเนื่องปกติ — โดยเฉพาะ
+      // คลิปสั้นที่ buffer 2 วิ คิดเป็นสัดส่วนเวลาที่มากเมื่อเทียบความยาวทั้งคลิป
+      const now = Date.now()
+      const elapsedSeconds = (now - lastTickAtRef.current) / 1000
+      lastTickAtRef.current = now
+      const dynamicBuffer = SEEK_BUFFER_SECONDS + Math.max(0, elapsedSeconds - POLL_MS / 1000)
+
+      // เคยดูถึง threshold ที่ anti-cheat ต้องการแล้ว (MIN_WATCHED_PERCENT) — เลิกกัน seek ต่อ ไม่มีอะไรให้ป้องกันแล้ว
+      // (ถ้าไม่เช็คตรงนี้ วิดีโอสั้นๆ จะโดน guard เด้งกลับซ้ำๆ ใกล้จบ ทั้งที่ผ่านเกณฑ์แล้วจริง — ดูเหมือนเล่นไม่จบ/ค้าง)
+      const pastAntiCheatThreshold = computeCurrentPercent() >= MIN_WATCHED_PERCENT
+
       // กรอไปข้างหน้าเกิน buffer — เด้งกลับจุดที่ดูถึงจริง
-      if (current > maxWatchedSecondsRef.current + SEEK_BUFFER_SECONDS) {
+      if (!pastAntiCheatThreshold && current > maxWatchedSecondsRef.current + dynamicBuffer) {
         player.seekTo(maxWatchedSecondsRef.current, true)
         onSeekBlocked()
         return

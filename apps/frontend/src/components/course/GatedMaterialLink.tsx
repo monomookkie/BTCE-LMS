@@ -1,7 +1,7 @@
 import { useCallback } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
-import { CheckCircle2, Circle, Download, ExternalLink, FileText, Image, Play } from 'lucide-react'
+import { CheckCircle2, Circle, ExternalLink, FileText, Image, Play } from 'lucide-react'
 import type { MaterialPublicResponse, MaterialType } from '@btec-lms/shared'
 import { MIN_READ_SECONDS } from '@btec-lms/shared'
 import { Button } from '../ui/Button.js'
@@ -92,7 +92,6 @@ export function GatedMaterialLink({
   const { ready, remainingSeconds } = useTimeGate(progress?.openedAt ?? null, MIN_READ_SECONDS)
 
   const href = material.signedUrl ?? material.url ?? null
-  const isFile = material.type === 'PDF' || material.type === 'IMAGE' || material.type === 'DOC'
   const opened = progress?.openedAt != null
   const canComplete = opened && ready
 
@@ -120,10 +119,8 @@ export function GatedMaterialLink({
               onClick={handleOpenClick}
               className="inline-flex items-center gap-1 text-xs text-brand-600 hover:underline"
             >
-              {isFile
-                ? <><Download size={12} />{t('courseDetail.download')}</>
-                : <><ExternalLink size={12} />{t('courseDetail.open')}</>
-              }
+              <ExternalLink size={12} />
+              {t('courseDetail.open')}
             </a>
           )}
 
