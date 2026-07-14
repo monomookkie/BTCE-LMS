@@ -24,7 +24,12 @@
     "moveDown": "Move down",
     "open": "Open",
     "yes": "Yes",
-    "no": "No"
+    "no": "No",
+    "openSidebar": "Open sidebar",
+    "expandSidebar": "Expand sidebar",
+    "collapseSidebar": "Collapse sidebar",
+    "chooseFile": "Choose file",
+    "noFileChosen": "No file chosen"
   },
   "auth": {
     "login": "Login",
@@ -38,10 +43,15 @@
     "jobPosition": "Job Position",
     "positionPlaceholder": "e.g. Medical Technologist",
     "positionSelectPlaceholder": "Select job position",
-    "positionOther": "Specify job position",
+    "positionOther": "Other",
     "positionOtherPlaceholder": "Enter your job position",
     "password": "Password",
     "passwordRequirements": "At least 8 characters, with uppercase, lowercase, a number, and a special character",
+    "passwordLowercase": "Password must contain a lowercase letter",
+    "passwordUppercase": "Password must contain an uppercase letter",
+    "passwordNumber": "Password must contain a number",
+    "passwordSpecialChar": "Password must contain a special character",
+    "emailDomainNotAllowed": "Email must be a @redcross.or.th address",
     "strength": {
       "weak": "Weak password",
       "fair": "Fair password",
@@ -65,7 +75,9 @@
     "noAccount": "Don't have an account?",
     "haveAccount": "Already have an account?",
     "registerLink": "Sign up",
-    "loginLink": "Sign in"
+    "loginLink": "Sign in",
+    "pdpaConsentPrefix": "I have read and agree to the",
+    "privacyPolicyLink": "Privacy Policy"
   },
   "course": {
     "label": "Course",
@@ -79,8 +91,6 @@
     },
     "enroll": "Enroll",
     "enrolled": "Enrolled",
-    "expiryMonths": "Certificate valid for",
-    "months": "months",
     "paperSaving": "This course helps reduce paper usage by {{count}} sheets per participant",
     "category": "Category",
     "description": "Description",
@@ -138,13 +148,8 @@
     "completedAt": "Completed on"
   },
   "certificate": {
-    "label": "Certificate",
-    "certificates": "Certificates",
     "issued": "Issued",
-    "expires": "Expires",
-    "verify": "Verify certificate",
-    "download": "Download PDF",
-    "certNumber": "Certificate number"
+    "expires": "Expires"
   },
   "user": {
     "label": "User",
@@ -216,7 +221,6 @@
     "users": "Users",
     "reports": "Reports",
     "announcements": "Announcements",
-    "notifications": "Notifications",
     "courseManagement": "Course Management",
     "certEngine": "Certificates",
     "positions": "Positions"
@@ -227,6 +231,7 @@
     "editPosition": "Edit Position",
     "nameEn": "Name (English)",
     "nameTh": "Name (Thai)",
+    "columnName": "Name",
     "userCount": "Users",
     "courseCount": "Courses",
     "noPositions": "No positions found",
@@ -259,9 +264,7 @@
     "unlimitedAttempts": "Unlimited attempts",
     "startQuiz": "Start Assessment",
     "retakeQuiz": "Retake Assessment",
-    "certCondition": "Complete all materials and pass the assessment to earn your certificate",
-    "certEarned": "Certificate earned! Your certificate is ready.",
-    "viewCerts": "View my certificates",
+    "certCondition": "Complete all materials and pass the assessment to finish this course",
     "attemptHistory": "Attempt history",
     "noAttempts": "No attempts yet",
     "yourAnswer": "Your answer",
@@ -349,13 +352,11 @@
   "dashboard": {
     "inProgress": "In Progress",
     "completed": "Completed",
-    "certificates": "Certificates",
-    "expiringSoon": "Expiring Soon",
     "recentProgress": "My Course Progress",
-    "recentCerts": "Recent Certificates",
     "emptyEnrollments": "You have no active courses",
-    "emptyCerts": "You have no certificates yet",
-    "viewAll": "View all"
+    "viewAll": "View all",
+    "announcements": "Announcements",
+    "emptyAnnouncements": "No announcements yet"
   },
   "browse": {
     "searchPlaceholder": "Search courses...",
@@ -374,9 +375,7 @@
     "totalEnrolled": "Total Enrolled",
     "completedCourses": "Completed",
     "avgScore": "Average Score",
-    "activeCerts": "Active Certificates",
     "enrollmentHistory": "Enrollment History",
-    "certHistory": "My Certificates",
     "noData": "No data to display yet",
     "completedOn": "Completed"
   },
@@ -399,6 +398,9 @@
     "responses": "responses",
     "comments": "Comments",
     "noComments": "No comments yet",
+    "enrolledListTitle": "Enrolled staff",
+    "passedListTitle": "Staff who passed",
+    "noPassedUsers": "No one has passed yet",
     "questionColumn": "Question",
     "commentColumn": "Comment",
     "userCourses": "Enrolled Courses",
@@ -432,12 +434,8 @@
   },
   "adminDash": {
     "title": "Admin Dashboard",
-    "staffCount": "Total Staff",
+    "staffCount": "Total Users",
     "publishedCourses": "Published Courses",
-    "certsIssued": "Certs Issued",
-    "expiringSoon": "Expiring Soon",
-    "recertTitle": "Recertification Due",
-    "recertSubtext": "certificates expire within 30 days",
     "progressTitle": "Learning Progress",
     "completionRate": "Completion rate",
     "completed": "Completed",
@@ -454,6 +452,7 @@
   },
   "adminCourse": {
     "title": "Course Management",
+    "columnTitle": "Title",
     "newCourse": "New Course",
     "editCourse": "Edit Course",
     "titleEn": "Title (English)",
@@ -462,7 +461,6 @@
     "categoryTh": "Category (Thai)",
     "descEn": "Description (English)",
     "descTh": "Description (Thai)",
-    "expiryMonths": "Expiry (months)",
     "enrollmentCloseAt": "Enrollment closes on",
     "paperSavingSheets": "Paper saved per participant (sheets)",
     "accessType": "Access type",
@@ -470,6 +468,7 @@
     "accessTypePositionBased": "Position-based (restricted)",
     "accessTypeLocked": "This course already has enrolled learners — access type cannot be changed.",
     "positions": "Eligible positions",
+    "clearPositions": "Clear",
     "positionsHelp": "Select at least one position — required to publish a position-based course.",
     "noPositionsAvailable": "No positions available — create one first under Manage Positions.",
     "cannotUncheckLastPosition": "At least one position is required while this course is published.",
@@ -513,7 +512,9 @@
     "editQuiz": "Edit Assessment Settings",
     "quizTitleEn": "Assessment title (English)",
     "quizTitleTh": "Assessment title (Thai)",
-    "passScore": "Pass score",
+    "passRequiredCount": "Correct answers required to pass",
+    "outOfQuestions": "out of {{count}} question(s)",
+    "passRequiredCountHelpNoQuestions": "Add questions first — this will be checked against the total once you do",
     "maxAttempts": "Max attempts",
     "maxAttemptsHelp": "Leave blank for unlimited attempts",
     "shuffle": "Shuffle question order for each attempt",
@@ -578,29 +579,22 @@
     "i18nReady": "i18n infrastructure ready",
     "switchHint": "Switch language — text updates instantly. Login syncs preference to your account."
   },
-  "adminCertificate": {
-    "title": "Certificate Engine",
-    "search": "Search by cert number, name, or email...",
-    "detail": "Certificate Detail",
-    "score": "Score",
-    "noCertificates": "No certificates found",
-    "revoke": "Revoke",
-    "revokeConfirm": "Revoke this certificate?",
-    "revokeReason": "Reason (optional)",
-    "revokeReasonPlaceholder": "e.g. terminated employment, issued in error...",
-    "revoked": "Certificate revoked"
-  },
   "adminAnnouncement": {
     "title": "Announcements",
+    "columnTitle": "Title",
     "newAnnouncement": "New Announcement",
     "editAnnouncement": "Edit Announcement",
     "titleEn": "Title (English)",
     "titleTh": "Title (Thai)",
-    "contentEn": "Content (English)",
-    "contentTh": "Content (Thai)",
+    "contentEn": "Additional text, English (optional)",
+    "contentTh": "Additional text, Thai (optional)",
     "type": "Type",
+    "typeInfo": "Info",
+    "typeWarning": "Warning",
+    "typeUrgent": "Urgent",
     "link": "Link (optional)",
-    "file": "Attachment (PDF or image)",
+    "file": "Image",
+    "fileRequired": "An image is required",
     "noAnnouncements": "No announcements found",
     "publish": "Publish",
     "unpublish": "Unpublish",
@@ -612,27 +606,28 @@
     "announcementPublished": "Announcement published",
     "announcementUnpublished": "Announcement unpublished",
     "announcementDeleted": "Announcement deleted",
-    "fileEditNote": "Attachment can only be set when creating an announcement.",
-    "fileTypeError": "File must be PDF, JPEG, PNG, or WEBP"
-  },
-  "verify": {
-    "title": "Certificate Verification",
-    "subtitle": "BTEC LMS — National Blood Centre, Thai Red Cross Society",
-    "notFoundTitle": "Certificate not found",
-    "notFoundBody": "This verification link doesn't match any certificate in our records.",
-    "revokedBanner": "This certificate has been revoked.",
-    "validBanner": "This certificate is valid.",
-    "holderName": "Holder name"
-  },
-  "notification": {
-    "title": "Notifications",
-    "empty": "No notifications",
-    "markAllRead": "Mark all as read",
-    "markRead": "Mark as read"
+    "createdAt": "Created",
+    "fileEditNote": "The image can only be set when creating an announcement.",
+    "fileTypeError": "File must be JPEG, PNG, or WEBP"
   },
   "notFound": {
     "title": "Page not found",
     "message": "BTEC LMS — National Blood Centre, Thai Red Cross Society",
     "backButton": "Back to home"
+  },
+  "privacyPolicy": {
+    "title": "Privacy Policy",
+    "version": "Version {{version}}",
+    "intro": "The National Blood Centre, Thai Red Cross Society (\"we\") operates BTEC LMS as an internal training platform for staff. This notice explains what personal data we collect through this system, why we collect it, and your rights under the Personal Data Protection Act (PDPA).",
+    "dataCollectedTitle": "Information we collect",
+    "dataCollectedBody": "Account details you provide at registration (name, work email, department, job position), training activity (course enrollment, progress, quiz results, completion records), and login/session metadata (IP address, timestamps) recorded for audit purposes.",
+    "purposeTitle": "Why we use it",
+    "purposeBody": "To create and manage your training account, track mandatory and optional course completion, generate compliance reports for your department, and maintain an audit trail of account and data-access activity as required for information security.",
+    "retentionTitle": "How long we keep it",
+    "retentionBody": "Training records are retained for the duration of your employment plus the period required for compliance and audit purposes. Account data is retained until your account is deactivated and any legally required retention period has elapsed.",
+    "rightsTitle": "Your rights",
+    "rightsBody": "You may access, correct, or request deletion of your personal data, and withdraw consent where processing is based on consent, subject to legal and operational retention requirements (e.g. training records needed for compliance evidence). Contact the system administrator to exercise these rights.",
+    "contactTitle": "Contact",
+    "contactBody": "For questions about this policy or to exercise your data rights, contact your BTEC LMS system administrator through your department's usual internal channel."
   }
 }

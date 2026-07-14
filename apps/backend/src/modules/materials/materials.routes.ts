@@ -82,7 +82,7 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
   }, async (req, reply) => {
     const locale = await resolveLocale(req, app.prisma)
     await reorderMaterials(app.prisma, req.params.courseId, req.body, req.user.id, locale, req.ip)
-    return reply.send({ message: 'Materials reordered' })
+    return reply.send({ message: t('success.material.reordered', undefined, locale) })
   })
 
   // POST /courses/:courseId/materials — ADMIN (PDF / IMAGE / DOC via multipart)
@@ -180,7 +180,7 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       locale,
       req.ip,
     )
-    return reply.send({ message: 'Material deleted' })
+    return reply.send({ message: t('success.material.deleted', undefined, locale) })
   })
 }
 

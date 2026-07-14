@@ -1,8 +1,8 @@
 {
   "error.auth.invalidCredentials": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
   "error.auth.accountSuspended": "อีเมลหรือรหัสผ่านไม่ถูกต้อง",
-  "error.auth.refreshTokenInvalid": "Refresh token หมดอายุหรือไม่ถูกต้อง",
-  "error.auth.refreshTokenMissing": "ไม่พบ Refresh Token",
+  "error.auth.refreshTokenInvalid": "โทเคนสำหรับต่ออายุเซสชันหมดอายุหรือไม่ถูกต้อง",
+  "error.auth.refreshTokenMissing": "ไม่พบโทเคนสำหรับต่ออายุเซสชัน",
   "error.auth.accountDeactivated": "บัญชีนี้ถูกระงับการใช้งาน",
   "error.auth.wrongCurrentPassword": "รหัสผ่านปัจจุบันไม่ถูกต้อง",
   "error.auth.required": "กรุณาเข้าสู่ระบบก่อน",
@@ -25,6 +25,7 @@
   "error.position.mergeSameTarget": "ไม่สามารถรวมตำแหน่งเข้ากับตัวเองได้",
   "error.position.mergeTargetNotFound": "ไม่พบตำแหน่งปลายทาง",
   "error.position.mergeIncomplete": "การรวมตำแหน่งล้มเหลว — ย้ายข้อมูลอ้างอิงไม่ครบ",
+  "error.position.systemOnly": "ไม่สามารถเลือกตำแหน่งนี้ตอนสมัครสมาชิกด้วยตนเองได้",
 
   "error.course.notFound": "ไม่พบหลักสูตร",
   "error.course.notPublished": "หลักสูตรนี้ยังไม่เปิดให้เรียน",
@@ -41,7 +42,7 @@
   "error.material.uploadFailed": "อัปโหลดไฟล์ไม่สำเร็จ",
   "error.material.invalidType": "ประเภทไฟล์ไม่รองรับ",
   "error.material.someNotFound": "ไม่พบสื่อการเรียนบางรายการในหลักสูตรนี้",
-  "error.material.invalidMetadata": "ข้อมูล metadata ไม่ถูกต้อง: {{detail}}",
+  "error.material.invalidMetadata": "ข้อมูลประกอบไม่ถูกต้อง: {{detail}}",
   "error.material.mimeNotAllowed": "ประเภทไฟล์ \"{{mimeType}}\" ไม่รองรับสำหรับประเภท {{type}}",
   "error.material.notEnrolled": "คุณต้องลงทะเบียนหลักสูตรนี้ก่อนจึงจะเข้าถึงสื่อการเรียนได้",
   "error.material.notYetViewed": "คุณต้องเปิดดูสื่อการเรียนนี้ก่อนจึงจะทำเครื่องหมายว่าเรียนจบได้",
@@ -59,6 +60,8 @@
   "error.quiz.maxAttemptsReached": "ทำแบบทดสอบครบจำนวนครั้งสูงสุด ({{count}} ครั้ง) แล้ว",
   "error.quiz.attemptsNotFound": "ไม่พบประวัติการทำแบบทดสอบ",
   "error.quiz.cannotRemoveFromPublished": "ไม่สามารถลบได้ — หลักสูตรที่เผยแพร่แล้วต้องมีแบบทดสอบอย่างน้อย 1 ข้อเสมอ",
+  "error.quiz.cannotRemoveBelowPassRequiredCount": "ไม่สามารถลบได้ — จะทำให้เหลือคำถาม ({{remaining}} ข้อ) น้อยกว่าเกณฑ์ผ่าน ({{passRequiredCount}} ข้อ)",
+  "error.quiz.passRequiredCountExceedsQuestions": "เกณฑ์ผ่าน ({{passRequiredCount}} ข้อ) ต้องไม่เกินจำนวนคำถามทั้งหมด ({{questionCount}} ข้อ)",
 
   "error.question.notFound": "ไม่พบคำถาม",
   "error.option.notFound": "ไม่พบตัวเลือก",
@@ -78,6 +81,12 @@
   "success.quiz.deleted": "ลบแบบทดสอบแล้ว",
   "success.question.deleted": "ลบคำถามแล้ว",
   "success.option.deleted": "ลบตัวเลือกแล้ว",
+  "success.course.deleted": "ลบหลักสูตรแล้ว",
+  "success.survey.deleted": "ลบแบบสำรวจแล้ว",
+  "success.surveyQuestion.deleted": "ลบคำถามแบบสำรวจแล้ว",
+  "success.material.reordered": "จัดเรียงสื่อการเรียนใหม่แล้ว",
+  "success.material.deleted": "ลบสื่อการเรียนแล้ว",
+  "success.enrollment.cancelled": "ยกเลิกการลงทะเบียนแล้ว",
 
   "error.cert.notFound": "ไม่พบใบรับรอง",
   "error.cert.alreadyIssued": "ออกใบรับรองสำหรับการลงทะเบียนนี้แล้ว",
@@ -95,10 +104,9 @@
   "error.announcement.notFound": "ไม่พบประกาศ",
   "error.announcement.mimeNotAllowed": "ประเภทไฟล์ \"{{mimeType}}\" ไม่รองรับสำหรับประกาศ",
   "error.announcement.invalidMetadata": "ข้อมูลประกาศไม่ถูกต้อง: {{detail}}",
+  "error.announcement.imageRequiredToPublish": "ต้องมีรูปภาพก่อนจึงจะเผยแพร่ประกาศได้",
 
   "success.announcement.deleted": "ลบประกาศแล้ว",
-
-  "error.notification.notFound": "ไม่พบการแจ้งเตือน",
 
   "email.cert.expiry.subject": "ใบรับรองใกล้หมดอายุ — {{certNumber}}",
   "email.cert.expiry.body": "เรียน {{name}},\n\nใบรับรองหลักสูตร \"{{courseTitle}}\" ({{certNumber}}) จะหมดอายุในวันที่ {{expiresAt}}\n\nกรุณาต่ออายุก่อนถึงกำหนด: {{link}}\n\nศูนย์บริการโลหิตแห่งชาติ สภากาชาดไทย"

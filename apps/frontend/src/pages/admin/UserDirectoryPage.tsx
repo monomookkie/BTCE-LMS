@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Search, Edit2, Trash2, Upload, Ban, CheckCircle } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, Download, Ban, CheckCircle } from 'lucide-react'
 import { roleSchema, type UserResponse, type Role } from '@btec-lms/shared'
 import {
   listAdminUsers,
@@ -21,6 +21,7 @@ import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
 import { Input } from '../../components/ui/Input.js'
 import { Select } from '../../components/ui/Select.js'
+import { FileInput } from '../../components/ui/FileInput.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { ConfirmDialog } from '../../components/ui/ConfirmDialog.js'
 import { StatusBadge } from '../../components/ui/StatusBadge.js'
@@ -53,12 +54,12 @@ interface UserFormModalProps {
 }
 
 function UserFormModal({ isOpen, onClose, editUser }: UserFormModalProps) {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const toast = useToast()
   const qc = useQueryClient()
 
   const { data: positions } = useQuery({
-    queryKey: ['admin', 'positions'],
+    queryKey: ['admin', 'positions', i18n.language],
     queryFn: listAdminPositions,
   })
 
@@ -220,11 +221,10 @@ function ImportModal({ isOpen, onClose }: ImportModalProps) {
 
         <div>
           <label className="text-xs font-medium text-slate-700">{t('userDirectory.importFile')} *</label>
-          <input
-            type="file"
+          <FileInput
             accept=".csv,text/csv"
-            onChange={(e) => { setFile(e.target.files?.[0] ?? null); setResult(null) }}
-            className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-700 hover:file:bg-brand-100"
+            file={file}
+            onChange={(f) => { setFile(f); setResult(null) }}
           />
         </div>
 
@@ -285,7 +285,7 @@ function ImportModal({ isOpen, onClose }: ImportModalProps) {
 // ─── UserDirectoryPage ──────────────────────────────────────────────────────
 
 export default function UserDirectoryPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const { user: currentUser } = useAuth()
   const toast = useToast()
   const qc = useQueryClient()
@@ -300,7 +300,7 @@ export default function UserDirectoryPage() {
   const [suspendTarget, setSuspendTarget] = useState<{ user: UserResponse; next: boolean } | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin', 'users', search, positionFilter, statusFilter, page],
+    queryKey: ['admin', 'users', search, positionFilter, statusFilter, page, i18n.language],
     queryFn: () =>
       listAdminUsers({
         ...(search ? { search } : {}),
@@ -312,7 +312,7 @@ export default function UserDirectoryPage() {
   })
 
   const { data: positionsData } = useQuery({
-    queryKey: ['admin', 'positions'],
+    queryKey: ['admin', 'positions', i18n.language],
     queryFn: listAdminPositions,
   })
 
@@ -451,7 +451,7 @@ export default function UserDirectoryPage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold text-slate-800">{t('userDirectory.title')}</h1>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" leftIcon={<Upload size={15} />} onClick={() => setImportOpen(true)}>
+          <Button variant="outline" leftIcon={<Download size={15} />} onClick={() => setImportOpen(true)}>
             {t('user.importCsv')}
           </Button>
           <Button leftIcon={<Plus size={16} />} onClick={() => setFormModal({ open: true })}>

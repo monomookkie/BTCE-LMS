@@ -6,6 +6,38 @@ const prisma = new PrismaClient()
 async function main() {
   console.log('🌱 Starting seed...')
 
+  // --- Positions ---
+  // ตำแหน่งงานจริงของศูนย์ฯ — ยืนยันแล้วว่ามีแค่ 5 อันนี้เท่านั้น ห้ามเพิ่มเอง
+  // "Administrator" เป็นข้อยกเว้น (ไม่ใช่ตำแหน่งงานจริง) เก็บไว้สำหรับ system admin โดยเฉพาะ
+  // "Others" ไม่ใช่ row จริงในตาราง — เป็น sentinel ฝั่ง UI เท่านั้น (RegisterPage ส่ง positionId: null)
+  const POSITIONS: { nameEn: string; nameTh: string; isSystemOnly?: boolean }[] = [
+    { nameEn: 'Medical Technologist', nameTh: 'นักเทคนิคการแพทย์' },
+    { nameEn: 'Medical Scientist', nameTh: 'นักวิทยาศาสตร์การแพทย์' },
+    { nameEn: 'Medical Technician Assistant', nameTh: 'ผู้ช่วยนักเทคนิคการแพทย์' },
+    { nameEn: 'General Administration Officer', nameTh: 'เจ้าหน้าที่บริหารงานทั่วไป' },
+    // isSystemOnly: ไม่ขึ้นให้เลือกในหน้า self-register (GET /positions filter ออก) — ADMIN
+    // ยัง assign ให้ user อื่นได้ปกติผ่าน /positions/admin
+    { nameEn: 'Administrator', nameTh: 'ผู้ดูแลระบบ', isSystemOnly: true },
+  ]
+
+  console.log('  Seeding positions...')
+  const positionIdByNameEn = new Map<string, string>()
+  for (const p of POSITIONS) {
+    // findFirst+update/create แทน upsert-by-nameEn — nameEn มี unique constraint จริง แต่ upsert
+    // ทับ isSystemOnly ทุกครั้งที่ reseed ไม่ได้ถ้า admin แก้ผ่าน Manage Positions ไปแล้วในอนาคต
+    // (ตอนนี้ยังไม่มี UI แก้ isSystemOnly ก็เลยไม่ต่างกันในทางปฏิบัติ แต่เขียนแบบ explicit ไว้ก่อน)
+    const existingPosition = await prisma.position.findFirst({ where: { nameEn: p.nameEn } })
+    const position = existingPosition
+      ? await prisma.position.update({
+          where: { id: existingPosition.id },
+          data: { nameTh: p.nameTh, deletedAt: null, isSystemOnly: p.isSystemOnly ?? false },
+        })
+      : await prisma.position.create({
+          data: { nameEn: p.nameEn, nameTh: p.nameTh, isSystemOnly: p.isSystemOnly ?? false },
+        })
+    positionIdByNameEn.set(p.nameEn, position.id)
+  }
+
   // --- Admin account ---
   const adminEmail = process.env['SEED_ADMIN_EMAIL'] ?? 'admin@btec.rcthai.or.th'
   const adminPassword = process.env['SEED_ADMIN_PASSWORD']
@@ -19,7 +51,7 @@ async function main() {
 
   await prisma.user.upsert({
     where: { email: adminEmail },
-    update: {},
+    update: {}, // ตั้งใจไม่แก้ทับ record ที่มีอยู่แล้ว (เช่น positionId ที่ admin อาจเปลี่ยนเองภายหลัง)
     create: {
       email: adminEmail,
       password: hashedPassword,
@@ -27,6 +59,7 @@ async function main() {
       role: Role.ADMIN,
       isActive: true,
       mustChangePassword: true, // บังคับเปลี่ยนรหัสหลังล็อกอินแรก
+      positionId: positionIdByNameEn.get('Administrator'),
     },
   })
 
@@ -44,7 +77,6 @@ async function main() {
       descriptionEn: 'A sample course for system testing',
       descriptionTh: 'หลักสูตรตัวอย่างสำหรับทดสอบระบบ',
       status: 'PUBLISHED',
-      expiryMonths: 12,
       accessType: 'PUBLIC',
     },
   })
@@ -60,7 +92,7 @@ async function main() {
       courseId: sampleCourse.id,
       titleEn: 'Workplace Safety Quiz (Sample)',
       titleTh: 'แบบทดสอบความปลอดภัยในการทำงาน (ตัวอย่าง)',
-      passScore: 80,
+      passRequiredCount: 1, // quiz นี้มี 1 คำถาม — ต้องตอบถูกทั้งหมดถึงผ่าน
       shuffle: true,
     },
   })

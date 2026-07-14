@@ -6,6 +6,7 @@ import type { ExternalCertResponse, UserResponse } from '@btec-lms/shared'
 import { Card } from '../../components/ui/Card.js'
 import { DataTable, type Column } from '../../components/ui/DataTable.js'
 import { Button } from '../../components/ui/Button.js'
+import { FileInput } from '../../components/ui/FileInput.js'
 import { Modal } from '../../components/ui/Modal.js'
 import { listExternalCerts, createExternalCert } from '../../api/external-certs.js'
 import { listAdminUsers } from '../../api/admin-users.js'
@@ -110,12 +111,11 @@ function AddExternalCertModal({ isOpen, onClose }: AddExternalCertModalProps) {
 
         <div>
           <label className="text-xs font-medium text-slate-700">{t('externalCert.fileUpload')}</label>
-          <input
+          <FileInput
             ref={fileRef}
-            type="file"
             accept=".pdf,.jpg,.jpeg,.png,.webp"
-            onChange={(e) => setFile(e.target.files?.[0] ?? null)}
-            className="mt-1 block w-full text-sm text-slate-600 file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-brand-50 file:px-3 file:py-1.5 file:text-xs file:font-medium file:text-brand-700 hover:file:bg-brand-100"
+            file={file}
+            onChange={setFile}
           />
         </div>
 

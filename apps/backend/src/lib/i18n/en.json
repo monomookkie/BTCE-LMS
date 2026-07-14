@@ -25,6 +25,7 @@
   "error.position.mergeSameTarget": "Cannot merge a position into itself",
   "error.position.mergeTargetNotFound": "Target position not found",
   "error.position.mergeIncomplete": "Merge failed — some references were not fully reassigned",
+  "error.position.systemOnly": "This position cannot be selected during self-registration",
 
   "error.course.notFound": "Course not found",
   "error.course.notPublished": "This course is not available",
@@ -59,6 +60,8 @@
   "error.quiz.maxAttemptsReached": "Maximum attempts ({{count}}) reached for this quiz",
   "error.quiz.attemptsNotFound": "Attempts not found",
   "error.quiz.cannotRemoveFromPublished": "Cannot remove: a published course must keep a quiz with at least one question",
+  "error.quiz.cannotRemoveBelowPassRequiredCount": "Cannot remove: this would leave the quiz with fewer questions ({{remaining}}) than the pass requirement ({{passRequiredCount}} correct needed)",
+  "error.quiz.passRequiredCountExceedsQuestions": "Pass requirement ({{passRequiredCount}} correct) cannot exceed the quiz's question count ({{questionCount}})",
 
   "error.question.notFound": "Question not found",
   "error.option.notFound": "Option not found",
@@ -78,6 +81,12 @@
   "success.quiz.deleted": "Quiz deleted",
   "success.question.deleted": "Question deleted",
   "success.option.deleted": "Option deleted",
+  "success.course.deleted": "Course deleted",
+  "success.survey.deleted": "Survey deleted",
+  "success.surveyQuestion.deleted": "Survey question deleted",
+  "success.material.reordered": "Materials reordered",
+  "success.material.deleted": "Material deleted",
+  "success.enrollment.cancelled": "Enrollment cancelled",
 
   "error.cert.notFound": "Certificate not found",
   "error.cert.alreadyIssued": "Certificate already issued for this enrollment",
@@ -95,10 +104,9 @@
   "error.announcement.notFound": "Announcement not found",
   "error.announcement.mimeNotAllowed": "File type \"{{mimeType}}\" is not allowed for announcements",
   "error.announcement.invalidMetadata": "Invalid announcement data: {{detail}}",
+  "error.announcement.imageRequiredToPublish": "An image is required to publish an announcement",
 
   "success.announcement.deleted": "Announcement deleted",
-
-  "error.notification.notFound": "Notification not found",
 
   "email.cert.expiry.subject": "Certificate Expiring Soon — {{certNumber}}",
   "email.cert.expiry.body": "Dear {{name}},\n\nYour certificate for \"{{courseTitle}}\" ({{certNumber}}) will expire on {{expiresAt}}.\n\nPlease renew before the deadline: {{link}}\n\nThailand Red Cross Society — National Blood Centre"

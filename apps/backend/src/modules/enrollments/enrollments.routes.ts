@@ -22,7 +22,7 @@ import {
   getMaterialProgress,
   markEmbedFailed,
 } from './enrollments.service.js'
-import { resolveLocale } from '../../lib/i18n.js'
+import { t, resolveLocale } from '../../lib/i18n.js'
 
 const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -236,7 +236,7 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
   }, async (req, reply) => {
     const locale = await resolveLocale(req, app.prisma)
     await cancelEnrollment(app.prisma, req.params.id, req.user.id, locale, req.ip)
-    return reply.send({ message: 'Enrollment cancelled' })
+    return reply.send({ message: t('success.enrollment.cancelled', undefined, locale) })
   })
 }
 

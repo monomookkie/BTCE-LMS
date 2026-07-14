@@ -25,7 +25,7 @@ import {
   submitSurvey,
   getSurveyResponses,
 } from './surveys.service.js'
-import { resolveLocale } from '../../lib/i18n.js'
+import { t, resolveLocale } from '../../lib/i18n.js'
 
 const surveysRoutes: FastifyPluginAsync = async (app) => {
   const server = app.withTypeProvider<ZodTypeProvider>()
@@ -68,7 +68,7 @@ const surveysRoutes: FastifyPluginAsync = async (app) => {
   }, async (req, reply) => {
     const locale = await resolveLocale(req, app.prisma)
     await deleteSurvey(app.prisma, req.params.courseId, req.user.id, locale, req.ip)
-    return reply.send({ message: 'Survey deleted' })
+    return reply.send({ message: t('success.survey.deleted', undefined, locale) })
   })
 
   // ── Admin: Question CRUD ──────────────────────────────────────────────────
@@ -119,7 +119,7 @@ const surveysRoutes: FastifyPluginAsync = async (app) => {
   }, async (req, reply) => {
     const locale = await resolveLocale(req, app.prisma)
     await deleteSurveyQuestion(app.prisma, req.params.courseId, req.params.questionId, req.user.id, locale, req.ip)
-    return reply.send({ message: 'Survey question deleted' })
+    return reply.send({ message: t('success.surveyQuestion.deleted', undefined, locale) })
   })
 
   // ── User: Take + Submit ───────────────────────────────────────────────────
