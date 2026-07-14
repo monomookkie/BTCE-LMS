@@ -6,6 +6,8 @@ const VIEWPORT_MARGIN = 8
 const TRIGGER_GAP = 4
 const PANEL_MAX_HEIGHT = 280
 const PANEL_MAX_WIDTH = 320
+const OPTION_ROW_HEIGHT = 30
+const LIST_PADDING = 8
 
 interface Placement {
   vertical: 'bottom' | 'top'
@@ -94,8 +96,11 @@ export function Select({
       const rect = triggerRef.current!.getBoundingClientRect()
       const spaceBelow = window.innerHeight - rect.bottom - VIEWPORT_MARGIN - TRIGGER_GAP
       const spaceAbove = rect.top - VIEWPORT_MARGIN - TRIGGER_GAP
+      // ใช้ความสูงจริงของ option list (ไม่ใช่ PANEL_MAX_HEIGHT เต็ม ๆ) ตอนตัดสินใจ flip
+      // ไม่งั้น list สั้น ๆ (เช่น 2 ตัวเลือก) จะ flip ขึ้นบนทั้งที่พื้นที่ด้านล่างพอแสดงได้สบาย
+      const contentHeight = Math.min(PANEL_MAX_HEIGHT, options.length * OPTION_ROW_HEIGHT + LIST_PADDING)
       const vertical: Placement['vertical'] =
-        spaceBelow >= PANEL_MAX_HEIGHT || spaceBelow >= spaceAbove ? 'bottom' : 'top'
+        spaceBelow >= contentHeight || spaceBelow >= spaceAbove ? 'bottom' : 'top'
       const maxHeight = Math.max(120, Math.min(PANEL_MAX_HEIGHT, vertical === 'bottom' ? spaceBelow : spaceAbove))
 
       const maxWidth = Math.min(PANEL_MAX_WIDTH, window.innerWidth - VIEWPORT_MARGIN * 2)

@@ -8,10 +8,10 @@ import {
   Users,
   Megaphone,
   LogOut,
-  Droplets,
   Briefcase,
 } from 'lucide-react'
 import { useAuth, useLogoutMutation } from '../../hooks/useAuth.js'
+import { LOGO_URL } from '../../lib/branding.js'
 import { Avatar } from '../ui/Avatar.js'
 import type { LucideIcon } from 'lucide-react'
 
@@ -75,14 +75,14 @@ export function Sidebar({ onNavigate, isCollapsed = false }: SidebarProps) {
           isCollapsed ? 'justify-center px-2' : 'gap-3 px-3.5',
         ].join(' ')}
       >
-        <div
+        <img
+          src={LOGO_URL}
+          alt={t('app.name')}
           className={[
-            'flex shrink-0 items-center justify-center rounded-md bg-white transition-[width,height] duration-300 ease-in-out',
-            isCollapsed ? 'h-8 w-8' : 'h-9 w-9',
+            'shrink-0 rounded-md object-contain transition-[width,height] duration-300 ease-in-out',
+            isCollapsed ? 'h-10 w-10' : 'h-12 w-12',
           ].join(' ')}
-        >
-          <Droplets size={isCollapsed ? 15 : 17} className="text-danger" />
-        </div>
+        />
         <div
           aria-hidden={isCollapsed}
           className={[
@@ -162,7 +162,7 @@ export function Sidebar({ onNavigate, isCollapsed = false }: SidebarProps) {
               ].join(' ')}
             >
               <p className="truncate text-xs font-semibold text-white">{user.name}</p>
-              <p className="truncate text-xs text-white/50">{roleLabel}</p>
+              <p className="truncate text-xs text-white/50">{user.position ?? roleLabel}</p>
             </div>
           </Link>
           <div className="my-2 border-t border-white/10" />

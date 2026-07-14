@@ -181,7 +181,7 @@ function MergeModal({ isOpen, onClose, source, positions }: MergeModalProps) {
 // ─── ManagePositionsPage ────────────────────────────────────────────────────
 
 export default function ManagePositionsPage() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const toast = useToast()
   const qc = useQueryClient()
 
@@ -190,7 +190,7 @@ export default function ManagePositionsPage() {
   const [deleteTarget, setDeleteTarget] = useState<PositionAdminResponse | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
-    queryKey: ['admin', 'positions'],
+    queryKey: ['admin', 'positions', i18n.language],
     queryFn: listAdminPositions,
   })
 
@@ -210,7 +210,7 @@ export default function ManagePositionsPage() {
     () => [
       {
         key: 'name',
-        header: t('positions.nameEn'),
+        header: t('positions.columnName'),
         skeleton: 'text-sub',
         render: (p) => (
           <div>

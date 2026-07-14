@@ -2,9 +2,9 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useTranslation } from 'react-i18next'
 import { Navigate, Link } from 'react-router-dom'
-import { Droplets } from 'lucide-react'
 import { loginInputSchema, type LoginInput } from '@btec-lms/shared'
 import { useAuth, useLoginMutation, ApiError } from '../../hooks/useAuth.js'
+import { LOGO_URL } from '../../lib/branding.js'
 import { Input } from '../../components/ui/Input.js'
 import { Button } from '../../components/ui/Button.js'
 import { PageSkeleton } from '../../components/ui/PageSkeleton.js'
@@ -50,9 +50,7 @@ export default function LoginPage() {
           className="flex flex-col items-center px-8 py-6 text-center text-white"
           style={{ background: 'linear-gradient(135deg,#0D1B2A,#1A3A5C)' }}
         >
-          <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-xl bg-white">
-            <Droplets size={28} className="text-danger" />
-          </div>
+          <img src={LOGO_URL} alt={t('app.name')} className="mb-3 h-14 w-14 rounded-xl object-contain" />
           <h1 className="text-lg font-bold">{t('auth.loginTitle')}</h1>
           <p className="mt-1 text-sm text-white/70">{t('auth.loginSubtitle')}</p>
         </div>
