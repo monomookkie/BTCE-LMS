@@ -17,6 +17,7 @@ import { Button } from '../../components/ui/Button.js'
 import { Select } from '../../components/ui/Select.js'
 import { PageSkeleton } from '../../components/ui/PageSkeleton.js'
 import { PasswordStrengthMeter } from '../../components/auth/PasswordStrengthMeter.js'
+import { LanguageSwitcher } from '../../components/LanguageSwitcher.js'
 
 type TFn = ReturnType<typeof useTranslation>['t']
 
@@ -127,9 +128,16 @@ export default function RegisterPage() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center"
+      className="relative flex min-h-screen items-center justify-center"
       style={{ background: 'linear-gradient(135deg,#061523,#0D1B2A,#1A3A5C,#1A56DB)' }}
     >
+      <div
+        className="absolute"
+        style={{ top: 'max(1rem, env(safe-area-inset-top))', right: 'max(1rem, env(safe-area-inset-right))' }}
+      >
+        <LanguageSwitcher />
+      </div>
+
       <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl">
         {/* Card header — navy gradient */}
         <div

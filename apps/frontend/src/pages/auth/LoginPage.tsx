@@ -8,6 +8,7 @@ import { LOGO_URL } from '../../lib/branding.js'
 import { Input } from '../../components/ui/Input.js'
 import { Button } from '../../components/ui/Button.js'
 import { PageSkeleton } from '../../components/ui/PageSkeleton.js'
+import { LanguageSwitcher } from '../../components/LanguageSwitcher.js'
 
 export default function LoginPage() {
   const { t } = useTranslation()
@@ -41,9 +42,16 @@ export default function LoginPage() {
 
   return (
     <div
-      className="flex min-h-screen items-center justify-center"
+      className="relative flex min-h-screen items-center justify-center"
       style={{ background: 'linear-gradient(135deg,#061523,#0D1B2A,#1A3A5C,#1A56DB)' }}
     >
+      <div
+        className="absolute"
+        style={{ top: 'max(1rem, env(safe-area-inset-top))', right: 'max(1rem, env(safe-area-inset-right))' }}
+      >
+        <LanguageSwitcher />
+      </div>
+
       <div className="w-full max-w-sm overflow-hidden rounded-2xl bg-white shadow-xl">
         {/* Card header — navy gradient */}
         <div

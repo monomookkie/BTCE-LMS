@@ -14,9 +14,19 @@ export default function PrivacyPolicyPage() {
 
   return (
     <div
-      className="min-h-screen p-4 sm:p-8"
+      className="relative min-h-screen p-4 sm:p-8"
       style={{ background: 'linear-gradient(135deg,#061523,#0D1B2A,#1A3A5C,#1A56DB)' }}
     >
+      <div
+        className="absolute"
+        style={{
+          top: 'max(1rem, env(safe-area-inset-top))',
+          right: 'max(1rem, env(safe-area-inset-right))',
+        }}
+      >
+        <LanguageSwitcher />
+      </div>
+
       <div className="mx-auto w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-xl">
         <div
           className="flex items-start justify-between gap-3 px-6 py-5 text-white sm:px-8"
@@ -31,7 +41,6 @@ export default function PrivacyPolicyPage() {
               </p>
             </div>
           </div>
-          <LanguageSwitcher />
         </div>
 
         <div className="space-y-6 px-6 py-6 sm:px-8">
