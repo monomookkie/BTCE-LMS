@@ -14,6 +14,11 @@ prisma/migrations/
 *.log
 pino-pretty
 
+# Playwright e2e
+playwright-report/
+test-results/
+blob-report/
+
 # OS
 .DS_Store
 Thumbs.db
