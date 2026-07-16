@@ -49,10 +49,14 @@ function formatBytes(bytes: number | null): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`
 }
 
-// ─── Add Link/Video modal ─────────────────────────────────────────────────────
+// ─── Add Link/Video/Document modal ─────────────────────────────────────────────
+// DOC เป็นลิงก์ไปไฟล์ที่แชร์ไว้ (เช่น Google Drive) ไม่ใช่อัปโหลดตรง — บราวเซอร์ไม่มี viewer
+// ให้ .doc/.docx ในตัว เปิดลิงก์ตรงแล้วดาวน์โหลดเสมอไม่ว่าไฟล์จะมาจากไหนก็ตาม
+
+const LINK_TYPES = ['LINK', 'VIDEO', 'DOC'] as const
 
 const linkFormSchema = z.object({
-  type:    z.enum(['VIDEO', 'LINK']),
+  type:    z.enum(LINK_TYPES),
   titleEn: z.string().min(1).max(200),
   titleTh: z.string().max(200).optional(),
   url:     z.string().url(),
@@ -96,11 +100,11 @@ function AddLinkModal({ isOpen, onClose, courseId }: AddLinkModalProps) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={t('adminCourse.addLink')} size="md">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          {(['LINK', 'VIDEO'] as const).map((tp) => (
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          {LINK_TYPES.map((tp) => (
             <label key={tp} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50">
               <input type="radio" value={tp} className="accent-brand-500" {...register('type')} />
-              <span className="text-sm font-medium">{tp === 'LINK' ? t('material.types.LINK') : t('material.types.VIDEO')}</span>
+              <span className="text-sm font-medium">{t(`material.types.${tp}` as never) as string}</span>
             </label>
           ))}
         </div>
@@ -119,8 +123,9 @@ function AddLinkModal({ isOpen, onClose, courseId }: AddLinkModalProps) {
 }
 
 // ─── Add File modal (with XHR upload progress) ────────────────────────────────
+// DOC ไม่อยู่ในนี้แล้ว — ย้ายไปเป็นลิงก์ผ่าน AddLinkModal ด้านบนแทน
 
-const FILE_TYPES = ['PDF', 'IMAGE', 'DOC'] as const
+const FILE_TYPES = ['PDF', 'IMAGE'] as const
 
 interface AddFileModalProps {
   isOpen: boolean
@@ -133,7 +138,7 @@ function AddFileModal({ isOpen, onClose, courseId }: AddFileModalProps) {
   const toast = useToast()
   const qc = useQueryClient()
 
-  const [fileType, setFileType]     = useState<'PDF' | 'IMAGE' | 'DOC'>('PDF')
+  const [fileType, setFileType]     = useState<'PDF' | 'IMAGE'>('PDF')
   const [titleEn, setTitleEn]       = useState('')
   const [titleTh, setTitleTh]       = useState('')
   const [file, setFile]             = useState<File | null>(null)
@@ -225,7 +230,7 @@ function AddFileModal({ isOpen, onClose, courseId }: AddFileModalProps) {
           <FileInput
             ref={fileRef}
             required
-            accept={fileType === 'PDF' ? '.pdf' : fileType === 'IMAGE' ? '.jpg,.jpeg,.png,.gif,.webp' : '.doc,.docx,.xlsx,.xls,.ppt,.pptx'}
+            accept={fileType === 'PDF' ? '.pdf' : '.jpg,.jpeg,.png,.gif,.webp'}
             file={file}
             onChange={setFile}
           />
@@ -280,7 +285,7 @@ const editFileFormSchema = z.object({
 })
 type EditFileFormValues = z.infer<typeof editFileFormSchema>
 
-const FILE_MATERIAL_TYPES = new Set<MaterialType>(['PDF', 'IMAGE', 'DOC'])
+const FILE_MATERIAL_TYPES = new Set<MaterialType>(['PDF', 'IMAGE'])
 
 interface EditMaterialModalProps {
   isOpen: boolean
@@ -407,7 +412,7 @@ function EditFileMaterialModal({ isOpen, onClose, courseId, material }: EditMate
             </p>
           )}
           <FileInput
-            accept={material?.type === 'PDF' ? '.pdf' : material?.type === 'IMAGE' ? '.jpg,.jpeg,.png,.gif,.webp' : '.doc,.docx,.xlsx,.xls,.ppt,.pptx'}
+            accept={material?.type === 'PDF' ? '.pdf' : '.jpg,.jpeg,.png,.gif,.webp'}
             file={file}
             onChange={setFile}
           />

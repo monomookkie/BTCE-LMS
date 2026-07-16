@@ -31,18 +31,20 @@ export const materialAdminResponseSchema = z.object({
 
 // ─── Input schemas ─────────────────────────────────────────────────────────
 
-// สำหรับ VIDEO / LINK — ส่งเป็น JSON ปกติ
+// สำหรับ VIDEO / LINK / DOC — ส่งเป็น JSON ปกติ (DOC เป็นลิงก์ไปไฟล์ที่แชร์ไว้ เช่น Google Drive
+// ไม่ใช่อัปโหลดตรง — เลี่ยงข้อจำกัดของ browser ที่ไม่มี viewer ให้ .doc/.docx ในตัว และเลี่ยงปัญหา
+// Cloudinary raw-resource ที่เจอมาก่อนหน้านี้)
 export const createLinkMaterialInputSchema = z.object({
-  type: z.enum(['VIDEO', 'LINK']),
+  type: z.enum(['VIDEO', 'LINK', 'DOC']),
   titleEn: z.string().min(1).max(200),
   titleTh: z.string().max(200).optional(),
   url: z.string().url(),
   order: z.number().int().min(0).optional(),
 })
 
-// metadata ที่ส่งมาพร้อม multipart upload (PDF / IMAGE / DOC)
+// metadata ที่ส่งมาพร้อม multipart upload (PDF / IMAGE เท่านั้น — DOC ย้ายไปเป็นลิงก์แล้ว)
 export const createFileMaterialMetaSchema = z.object({
-  type: z.enum(['PDF', 'IMAGE', 'DOC']),
+  type: z.enum(['PDF', 'IMAGE']),
   titleEn: z.string().min(1).max(200),
   titleTh: z.string().max(200).optional(),
   order: z.number().int().min(0).optional(),

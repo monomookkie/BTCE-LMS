@@ -24,13 +24,11 @@ import { t, resolveLocale } from '../../lib/i18n.js'
 import { randomUUID } from 'node:crypto'
 
 // MIME types ที่อนุญาตต่อ material type — ป้องกันอัปโหลดไฟล์อันตราย
+// DOC ไม่อยู่ในนี้แล้ว — เปลี่ยนเป็นลิงก์ (เช่น Google Drive) แทนการอัปโหลดตรง เพราะบราวเซอร์ไม่มี
+// viewer ให้ .doc/.docx ในตัว (เปิดแล้วดาวน์โหลดเสมอ) และเจอปัญหาการเก็บไฟล์ raw บน Cloudinary มาก่อน
 const ALLOWED_MIME: Record<string, string[]> = {
   PDF: ['application/pdf'],
   IMAGE: ['image/jpeg', 'image/png', 'image/webp', 'image/gif'],
-  DOC: [
-    'application/msword',
-    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-  ],
 }
 
 const materialsRoutes: FastifyPluginAsync = async (app) => {
