@@ -7,6 +7,7 @@ import {
   updateUserInputSchema,
   updateProfileInputSchema,
   consentInputSchema,
+  resetPasswordResponseSchema,
 } from '@btec-lms/shared'
 import { userListQuerySchema, importResultSchema } from './users.schema.js'
 import {
@@ -19,6 +20,7 @@ import {
   getProfile,
   updateProfile,
   recordConsent,
+  resetUserPassword,
 } from './users.service.js'
 import { badRequest } from '../../lib/errors.js'
 import { t, resolveLocale } from '../../lib/i18n.js'
@@ -171,6 +173,24 @@ const usersRoutes: FastifyPluginAsync = async (app) => {
       const locale = await resolveLocale(req, app.prisma)
       const user = await updateUser(app.prisma, req.params.id, req.body, req.user.id, locale, req.ip)
       return reply.send(user)
+    },
+  )
+
+  // POST /users/:id/reset-password — ADMIN, generates a new temp password + revokes existing sessions
+  server.post(
+    '/:id/reset-password',
+    {
+      config: { rateLimit: { max: 10, timeWindow: '1 minute' } },
+      preHandler: [app.requireRole(['ADMIN'])],
+      schema: {
+        params: z.object({ id: z.string().cuid() }),
+        response: { 200: resetPasswordResponseSchema },
+      },
+    },
+    async (req, reply) => {
+      const locale = await resolveLocale(req, app.prisma)
+      const result = await resetUserPassword(app.prisma, req.params.id, req.user.id, locale, req.ip)
+      return reply.send(result)
     },
   )
 

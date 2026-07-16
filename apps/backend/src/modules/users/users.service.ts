@@ -257,6 +257,45 @@ export async function softDeleteUser(
   })
 }
 
+// admin สุ่มรหัสผ่านชั่วคราวให้ user คนอื่น (ไม่รับรหัสจาก client — เข้ารหัสได้ทางเดียว ไม่มีที่ไหน
+// เก็บ plaintext ไว้เลยนอกจาก response ครั้งนี้ครั้งเดียว) บังคับเปลี่ยนรอบแรกที่ login + revoke
+// session เดิมทุกอุปกรณ์ทันที (pattern เดียวกับ changePassword ใน auth.service.ts)
+export async function resetUserPassword(
+  prisma: PrismaClient,
+  id: string,
+  actorId: string,
+  locale: Locale = 'en',
+  ip?: string,
+): Promise<{ temporaryPassword: string }> {
+  const user = await prisma.user.findFirst({ where: { id, deletedAt: null } })
+  if (!user) throw notFound(t('error.user.notFound', undefined, locale))
+
+  const temporaryPassword = randomBytes(6).toString('hex')
+  const password = await hashPassword(temporaryPassword)
+
+  await prisma.$transaction([
+    prisma.user.update({
+      where: { id },
+      data: { password, mustChangePassword: true, passwordChangedAt: new Date() },
+    }),
+    prisma.refreshToken.updateMany({
+      where: { userId: id, revokedAt: null },
+      data: { revokedAt: new Date() },
+    }),
+  ])
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'USER_PASSWORD_RESET',
+    targetType: 'User',
+    targetId: id,
+    metadata: { email: user.email },
+    ...(ip != null && { ip }),
+  })
+
+  return { temporaryPassword }
+}
+
 export async function importFromCsv(
   prisma: PrismaClient,
   buffer: Buffer,

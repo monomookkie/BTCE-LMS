@@ -1,4 +1,4 @@
-import type { UserResponse, CreateUserInput, UpdateUserInput } from '@btec-lms/shared'
+import type { UserResponse, CreateUserInput, UpdateUserInput, ResetPasswordResponse } from '@btec-lms/shared'
 import i18next from '../i18n/index.js'
 import { ApiError, apiFetch } from '../lib/api.js'
 
@@ -41,6 +41,10 @@ export function updateAdminUser(id: string, body: UpdateUserInput): Promise<User
 
 export function deleteAdminUser(id: string): Promise<void> {
   return apiFetch<void>(`/users/${id}`, { method: 'DELETE' })
+}
+
+export function resetAdminUserPassword(id: string): Promise<ResetPasswordResponse> {
+  return apiFetch<ResetPasswordResponse>(`/users/${id}/reset-password`, { method: 'POST' })
 }
 
 export interface ImportResult {

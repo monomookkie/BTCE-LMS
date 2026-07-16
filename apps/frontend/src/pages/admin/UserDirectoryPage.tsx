@@ -4,13 +4,14 @@ import { useTranslation } from 'react-i18next'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
-import { Plus, Search, Edit2, Trash2, Download, Ban, CheckCircle } from 'lucide-react'
+import { Plus, Search, Edit2, Trash2, Download, Ban, CheckCircle, KeyRound, Copy, Check } from 'lucide-react'
 import { roleSchema, type UserResponse, type Role } from '@btec-lms/shared'
 import {
   listAdminUsers,
   createAdminUser,
   updateAdminUser,
   deleteAdminUser,
+  resetAdminUserPassword,
   importUsersCsv,
   type ImportResult,
 } from '../../api/admin-users.js'
@@ -282,6 +283,53 @@ function ImportModal({ isOpen, onClose }: ImportModalProps) {
   )
 }
 
+// ─── Reset password result modal ───────────────────────────────────────────
+// โชว์รหัสผ่านชั่วคราวแค่ครั้งเดียวตอนนี้เท่านั้น — server ไม่เก็บ plaintext ไว้ที่ไหนอีก
+// ปิดหน้าต่างนี้แล้วรหัสจะหายไปเลย ต้อง reset ใหม่ถ้าลืมคัดลอก
+
+interface ResetPasswordResultModalProps {
+  result: { user: UserResponse; temporaryPassword: string } | null
+  onClose: () => void
+}
+
+function ResetPasswordResultModal({ result, onClose }: ResetPasswordResultModalProps) {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    if (!result) return
+    await navigator.clipboard.writeText(result.temporaryPassword)
+    setCopied(true)
+    toast.success(t('userDirectory.passwordCopied'))
+    window.setTimeout(() => setCopied(false), 2000)
+  }
+
+  return (
+    <Modal isOpen={result != null} onClose={onClose} title={t('userDirectory.resetPasswordSuccess')} size="sm">
+      {result && (
+        <div className="space-y-4">
+          <p className="text-sm text-slate-500">
+            {t('userDirectory.resetPasswordSuccessHint', { name: result.user.name })}
+          </p>
+          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <code className="flex-1 select-all font-mono text-sm text-slate-800">
+              {result.temporaryPassword}
+            </code>
+            <Button type="button" size="sm" variant="outline" onClick={() => void handleCopy()}>
+              {copied ? <Check size={14} /> : <Copy size={14} />}
+            </Button>
+          </div>
+          <p className="text-xs text-amber-600">{t('userDirectory.resetPasswordNotStored')}</p>
+          <div className="flex justify-end border-t border-slate-100 pt-4">
+            <Button type="button" onClick={onClose}>{t('common.close')}</Button>
+          </div>
+        </div>
+      )}
+    </Modal>
+  )
+}
+
 // ─── UserDirectoryPage ──────────────────────────────────────────────────────
 
 export default function UserDirectoryPage() {
@@ -298,6 +346,8 @@ export default function UserDirectoryPage() {
   const [importOpen, setImportOpen] = useState(false)
   const [deleteTarget, setDeleteTarget] = useState<UserResponse | null>(null)
   const [suspendTarget, setSuspendTarget] = useState<{ user: UserResponse; next: boolean } | null>(null)
+  const [resetTarget, setResetTarget] = useState<UserResponse | null>(null)
+  const [resetResult, setResetResult] = useState<{ user: UserResponse; temporaryPassword: string } | null>(null)
 
   const { data, isLoading, isError, refetch } = useQuery({
     queryKey: ['admin', 'users', search, positionFilter, statusFilter, page, i18n.language],
@@ -327,6 +377,15 @@ export default function UserDirectoryPage() {
       await qc.invalidateQueries({ queryKey: ['admin', 'users'] })
       toast.success(t('userDirectory.userDeleted'))
       setDeleteTarget(null)
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : t('common.error')),
+  })
+
+  const resetPasswordMutation = useMutation({
+    mutationFn: (user: UserResponse) => resetAdminUserPassword(user.id),
+    onSuccess: (res, user) => {
+      setResetTarget(null)
+      setResetResult({ user, temporaryPassword: res.temporaryPassword })
     },
     onError: (err) => toast.error(err instanceof ApiError ? err.message : t('common.error')),
   })
@@ -406,6 +465,15 @@ export default function UserDirectoryPage() {
             <div className="flex items-center justify-end gap-1">
               <Button size="sm" variant="ghost" onClick={() => setFormModal({ open: true, user: u })} title={t('common.edit')}>
                 <Edit2 size={14} />
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => setResetTarget(u)}
+                disabled={isSelf}
+                title={isSelf ? t('userDirectory.resetPasswordSelfHint') : t('userDirectory.resetPassword')}
+              >
+                <KeyRound size={14} />
               </Button>
               {u.isActive ? (
                 <Button
@@ -547,6 +615,19 @@ export default function UserDirectoryPage() {
         variant="danger"
         isLoading={deleteMutation.isPending}
       />
+
+      <ConfirmDialog
+        isOpen={resetTarget != null}
+        onClose={() => setResetTarget(null)}
+        onConfirm={() => { if (resetTarget) resetPasswordMutation.mutate(resetTarget) }}
+        title={t('userDirectory.resetPasswordConfirm')}
+        message={`"${resetTarget?.name}"`}
+        confirmLabel={t('userDirectory.resetPassword')}
+        variant="danger"
+        isLoading={resetPasswordMutation.isPending}
+      />
+
+      <ResetPasswordResultModal result={resetResult} onClose={() => setResetResult(null)} />
     </div>
   )
 }
