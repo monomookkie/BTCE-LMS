@@ -18,6 +18,7 @@ import {
   reorderMaterials,
   deleteMaterial,
   uploadFileMaterial,
+  replaceMaterialFile,
 } from '../../api/admin-materials.js'
 import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
@@ -263,12 +264,23 @@ function AddFileModal({ isOpen, onClose, courseId }: AddFileModalProps) {
 }
 
 // ─── Edit material modal ──────────────────────────────────────────────────────
+// LINK/VIDEO แก้ URL ได้ (JSON PATCH ปกติ) — PDF/IMAGE/DOC แนบไฟล์ใหม่แทนที่ของเดิมได้ (multipart PATCH
+// แยก endpoint เพราะไฟล์ต้องผ่าน storage.upload ก่อน ไม่ใช่แค่เขียนคอลัมน์ตรงๆ เหมือน title/url)
 
-const editFormSchema = z.object({
+const editLinkFormSchema = z.object({
+  titleEn: z.string().min(1).max(200),
+  titleTh: z.string().max(200).optional(),
+  url: z.string().url(),
+})
+type EditLinkFormValues = z.infer<typeof editLinkFormSchema>
+
+const editFileFormSchema = z.object({
   titleEn: z.string().min(1).max(200),
   titleTh: z.string().max(200).optional(),
 })
-type EditFormValues = z.infer<typeof editFormSchema>
+type EditFileFormValues = z.infer<typeof editFileFormSchema>
+
+const FILE_MATERIAL_TYPES = new Set<MaterialType>(['PDF', 'IMAGE', 'DOC'])
 
 interface EditMaterialModalProps {
   isOpen: boolean
@@ -278,26 +290,33 @@ interface EditMaterialModalProps {
 }
 
 function EditMaterialModal({ isOpen, onClose, courseId, material }: EditMaterialModalProps) {
+  const isFileType = material != null && FILE_MATERIAL_TYPES.has(material.type)
+  return isFileType
+    ? <EditFileMaterialModal isOpen={isOpen} onClose={onClose} courseId={courseId} material={material} />
+    : <EditLinkMaterialModal isOpen={isOpen} onClose={onClose} courseId={courseId} material={material} />
+}
+
+function EditLinkMaterialModal({ isOpen, onClose, courseId, material }: EditMaterialModalProps) {
   const { t } = useTranslation()
   const toast = useToast()
   const qc = useQueryClient()
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
-    useForm<EditFormValues>({ resolver: zodResolver(editFormSchema) })
+    useForm<EditLinkFormValues>({ resolver: zodResolver(editLinkFormSchema) })
 
-  // Pre-fill when material changes or modal opens
   useEffect(() => {
     if (isOpen && material) {
-      reset({ titleEn: material.titleEn, titleTh: material.titleTh ?? '' })
+      reset({ titleEn: material.titleEn, titleTh: material.titleTh ?? '', url: material.url ?? '' })
     }
   }, [isOpen, material, reset])
 
-  const onSubmit = async (values: EditFormValues) => {
+  const onSubmit = async (values: EditLinkFormValues) => {
     if (!material) return
     try {
       await updateMaterial(courseId, material.id, {
         titleEn: values.titleEn,
         ...(values.titleTh?.trim() ? { titleTh: values.titleTh.trim() } : { titleTh: null }),
+        url: values.url,
       })
       toast.success(t('adminCourse.materialUpdated'))
       await qc.invalidateQueries({ queryKey: ['admin', 'materials', courseId] })
@@ -308,20 +327,108 @@ function EditMaterialModal({ isOpen, onClose, courseId, material }: EditMaterial
   }
 
   return (
-    <Modal
-      isOpen={isOpen}
-      onClose={onClose}
-      title={t('adminCourse.editMaterial')}
-      size="sm"
-    >
+    <Modal isOpen={isOpen} onClose={onClose} title={t('adminCourse.editMaterial')} size="sm">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Input label={`${t('adminCourse.titleEn')} *`} error={errors.titleEn?.message} {...register('titleEn')} />
           <Input label={t('adminCourse.titleTh')} {...register('titleTh')} />
         </div>
+        <Input label={`URL *`} type="url" placeholder="https://" error={errors.url?.message} {...register('url')} />
         <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
           <Button variant="ghost" type="button" onClick={onClose}>{t('common.cancel')}</Button>
           <Button type="submit" isLoading={isSubmitting}>{t('common.save')}</Button>
+        </div>
+      </form>
+    </Modal>
+  )
+}
+
+function EditFileMaterialModal({ isOpen, onClose, courseId, material }: EditMaterialModalProps) {
+  const { t } = useTranslation()
+  const toast = useToast()
+  const qc = useQueryClient()
+
+  const [file, setFile] = useState<File | null>(null)
+  const [progress, setProgress] = useState<number | null>(null)
+  const [isUploading, setIsUploading] = useState(false)
+
+  const { register, handleSubmit, reset, formState: { errors } } =
+    useForm<EditFileFormValues>({ resolver: zodResolver(editFileFormSchema) })
+
+  useEffect(() => {
+    if (isOpen && material) {
+      reset({ titleEn: material.titleEn, titleTh: material.titleTh ?? '' })
+      setFile(null)
+      setProgress(null)
+    }
+  }, [isOpen, material, reset])
+
+  const onSubmit = async (values: EditFileFormValues) => {
+    if (!material) return
+    try {
+      if (file) {
+        setIsUploading(true)
+        setProgress(0)
+        const fd = new FormData()
+        fd.append('titleEn', values.titleEn)
+        if (values.titleTh?.trim()) fd.append('titleTh', values.titleTh.trim())
+        fd.append('file', file)
+        await replaceMaterialFile(courseId, material.id, fd, setProgress)
+      } else {
+        await updateMaterial(courseId, material.id, {
+          titleEn: values.titleEn,
+          ...(values.titleTh?.trim() ? { titleTh: values.titleTh.trim() } : { titleTh: null }),
+        })
+      }
+      toast.success(t('adminCourse.materialUpdated'))
+      await qc.invalidateQueries({ queryKey: ['admin', 'materials', courseId] })
+      onClose()
+    } catch (err) {
+      toast.error(err instanceof ApiError ? err.message : t('common.error'))
+    } finally {
+      setIsUploading(false)
+      setProgress(null)
+    }
+  }
+
+  return (
+    <Modal isOpen={isOpen} onClose={onClose} title={t('adminCourse.editMaterial')} size="sm">
+      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Input label={`${t('adminCourse.titleEn')} *`} error={errors.titleEn?.message} {...register('titleEn')} />
+          <Input label={t('adminCourse.titleTh')} {...register('titleTh')} />
+        </div>
+
+        <div>
+          <label className="text-xs font-medium text-slate-700">{t('adminCourse.replaceFile')}</label>
+          {material?.sizeBytes != null && !file && (
+            <p className="mb-1 text-xs text-slate-400">
+              {t('adminCourse.currentFile')}: {formatBytes(material.sizeBytes)}
+            </p>
+          )}
+          <FileInput
+            accept={material?.type === 'PDF' ? '.pdf' : material?.type === 'IMAGE' ? '.jpg,.jpeg,.png,.gif,.webp' : '.doc,.docx,.xlsx,.xls,.ppt,.pptx'}
+            file={file}
+            onChange={setFile}
+          />
+          {file && <p className="mt-1 text-xs text-slate-400">{formatBytes(file.size)}</p>}
+        </div>
+
+        {progress !== null && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between text-xs text-slate-500">
+              <span>{t('adminCourse.uploading')}</span>
+              <span>{progress}%</span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-slate-100">
+              <div className="h-full rounded-full bg-brand-500 transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          </div>
+        )}
+
+        <div className="flex justify-end gap-3 border-t border-slate-100 pt-4">
+          <Button variant="ghost" type="button" onClick={onClose} disabled={isUploading}>{t('common.cancel')}</Button>
+          <Button type="submit" isLoading={isUploading}>{t('common.save')}</Button>
         </div>
       </form>
     </Modal>
@@ -384,10 +491,10 @@ function MaterialRow({ material, index, total, onMoveUp, onMoveDown, onEdit, onD
         {t(`material.types.${material.type}` as never) as string}
       </span>
 
-      {/* Actions */}
-      {material.url && (
+      {/* Actions — url สำหรับ LINK/VIDEO, signedUrl สำหรับ PDF/IMAGE/DOC (ไฟล์อัปโหลด) */}
+      {(material.url ?? material.signedUrl) && (
         <a
-          href={material.url}
+          href={material.url ?? material.signedUrl ?? undefined}
           target="_blank"
           rel="noreferrer"
           className="text-slate-400 hover:text-brand-500"

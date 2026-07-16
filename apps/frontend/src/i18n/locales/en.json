@@ -508,6 +508,8 @@
     "materialUpdated": "Material updated",
     "materialDeleted": "Material deleted",
     "editMaterial": "Edit Material",
+    "replaceFile": "Replace file (leave empty to keep current)",
+    "currentFile": "Current file",
     "deleteMaterialConfirm": "Delete this material?",
     "quizPlaceholder": "Quiz Editor",
     "quizComingSoon": "Quiz management will be available in the next update"

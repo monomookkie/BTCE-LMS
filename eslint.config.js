@@ -12,7 +12,10 @@ export default [
     languageOptions: {
       parser: tsparser,
       parserOptions: {
-        project: true,
+        // projectService (แทน project: true แบบเก่า) รองรับ solution-style tsconfig ที่ frontend
+        // ใช้ (tsconfig.json เป็นแค่ references ไป tsconfig.app.json/tsconfig.e2e.json ไม่มี include เอง)
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname,
       },
     },
     plugins: {

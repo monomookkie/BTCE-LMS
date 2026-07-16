@@ -14,6 +14,7 @@ import {
   createLinkMaterial,
   createFileMaterial,
   updateMaterial,
+  replaceMaterialFile,
   reorderMaterials,
   softDeleteMaterial,
 } from './materials.service.js'
@@ -139,6 +140,60 @@ const materialsRoutes: FastifyPluginAsync = async (app) => {
       req.ip,
     )
     return reply.code(201).send(material)
+  })
+
+  // PATCH /courses/:courseId/materials/:materialId/file — ADMIN
+  // แทนที่ไฟล์เดิมของ material ประเภท PDF/IMAGE/DOC (+ แก้ชื่อได้พร้อมกันในคำขอเดียว) — ไฟล์บังคับแนบเสมอ
+  // (แก้แค่ชื่ออย่างเดียวใช้ PATCH /:materialId แบบ JSON เดิมที่มีอยู่แล้วแทน)
+  // ต้องอยู่ก่อน /:materialId เฉยๆ กัน "file" ถูกตีความเป็น sub-resource ผิด route
+  server.patch('/:courseId/materials/:materialId/file', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      params: materialParamsSchema,
+      response: { 200: materialAdminResponseSchema },
+    },
+  }, async (req) => {
+    const locale = await resolveLocale(req, app.prisma)
+    const data = await req.file()
+    if (!data) throw badRequest(t('error.file.noFile', undefined, locale))
+
+    const fields: Record<string, string> = {}
+    for (const [key, value] of Object.entries(data.fields)) {
+      if (value && typeof value === 'object' && 'value' in value) {
+        fields[key] = String((value as { value: unknown }).value)
+      }
+    }
+
+    const fieldsParse = z.object({
+      titleEn: z.string().min(1).max(200).optional(),
+      titleTh: z.string().max(200).nullable().optional(),
+    }).safeParse({
+      titleEn: fields['titleEn'] || undefined,
+      titleTh: fields['titleTh'] ?? undefined,
+    })
+    if (!fieldsParse.success) {
+      throw badRequest(t('error.material.invalidMetadata', { detail: fieldsParse.error.message }, locale))
+    }
+
+    const allAllowedMimes = Object.values(ALLOWED_MIME).flat()
+    if (!allAllowedMimes.includes(data.mimetype)) {
+      throw badRequest(t('error.material.mimeNotAllowed', { mimeType: data.mimetype, type: 'PDF/IMAGE/DOC' }, locale))
+    }
+    const buffer = await data.toBuffer()
+    const ext = (data.filename ?? '').split('.').pop() ?? ''
+    const filename = ext ? `${randomUUID()}.${ext}` : randomUUID()
+
+    return replaceMaterialFile(
+      app.prisma,
+      req.params.courseId,
+      req.params.materialId,
+      fieldsParse.data,
+      { buffer, filename, mimeType: data.mimetype },
+      req.user.id,
+      getStorage(),
+      locale,
+      req.ip,
+    )
   })
 
   // PATCH /courses/:courseId/materials/:materialId — ADMIN

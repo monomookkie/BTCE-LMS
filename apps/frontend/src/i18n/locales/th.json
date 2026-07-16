@@ -508,6 +508,8 @@
     "materialUpdated": "แก้ไขสื่อการเรียนแล้ว",
     "materialDeleted": "ลบสื่อการเรียนแล้ว",
     "editMaterial": "แก้ไขสื่อการเรียน",
+    "replaceFile": "แทนที่ไฟล์ (เว้นว่างไว้เพื่อคงไฟล์เดิม)",
+    "currentFile": "ไฟล์ปัจจุบัน",
     "deleteMaterialConfirm": "ลบสื่อการเรียนนี้?",
     "quizPlaceholder": "แก้ไขแบบทดสอบ",
     "quizComingSoon": "การจัดการแบบทดสอบจะพร้อมในการอัปเดตครั้งถัดไป"

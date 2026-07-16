@@ -252,6 +252,55 @@ export async function updateMaterial(
   return materialAdminResponseSchema.parse(toMaterialAdminShape(material, storage, locale))
 }
 
+// แทนที่ไฟล์เดิมของ material ประเภท PDF/IMAGE/DOC (route บังคับแนบไฟล์เสมอ — แก้แค่ชื่ออย่างเดียว
+// ใช้ PATCH /:materialId แบบ JSON เดิมแทน) ไม่ลบไฟล์เก่าออกจาก storage (เหมือน soft-delete ที่ไม่ purge
+// blob จริง — เก็บไว้เผื่อ rollback/audit ต้นทุน storage ต่ำกว่าความเสี่ยงที่จะลบของที่ยังอ้างอิงอยู่)
+export async function replaceMaterialFile(
+  prisma: PrismaClient,
+  courseId: string,
+  materialId: string,
+  fields: { titleEn?: string | undefined; titleTh?: string | null | undefined },
+  file: { buffer: Buffer; filename: string; mimeType: string } | null,
+  actorId: string,
+  storage: StorageProvider,
+  locale: Locale = 'en',
+  ip?: string,
+): Promise<MaterialAdminResponse> {
+  const existing = await prisma.material.findFirst({
+    where: { id: materialId, courseId, deletedAt: null },
+  })
+  if (!existing) throw notFound(t('error.material.notFound', undefined, locale))
+
+  const fileData = file
+    ? await storage.upload(file.buffer, 'materials', file.filename, file.mimeType)
+    : null
+
+  const material = await prisma.material.update({
+    where: { id: materialId },
+    data: {
+      ...(fields.titleEn != null && { titleEn: fields.titleEn }),
+      ...('titleTh' in fields && { titleTh: fields.titleTh ?? null }),
+      ...(fileData != null && {
+        fileKey: fileData.fileKey,
+        mimeType: fileData.mimeType,
+        sizeBytes: fileData.sizeBytes,
+      }),
+    },
+    select: MATERIAL_SELECT,
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'MATERIAL_UPDATE',
+    targetType: 'Material',
+    targetId: materialId,
+    metadata: { courseId, titleEn: fields.titleEn, fileReplaced: file != null },
+    ...(ip != null && { ip }),
+  })
+
+  return materialAdminResponseSchema.parse(toMaterialAdminShape(material, storage, locale))
+}
+
 export async function reorderMaterials(
   prisma: PrismaClient,
   courseId: string,

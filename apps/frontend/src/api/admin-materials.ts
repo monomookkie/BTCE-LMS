@@ -75,3 +75,36 @@ export function uploadFileMaterial(
     xhr.send(formData)
   })
 }
+
+// แทนที่ไฟล์เดิมของ material ประเภท PDF/IMAGE/DOC (+ แก้ชื่อพร้อมกันได้) — ไฟล์บังคับแนบเสมอ
+export function replaceMaterialFile(
+  courseId: string,
+  materialId: string,
+  formData: FormData,
+  onProgress: (pct: number) => void,
+): Promise<MaterialAdminResponse> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest()
+    xhr.open('PATCH', `${BASE}/courses/${courseId}/materials/${materialId}/file`)
+    xhr.withCredentials = true
+    xhr.setRequestHeader('Accept-Language', i18next.language)
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100))
+    }
+
+    xhr.onload = () => {
+      let data: unknown
+      try { data = JSON.parse(xhr.responseText) } catch { data = {} }
+      if (xhr.status >= 200 && xhr.status < 300) {
+        resolve(data as MaterialAdminResponse)
+      } else {
+        const msg = (data as { message?: string })?.message ?? xhr.statusText
+        reject(new ApiError(xhr.status, msg, data))
+      }
+    }
+
+    xhr.onerror = () => reject(new ApiError(0, 'Network error'))
+    xhr.send(formData)
+  })
+}
