@@ -98,13 +98,18 @@ function AddLinkModal({ isOpen, onClose, courseId }: AddLinkModalProps) {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('adminCourse.addLink')} size="lg">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('adminCourse.addLink')} size="md">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+        {/* pill tabs — สไตล์เดียวกับ "Upload File" modal (AddFileModal ด้านล่าง) ให้ทั้งสองหน้าดูเข้าชุดกัน */}
+        <div className="flex gap-2">
           {LINK_TYPES.map((tp) => (
-            <label key={tp} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50">
-              <input type="radio" value={tp} className="accent-brand-500" {...register('type')} />
-              <span className="whitespace-nowrap text-sm font-medium">{t(`material.types.${tp}` as never) as string}</span>
+            <label
+              key={tp}
+              className="flex cursor-pointer items-center gap-1.5 rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-500 transition-colors hover:bg-slate-50 has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50 has-[:checked]:text-brand-700"
+            >
+              <input type="radio" value={tp} className="sr-only" {...register('type')} />
+              {TYPE_ICONS[tp]}
+              {t(`material.types.${tp}` as never) as string}
             </label>
           ))}
         </div>
