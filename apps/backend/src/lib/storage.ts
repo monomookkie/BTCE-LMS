@@ -100,20 +100,3 @@ export function getStorage(): StorageProvider {
   }
   return _provider
 }
-
-export async function uploadFile(
-  buffer: Buffer,
-  folder: StorageFolder,
-  filename: string,
-  mimeType: string,
-): Promise<UploadResult> {
-  return getStorage().upload(buffer, folder, filename, mimeType)
-}
-
-export async function deleteFile(fileKey: string): Promise<void> {
-  return getStorage().delete(fileKey)
-}
-
-export function getSignedUrl(fileKey: string, expiresInSeconds?: number, mimeType?: string | null): string {
-  return getStorage().getSignedUrl(fileKey, expiresInSeconds, mimeType)
-}

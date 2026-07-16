@@ -88,17 +88,10 @@
   "success.material.deleted": "Material deleted",
   "success.enrollment.cancelled": "Enrollment cancelled",
 
-  "error.cert.notFound": "Certificate not found",
-  "error.cert.alreadyIssued": "Certificate already issued for this enrollment",
-  "error.cert.revoked": "This certificate has been revoked",
-  "error.cert.alreadyRevoked": "Certificate is already revoked",
-  "error.cert.cannotIssuePending": "Cannot issue certificate: enrollment is not completed",
-
   "error.externalCert.notFound": "External certificate not found",
   "error.externalCert.invalidMetadata": "Invalid metadata: {{detail}}",
   "error.externalCert.mimeNotAllowed": "File type \"{{mimeType}}\" is not allowed for external certificates",
 
-  "success.cert.revoked": "Certificate revoked",
   "success.externalCert.deleted": "External certificate deleted",
 
   "error.announcement.notFound": "Announcement not found",
@@ -106,8 +99,5 @@
   "error.announcement.invalidMetadata": "Invalid announcement data: {{detail}}",
   "error.announcement.imageRequiredToPublish": "An image is required to publish an announcement",
 
-  "success.announcement.deleted": "Announcement deleted",
-
-  "email.cert.expiry.subject": "Certificate Expiring Soon — {{certNumber}}",
-  "email.cert.expiry.body": "Dear {{name}},\n\nYour certificate for \"{{courseTitle}}\" ({{certNumber}}) will expire on {{expiresAt}}.\n\nPlease renew before the deadline: {{link}}\n\nThailand Red Cross Society — National Blood Centre"
+  "success.announcement.deleted": "Announcement deleted"
 }

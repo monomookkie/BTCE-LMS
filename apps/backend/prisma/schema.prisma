@@ -340,32 +340,6 @@ model ExternalCertificate {
   @@index([userId, deletedAt])
 }
 
-// ===== Training Log (offline) =====
-
-model TrainingLog {
-  id          String   @id @default(cuid())
-  title       String
-  date        DateTime
-  trainer     String
-  location    String?
-  durationMin Int?
-  type        String?
-  topics      String?  @db.Text
-  fileKey     String? // Cloudinary public_id
-  createdAt   DateTime @default(now())
-
-  attendees TrainingAttendee[]
-}
-
-model TrainingAttendee {
-  trainingId String
-  userId     String
-
-  training TrainingLog @relation(fields: [trainingId], references: [id])
-
-  @@id([trainingId, userId])
-}
-
 // ===== Announcement =====
 
 enum AnnouncementStatus {

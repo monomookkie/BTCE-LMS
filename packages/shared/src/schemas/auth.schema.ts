@@ -9,7 +9,7 @@ export const loginInputSchema = z.object({
 // เช่น user@redcross.or.th.evil.com หรือ user@sub.redcross.or.th ต้องไม่ผ่าน
 const REGISTER_ALLOWED_EMAIL_DOMAIN = 'redcross.or.th'
 
-export function getEmailDomain(email: string): string {
+function getEmailDomain(email: string): string {
   return email.trim().toLowerCase().split('@').pop() ?? ''
 }
 
@@ -45,10 +45,6 @@ export const registerInputSchema = z.object({
 export const changePasswordInputSchema = z.object({
   currentPassword: z.string().min(1),
   newPassword: z.string().min(8).max(72),
-})
-
-export const refreshTokenResponseSchema = z.object({
-  message: z.literal('ok'),
 })
 
 export type LoginInput = z.infer<typeof loginInputSchema>

@@ -578,13 +578,6 @@
     "questionDeleted": "Question deleted",
     "deleteQuestionConfirm": "Delete this question?"
   },
-  "demo": {
-    "title": "BTEC LMS v2",
-    "subtitle": "National Blood Centre, Thai Red Cross Society",
-    "phase": "Phase 0 — Foundation ready",
-    "i18nReady": "i18n infrastructure ready",
-    "switchHint": "Switch language — text updates instantly. Login syncs preference to your account."
-  },
   "adminAnnouncement": {
     "title": "Announcements",
     "columnTitle": "Title",
