@@ -449,6 +449,13 @@ interface MaterialRowProps {
 
 function MaterialRow({ material, index, total, onMoveUp, onMoveDown, onEdit, onDelete }: MaterialRowProps) {
   const { t } = useTranslation()
+  const [previewOpen, setPreviewOpen] = useState(false)
+
+  // .doc/.docx ไม่มี viewer ในตัวบราวเซอร์เลย (ต่าง PDF/รูปภาพ) — คลิกลิงก์ตรงๆ จะโดนบังคับดาวน์โหลด
+  // เสมอไม่ว่า header จะตั้งยังไง ฝัง Google Docs Viewer ในหน้าแทนเพื่อให้เปิดดูได้โดยไม่ต้องโหลด
+  // (ข้อแลกเปลี่ยนที่ต้องยอมรับ: URL ไฟล์ต้องหลุดออกไปให้ Google fetch มา render)
+  const isDoc = material.type === 'DOC'
+  const openUrl = material.url ?? material.signedUrl
 
   return (
     <div className="flex items-center gap-3 rounded-xl border border-slate-100 bg-white px-4 py-3 hover:border-slate-200">
@@ -491,17 +498,29 @@ function MaterialRow({ material, index, total, onMoveUp, onMoveDown, onEdit, onD
         {t(`material.types.${material.type}` as never) as string}
       </span>
 
-      {/* Actions — url สำหรับ LINK/VIDEO, signedUrl สำหรับ PDF/IMAGE/DOC (ไฟล์อัปโหลด) */}
-      {(material.url ?? material.signedUrl) && (
-        <a
-          href={material.url ?? material.signedUrl ?? undefined}
-          target="_blank"
-          rel="noreferrer"
-          className="text-slate-400 hover:text-brand-500"
-          title={t('common.open')}
-        >
-          <ExternalLink size={14} />
-        </a>
+      {/* Actions — url สำหรับ LINK/VIDEO, signedUrl สำหรับ PDF/IMAGE/DOC (ไฟล์อัปโหลด)
+          DOC เปิดในโมดัล (Google Docs Viewer) แทนลิงก์ตรง เพราะบราวเซอร์ไม่มี viewer ให้ */}
+      {openUrl && (
+        isDoc ? (
+          <button
+            type="button"
+            onClick={() => setPreviewOpen(true)}
+            className="text-slate-400 hover:text-brand-500"
+            title={t('common.open')}
+          >
+            <ExternalLink size={14} />
+          </button>
+        ) : (
+          <a
+            href={openUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="text-slate-400 hover:text-brand-500"
+            title={t('common.open')}
+          >
+            <ExternalLink size={14} />
+          </a>
+        )
       )}
       <Button size="sm" variant="ghost" onClick={onEdit} title={t('common.edit')}>
         <Edit2 size={13} />
@@ -510,6 +529,21 @@ function MaterialRow({ material, index, total, onMoveUp, onMoveDown, onEdit, onD
         className="text-red-400 hover:text-red-600">
         <Trash2 size={13} />
       </Button>
+
+      {isDoc && openUrl && (
+        <Modal
+          isOpen={previewOpen}
+          onClose={() => setPreviewOpen(false)}
+          title={material.titleEn}
+          size="lg"
+        >
+          <iframe
+            src={`https://docs.google.com/viewer?url=${encodeURIComponent(openUrl)}&embedded=true`}
+            className="h-[70vh] w-full rounded-lg border border-slate-200"
+            title={material.titleEn}
+          />
+        </Modal>
+      )}
     </div>
   )
 }
