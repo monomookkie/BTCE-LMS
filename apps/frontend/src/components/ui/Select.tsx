@@ -1,6 +1,10 @@
-import { useEffect, useId, useLayoutEffect, useRef, useState } from 'react'
-import { ChevronDown } from 'lucide-react'
+import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { useTranslation } from 'react-i18next'
+import { ChevronDown, Search } from 'lucide-react'
 import { Transition } from './Transition.js'
+
+// เกินเท่านี้ค่อยโชว์ช่องค้นหา — list สั้นๆ (เช่น status filter 3-4 ตัวเลือก) ไม่ต้องมีช่องค้นหาให้รก
+const SEARCH_THRESHOLD = 8
 
 const VIEWPORT_MARGIN = 8
 const TRIGGER_GAP = 4
@@ -49,7 +53,9 @@ export function Select({
   id,
   className,
 }: SelectProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
+  const [search, setSearch] = useState('')
   const [activeIndex, setActiveIndex] = useState(0)
   const [placement, setPlacement] = useState<Placement>({
     vertical: 'bottom',
@@ -60,6 +66,7 @@ export function Select({
   })
   const containerRef = useRef<HTMLDivElement>(null)
   const triggerRef = useRef<HTMLButtonElement>(null)
+  const searchRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLUListElement>(null)
   const typeaheadRef = useRef('')
   const typeaheadTimerRef = useRef<number>()
@@ -67,6 +74,14 @@ export function Select({
   const reactId = useId()
   const selectId = id ?? reactId
   const listboxId = `${selectId}-listbox`
+
+  const showSearch = options.length > SEARCH_THRESHOLD
+
+  const filteredOptions = useMemo(() => {
+    if (!showSearch || !search.trim()) return options
+    const q = search.trim().toLowerCase()
+    return options.filter((o) => o.label.toLowerCase().includes(q))
+  }, [options, search, showSearch])
 
   const selectedIndex = options.findIndex((o) => o.value === value)
   const selected = selectedIndex >= 0 ? options[selectedIndex] : undefined
@@ -98,7 +113,11 @@ export function Select({
       const spaceAbove = rect.top - VIEWPORT_MARGIN - TRIGGER_GAP
       // ใช้ความสูงจริงของ option list (ไม่ใช่ PANEL_MAX_HEIGHT เต็ม ๆ) ตอนตัดสินใจ flip
       // ไม่งั้น list สั้น ๆ (เช่น 2 ตัวเลือก) จะ flip ขึ้นบนทั้งที่พื้นที่ด้านล่างพอแสดงได้สบาย
-      const contentHeight = Math.min(PANEL_MAX_HEIGHT, options.length * OPTION_ROW_HEIGHT + LIST_PADDING)
+      const searchBoxHeight = showSearch ? 38 : 0
+      const contentHeight = Math.min(
+        PANEL_MAX_HEIGHT,
+        filteredOptions.length * OPTION_ROW_HEIGHT + LIST_PADDING + searchBoxHeight,
+      )
       const vertical: Placement['vertical'] =
         spaceBelow >= contentHeight || spaceBelow >= spaceAbove ? 'bottom' : 'top'
       const maxHeight = Math.max(120, Math.min(PANEL_MAX_HEIGHT, vertical === 'bottom' ? spaceBelow : spaceAbove))
@@ -121,44 +140,50 @@ export function Select({
 
   const openList = () => {
     if (disabled) return
+    setSearch('')
     setActiveIndex(selectedIndex >= 0 ? selectedIndex : 0)
     setOpen(true)
   }
 
   const closeList = () => {
     setOpen(false)
+    setSearch('')
     triggerRef.current?.focus()
   }
 
   const commitActive = () => {
-    const option = options[activeIndex]
+    const option = filteredOptions[activeIndex]
     if (option) onChange(option.value)
     closeList()
   }
 
+  // autofocus ช่องค้นหาทันทีที่เปิด — พิมพ์กรองได้เลยไม่ต้องคลิกเพิ่ม
+  useEffect(() => {
+    if (open && showSearch) searchRef.current?.focus()
+  }, [open, showSearch])
+
+  // reset active index เมื่อผลกรองเปลี่ยน กัน index ค้างเกินขอบ list ใหม่ที่สั้นลง
+  useEffect(() => {
+    if (activeIndex >= filteredOptions.length) setActiveIndex(Math.max(0, filteredOptions.length - 1))
+  }, [filteredOptions.length, activeIndex])
+
   const runTypeahead = (char: string) => {
     window.clearTimeout(typeaheadTimerRef.current)
     typeaheadRef.current += char.toLowerCase()
-    const match = options.findIndex((o) => o.label.toLowerCase().startsWith(typeaheadRef.current))
+    const match = filteredOptions.findIndex((o) => o.label.toLowerCase().startsWith(typeaheadRef.current))
     if (match >= 0) setActiveIndex(match)
     typeaheadTimerRef.current = window.setTimeout(() => {
       typeaheadRef.current = ''
     }, TYPEAHEAD_RESET_MS)
   }
 
-  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
-    if (!open) {
-      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault()
-        openList()
-      }
-      return
-    }
-
+  // ใช้ร่วมกันทั้งปุ่ม trigger (list สั้น ไม่มีช่องค้นหา โฟกัสค้างที่ปุ่ม) และช่องค้นหา
+  // (list ยาว โฟกัสย้ายไปช่องค้นหาตอนเปิด) — นำทาง list เดียวกันไม่ว่าโฟกัสจะอยู่ตรงไหน
+  const handleOpenKeyDown = (e: React.KeyboardEvent) => {
     switch (e.key) {
       case 'ArrowDown':
         e.preventDefault()
-        setActiveIndex((i) => Math.min(i + 1, options.length - 1))
+        setActiveIndex((i) => Math.min(i + 1, filteredOptions.length - 1))
         break
       case 'ArrowUp':
         e.preventDefault()
@@ -170,10 +195,9 @@ export function Select({
         break
       case 'End':
         e.preventDefault()
-        setActiveIndex(options.length - 1)
+        setActiveIndex(filteredOptions.length - 1)
         break
       case 'Enter':
-      case ' ':
         e.preventDefault()
         commitActive()
         break
@@ -185,11 +209,34 @@ export function Select({
         setOpen(false)
         break
       default:
-        if (e.key.length === 1 && /\S/.test(e.key)) {
-          e.preventDefault()
-          runTypeahead(e.key)
-        }
+        break
     }
+  }
+
+  const handleTriggerKeyDown = (e: React.KeyboardEvent) => {
+    if (!open) {
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp' || e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault()
+        openList()
+      }
+      return
+    }
+
+    // list ยาว: โฟกัสย้ายไปช่องค้นหาแล้ว (autoFocus) ปุ่มนี้จะไม่ได้รับ keydown ระหว่างเปิดอีก —
+    // เผื่อไว้เฉยๆ ไม่ต้องทำอะไร
+    if (showSearch) return
+
+    if (e.key === ' ') {
+      e.preventDefault()
+      commitActive()
+      return
+    }
+    if (e.key.length === 1 && /\S/.test(e.key) && !['ArrowDown', 'ArrowUp', 'Home', 'End', 'Enter', 'Escape', 'Tab'].includes(e.key)) {
+      e.preventDefault()
+      runTypeahead(e.key)
+      return
+    }
+    handleOpenKeyDown(e)
   }
 
   return (
@@ -239,15 +286,32 @@ export function Select({
           ].join(' ')}
           style={{ maxWidth: placement.maxWidth, minWidth: placement.minWidth }}
         >
+          {showSearch && (
+            <div className="flex items-center gap-2 border-b border-slate-100 px-2.5 py-2">
+              <Search size={14} className="shrink-0 text-slate-400" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={search}
+                onChange={(e) => { setSearch(e.target.value); setActiveIndex(0) }}
+                onKeyDown={handleOpenKeyDown}
+                placeholder={t('common.search')}
+                className="w-full bg-transparent text-sm text-slate-800 placeholder:text-slate-400 focus:outline-none"
+              />
+            </div>
+          )}
           <ul
             ref={listRef}
             id={listboxId}
             role="listbox"
-            aria-activedescendant={open ? `${listboxId}-option-${activeIndex}` : undefined}
+            aria-activedescendant={open && filteredOptions.length > 0 ? `${listboxId}-option-${activeIndex}` : undefined}
             className="overflow-y-auto py-1"
             style={{ maxHeight: placement.maxHeight }}
           >
-            {options.map((option, index) => (
+            {filteredOptions.length === 0 && (
+              <li className="px-3 py-2 text-sm text-slate-400">{t('common.noResults')}</li>
+            )}
+            {filteredOptions.map((option, index) => (
               <li
                 key={option.value}
                 id={`${listboxId}-option-${index}`}
