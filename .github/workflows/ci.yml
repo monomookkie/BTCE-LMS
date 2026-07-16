@@ -32,9 +32,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # ห้ามใส่ version ตรงนี้ — action อ่านจาก "packageManager" ใน package.json อยู่แล้ว
+      # ใส่ซ้ำสองที่แล้ว action จะ fail ทันที ("Multiple versions of pnpm specified")
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
