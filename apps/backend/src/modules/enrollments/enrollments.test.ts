@@ -326,7 +326,7 @@ describe('Enrollments module', () => {
 
     it('already-enrolled user unaffected by a cutoff set after they enrolled', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
       // enroll ก่อนตั้ง cutoff
@@ -517,7 +517,7 @@ describe('Enrollments module', () => {
   describe('IDOR guard — GET /enrollments/:id', () => {
     it('USER gets own enrollment → 200', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
       const assigned = await assign(userCookies, courseId)
@@ -618,7 +618,7 @@ describe('Enrollments module', () => {
 
     it('mark material complete → progress updated', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
@@ -639,7 +639,7 @@ describe('Enrollments module', () => {
 
     it('all materials done, quiz not yet passed → progress 100% but stays IN_PROGRESS (2A: every published course has a quiz gate)', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
@@ -659,7 +659,7 @@ describe('Enrollments module', () => {
 
     it('deleted material excluded from total → progress can still reach 100%', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
       // สร้าง 2 materials
@@ -701,7 +701,7 @@ describe('Enrollments module', () => {
 
     it('IDOR: USER complete-material ของ enrollment คนอื่น → 404', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user: victim, cookies: victimCookies } = await setupUser()
+      const { cookies: victimCookies } = await setupUser()
       const { cookies: attackerCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
@@ -719,7 +719,7 @@ describe('Enrollments module', () => {
 
     it('mark material from wrong course → 404', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const otherCourseId = await createPublishedCourse(adminCookies)
       const otherMat = await addLinkMaterial(adminCookies, otherCourseId)
@@ -738,7 +738,7 @@ describe('Enrollments module', () => {
 
     it('LINK: complete โดยไม่เคย open มาก่อน → 400', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
@@ -754,7 +754,7 @@ describe('Enrollments module', () => {
 
     it('LINK: open แล้วรีบ complete ทันที (ยังไม่ถึงเวลาขั้นต่ำ) → 400', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
@@ -776,7 +776,7 @@ describe('Enrollments module', () => {
 
     it('open เป็น idempotent — เปิดซ้ำไม่ reset openedAt เดิม', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
@@ -801,7 +801,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: watchedPercent < 90 → complete 400', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -829,7 +829,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: watchedPercent >= 90 → complete ผ่าน', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -859,7 +859,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: progress กันไถถอยหลัง — ส่งค่าน้อยกว่าเดิมไม่ลด watchedPercent', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -890,7 +890,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: ยิง watchedPercent สูงทันทีหลัง open (ไม่มีเวลาผ่านจริง) → ถูก clamp ตาม time-ceiling', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -915,7 +915,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: ไม่ส่ง durationSeconds เลย → ใช้ MIN_ASSUMED_VIDEO_DURATION_SECONDS (30s) เป็น fallback ceiling ที่เข้มกว่า', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -942,7 +942,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: durationSeconds ถูก lock ที่ค่าแรก — ส่งค่าใหม่ครั้งถัดไปไม่มีผลต่อ ceiling', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -977,7 +977,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: เวลาผ่านจริงเพียงพอ (elapsed สอดคล้องกับ % ที่อ้าง) → ไม่ถูก clamp', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -1003,7 +1003,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: embed-failed → complete gate เปลี่ยนเป็น time-gate (300 วิ) แทน percent-gate', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -1044,7 +1044,7 @@ describe('Enrollments module', () => {
 
     it('VIDEO: ไม่ embed-failed (ปกติ) → ยังคงใช้ percent-gate แม้เวลาผ่านไปนาน', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -1068,7 +1068,7 @@ describe('Enrollments module', () => {
 
     it('embed-failed: ยิงก่อน open มาก่อน → upsert สร้าง progress row ให้เอง (กัน race กับ /open)', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -1104,7 +1104,7 @@ describe('Enrollments module', () => {
 
     it('progress: ยิงก่อน open มาก่อน → 400', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -1153,7 +1153,7 @@ describe('Enrollments module', () => {
 
     it('GET progress: ยังไม่เคยเปิด → default { watchedPercent: 0, openedAt: null }', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addLinkMaterial(adminCookies, courseId)
 
@@ -1170,7 +1170,7 @@ describe('Enrollments module', () => {
 
     it('GET progress: หลัง open + progress → hydrate ค่าล่าสุด', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
       const matId = await addVideoMaterial(adminCookies, courseId)
 
@@ -1230,7 +1230,7 @@ describe('Enrollments module', () => {
 
     it('cancelled enrollment not returned in /me', async () => {
       const { cookies: adminCookies } = await setupAdmin()
-      const { user, cookies: userCookies } = await setupUser()
+      const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
 
       const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
