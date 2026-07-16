@@ -98,13 +98,13 @@ function AddLinkModal({ isOpen, onClose, courseId }: AddLinkModalProps) {
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title={t('adminCourse.addLink')} size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title={t('adminCourse.addLink')} size="lg">
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           {LINK_TYPES.map((tp) => (
             <label key={tp} className="flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 p-3 hover:bg-slate-50 has-[:checked]:border-brand-400 has-[:checked]:bg-brand-50">
               <input type="radio" value={tp} className="accent-brand-500" {...register('type')} />
-              <span className="text-sm font-medium">{t(`material.types.${tp}` as never) as string}</span>
+              <span className="whitespace-nowrap text-sm font-medium">{t(`material.types.${tp}` as never) as string}</span>
             </label>
           ))}
         </div>
