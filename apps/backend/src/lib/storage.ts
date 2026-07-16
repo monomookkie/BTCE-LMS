@@ -54,8 +54,13 @@ class CloudinaryProvider implements StorageProvider {
 
   async upload(buffer: Buffer, folder: StorageFolder, filename: string, mimeType: string): Promise<UploadResult> {
     return new Promise((resolve, reject) => {
+      // `filename` เดิมไม่เคยถูกส่งเข้า Cloudinary เลย (แค่รับ argument ไว้เฉยๆ) — use_filename:true
+      // สั่งให้ Cloudinary "ใช้ชื่อไฟล์เดิม" แต่ upload เป็น buffer stream ไม่ใช่ file path ทำให้ Cloudinary
+      // ไม่รู้ชื่อ/นามสกุลไฟล์เลยถ้าไม่ส่ง `filename` มาตรงๆ — ผลคือตกไปใช้ชื่อ default "file_xxxxx"
+      // ไม่มีนามสกุล ดาวน์โหลดมาแล้วเปิดไม่ได้เพราะ OS ไม่รู้ว่าเป็นไฟล์ประเภทไหน (พังกับไฟล์ raw
+      // อย่าง .docx/.doc เป็นหลัก — image/video ไม่กระทบเพราะ Cloudinary เก็บ format แยกอยู่แล้ว)
       const stream = cloudinary.uploader.upload_stream(
-        { folder, resource_type: 'auto', use_filename: true, unique_filename: true },
+        { folder, resource_type: 'auto', use_filename: true, unique_filename: true, filename },
         (error, result) => {
           if (error || !result) return reject(error ?? new Error('Cloudinary upload failed'))
           resolve({
