@@ -113,7 +113,7 @@ export function Sidebar({ onNavigate, isCollapsed = false }: SidebarProps) {
           {nav.map((item) => {
             return (
               <li key={item.path}>
-                <Tooltip label={t(item.labelKey as never) as string} disabled={!isCollapsed}>
+                <Tooltip label={t(item.labelKey as never) as string} disabled={!isCollapsed} placement="right">
                   <NavLink
                     to={item.path}
                     onClick={onNavigate}
@@ -151,7 +151,7 @@ export function Sidebar({ onNavigate, isCollapsed = false }: SidebarProps) {
           className={['shrink-0 border-t border-white/10 py-2.5', isCollapsed ? 'px-2' : 'px-2.5'].join(' ')}
           style={{ paddingBottom: 'max(env(safe-area-inset-bottom), 0.625rem)' }}
         >
-          <Tooltip label={user.name} disabled={!isCollapsed}>
+          <Tooltip label={user.name} disabled={!isCollapsed} placement="right">
             <Link
               to="/profile"
               onClick={onNavigate}
@@ -174,7 +174,7 @@ export function Sidebar({ onNavigate, isCollapsed = false }: SidebarProps) {
             </Link>
           </Tooltip>
           <div className="my-2 border-t border-white/10" />
-          <Tooltip label={t('auth.logout')} disabled={!isCollapsed}>
+          <Tooltip label={t('auth.logout')} disabled={!isCollapsed} placement="right">
             <button
               onClick={() => logout.mutate()}
               disabled={logout.isPending}

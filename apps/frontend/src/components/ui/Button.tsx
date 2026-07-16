@@ -1,5 +1,6 @@
 import { type ButtonHTMLAttributes, type ReactNode } from 'react'
 import { Loader2 } from 'lucide-react'
+import { Tooltip } from './Tooltip.js'
 
 export type ButtonVariant = 'brand' | 'outline' | 'ghost' | 'danger'
 export type ButtonSize = 'sm' | 'md'
@@ -31,11 +32,13 @@ export function Button({
   disabled,
   children,
   className,
+  title,
   ...rest
 }: ButtonProps) {
-  return (
+  const button = (
     <button
       disabled={disabled ?? isLoading}
+      aria-label={title as string | undefined}
       className={[
         'inline-flex items-center justify-center rounded-md font-medium transition-colors',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-1',
@@ -56,4 +59,10 @@ export function Button({
       {children}
     </button>
   )
+
+  // ใช้ custom Tooltip (สไตล์เดียวกับตอน sidebar ย่อ) แทน native title attribute ทุกจุดที่มี
+  // icon-only action button (edit/disable/delete ฯลฯ) — title เดิมเล็ก/ช้า/ปรับสไตล์ไม่ได้
+  if (title) return <Tooltip label={title as string}>{button}</Tooltip>
+
+  return button
 }
