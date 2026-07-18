@@ -6,6 +6,8 @@ import { Search } from 'lucide-react'
 import { Card } from '../../components/ui/Card.js'
 import { Button } from '../../components/ui/Button.js'
 import { Skeleton } from '../../components/ui/Skeleton.js'
+import { StatusBadge } from '../../components/ui/StatusBadge.js'
+import { ProgressBar } from '../../components/ui/ProgressBar.js'
 import { listPublishedCourses } from '../../api/courses.js'
 import { listMyEnrollments, selfEnroll } from '../../api/enrollments.js'
 import { ApiError } from '../../lib/api.js'
@@ -55,8 +57,8 @@ export default function BrowseCoursesPage() {
     staleTime: 60_000,
   })
 
-  const enrolledCourseIds = useMemo(
-    () => new Set(enrollPage?.data.map((e) => e.courseId) ?? []),
+  const enrollmentByCourseId = useMemo(
+    () => new Map(enrollPage?.data.map((e) => [e.courseId, e]) ?? []),
     [enrollPage],
   )
 
@@ -130,16 +132,22 @@ export default function BrowseCoursesPage() {
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((course) => {
-            const isEnrolled = enrolledCourseIds.has(course.id)
+            const enrollment = enrollmentByCourseId.get(course.id)
+            const isEnrolled = enrollment != null
             const isEnrolling =
               enrollMutation.isPending && enrollMutation.variables === course.id
 
             return (
               <Card key={course.id} className="flex flex-col">
                 <div className="mb-3">
-                  <span className="text-xs font-medium uppercase tracking-wide text-brand-500">
-                    {course.category}
-                  </span>
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="text-xs font-medium uppercase tracking-wide text-brand-500">
+                      {course.category}
+                    </span>
+                    {enrollment != null && (
+                      <StatusBadge type="enrollment" status={enrollment.status} />
+                    )}
+                  </div>
                   <h3 className="mt-1 text-sm font-semibold leading-snug text-slate-800">
                     {course.title}
                   </h3>
@@ -150,7 +158,10 @@ export default function BrowseCoursesPage() {
                   )}
                 </div>
 
-                <div className="mt-auto space-y-1 text-xs text-slate-500">
+                <div className="mt-auto space-y-2 text-xs text-slate-500">
+                  {enrollment != null && (
+                    <ProgressBar value={enrollment.progress} showValue />
+                  )}
                   {course.paperSavingSheets != null && (
                     <p className="text-emerald-600">
                       {t('course.paperSaving', { count: course.paperSavingSheets })}
