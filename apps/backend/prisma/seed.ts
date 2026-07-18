@@ -7,17 +7,17 @@ async function main() {
   console.log('🌱 Starting seed...')
 
   // --- Positions ---
-  // ตำแหน่งงานจริงของศูนย์ฯ — ยืนยันแล้วว่ามีแค่ 5 อันนี้เท่านั้น ห้ามเพิ่มเอง
-  // "Administrator" เป็นข้อยกเว้น (ไม่ใช่ตำแหน่งงานจริง) เก็บไว้สำหรับ system admin โดยเฉพาะ
-  // "Others" ไม่ใช่ row จริงในตาราง — เป็น sentinel ฝั่ง UI เท่านั้น (RegisterPage ส่ง positionId: null)
-  const POSITIONS: { nameEn: string; nameTh: string; isSystemOnly?: boolean }[] = [
-    { nameEn: 'Medical Technologist', nameTh: 'นักเทคนิคการแพทย์' },
-    { nameEn: 'Medical Scientist', nameTh: 'นักวิทยาศาสตร์การแพทย์' },
-    { nameEn: 'Medical Technician Assistant', nameTh: 'ผู้ช่วยนักเทคนิคการแพทย์' },
-    { nameEn: 'General Administration Officer', nameTh: 'เจ้าหน้าที่บริหารงานทั่วไป' },
+  // ตำแหน่งงานจริงของศูนย์ฯ — "Administrator" เป็นข้อยกเว้น (ไม่ใช่ตำแหน่งงานจริง) เก็บไว้สำหรับ
+  // system admin โดยเฉพาะ "Others" ไม่ใช่ row จริงในตาราง — เป็น sentinel ฝั่ง UI เท่านั้น
+  // (RegisterPage ส่ง positionId: null) จึงต่อท้ายให้เสมอหลัง sortOrder ต่ำสุด-สูงสุดของ list นี้
+  // sortOrder: ลำดับแสดงผลใน dropdown — ต่ำไปสูง, ยืนยันแล้ว (2026-07-18)
+  const POSITIONS: { nameEn: string; nameTh: string; isSystemOnly?: boolean; sortOrder: number }[] = [
+    { nameEn: 'Medical Technologist/Medical Scientist', nameTh: 'นักเทคนิคการแพทย์/นักวิทยาศาสตร์การแพทย์', sortOrder: 0 },
+    { nameEn: 'Laboratory Assistant', nameTh: 'ผู้ช่วยห้องปฏิบัติการ', sortOrder: 1 },
+    { nameEn: 'General Administration Officer', nameTh: 'เจ้าหน้าที่บริหารงานทั่วไป', sortOrder: 2 },
     // isSystemOnly: ไม่ขึ้นให้เลือกในหน้า self-register (GET /positions filter ออก) — ADMIN
     // ยัง assign ให้ user อื่นได้ปกติผ่าน /positions/admin
-    { nameEn: 'Administrator', nameTh: 'ผู้ดูแลระบบ', isSystemOnly: true },
+    { nameEn: 'Administrator', nameTh: 'ผู้ดูแลระบบ', isSystemOnly: true, sortOrder: 99 },
   ]
 
   console.log('  Seeding positions...')
@@ -30,10 +30,10 @@ async function main() {
     const position = existingPosition
       ? await prisma.position.update({
           where: { id: existingPosition.id },
-          data: { nameTh: p.nameTh, deletedAt: null, isSystemOnly: p.isSystemOnly ?? false },
+          data: { nameTh: p.nameTh, deletedAt: null, isSystemOnly: p.isSystemOnly ?? false, sortOrder: p.sortOrder },
         })
       : await prisma.position.create({
-          data: { nameEn: p.nameEn, nameTh: p.nameTh, isSystemOnly: p.isSystemOnly ?? false },
+          data: { nameEn: p.nameEn, nameTh: p.nameTh, isSystemOnly: p.isSystemOnly ?? false, sortOrder: p.sortOrder },
         })
     positionIdByNameEn.set(p.nameEn, position.id)
   }

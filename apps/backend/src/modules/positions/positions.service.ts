@@ -48,7 +48,7 @@ function toPublicResponse(
 }
 
 function toAdminResponse(
-  position: { id: string; nameEn: string; nameTh: string | null; isSystemOnly: boolean },
+  position: { id: string; nameEn: string; nameTh: string | null; isSystemOnly: boolean; sortOrder: number },
   locale: Locale,
   counts: { userCount: number; courseCount: number },
 ): PositionAdminResponse {
@@ -60,6 +60,7 @@ function toAdminResponse(
     userCount: counts.userCount,
     courseCount: counts.courseCount,
     isSystemOnly: position.isSystemOnly,
+    sortOrder: position.sortOrder,
   }
 }
 
@@ -81,7 +82,7 @@ export async function listPositionsPublic(
     // isSystemOnly=true (เช่น "Administrator") ห้ามขึ้นให้เลือกในหน้า self-register สาธารณะ —
     // ADMIN ยัง assign ให้ user อื่นได้ปกติผ่าน /positions/admin (ไม่ถูก filter นี้)
     where: { deletedAt: null, isSystemOnly: false },
-    orderBy: { nameEn: 'asc' },
+    orderBy: [{ sortOrder: 'asc' }, { nameEn: 'asc' }],
   })
   return positions.map((p) => toPublicResponse(p, locale))
 }
@@ -94,7 +95,7 @@ export async function listPositionsAdmin(
 ): Promise<PositionAdminResponse[]> {
   const positions = await prisma.position.findMany({
     where: { deletedAt: null },
-    orderBy: { nameEn: 'asc' },
+    orderBy: [{ sortOrder: 'asc' }, { nameEn: 'asc' }],
   })
   const counts = await Promise.all(positions.map((p) => getPositionCounts(prisma, p.id)))
   return positions.map((p, i) => toAdminResponse(p, locale, counts[i]!))

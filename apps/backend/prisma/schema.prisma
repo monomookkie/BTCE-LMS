@@ -51,6 +51,9 @@ model Position {
   // self-register สาธารณะ (GET /positions filter ออก) แต่ ADMIN ยัง assign ให้ user อื่นได้ปกติผ่าน
   // /positions/admin — ไม่มี UI ให้ admin สร้าง/แก้ flag นี้เอง (ตั้งใจ กันสร้างเพิ่มเรื่อยๆ)
   isSystemOnly Boolean   @default(false)
+  // ลำดับแสดงผลใน dropdown (self-register, Manage Positions) — ต่ำไปสูง, เท่ากันตัดสินด้วย nameEn
+  // ไม่มี UI ให้ admin แก้เอง (ตั้งใจ เหมือน isSystemOnly) แก้ได้ผ่าน backend/seed เท่านั้น
+  sortOrder    Int       @default(0)
   deletedAt    DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
