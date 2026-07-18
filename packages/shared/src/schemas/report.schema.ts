@@ -36,6 +36,11 @@ export const complianceRowSchema = z.object({
   progress: z.number().int(),
   isMandatory: z.boolean(),                 // 2C-4: snapshot จาก Enrollment.isMandatory
   completedAt: z.string().nullable(),       // ISO8601
+  // null = course นี้ไม่มี quiz (ไม่ใช่ "ยังไม่สอบ"); false = มี quiz แต่ยังไม่ผ่าน/ยังไม่สอบ — ความหมาย
+  // เดียวกับ userReportRowSchema ด้านล่าง (คัดลอก semantics มา ไม่ใช่ backfill เดา)
+  quizPassed: z.boolean().nullable(),
+  quizCorrectCount: z.number().int().nullable(),
+  quizTotalQuestions: z.number().int().nullable(),
 })
 
 export const complianceListSchema = z.object({

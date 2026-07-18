@@ -372,8 +372,17 @@ function ComplianceTab({ courseFilter, setCourseFilter, statusFilter, setStatusF
 
   const columns = useMemo<Column<ComplianceRow>[]>(
     () => [
-      { key: 'userName', header: t('user.name'), width: '22%', skeleton: 'text' },
-      { key: 'courseTitle', header: t('course.label'), width: '24%', skeleton: 'text' },
+      { key: 'userName', header: t('user.name'), width: '20%', skeleton: 'text' },
+      { key: 'courseTitle', header: t('course.label'), width: '22%', skeleton: 'text' },
+      { key: 'quiz', header: t('reports.quizColumn'), width: '18%', skeleton: 'text',
+        render: (r) => {
+          if (r.quizPassed == null) return <span className="text-slate-400">{t('reports.quizNoQuiz')}</span>
+          const label = r.quizPassed ? t('reports.quizPassed') : t('reports.quizNotPassed')
+          const score = r.quizCorrectCount != null && r.quizTotalQuestions != null
+            ? ` (${r.quizCorrectCount}/${r.quizTotalQuestions})`
+            : ''
+          return <span className={r.quizPassed ? 'text-emerald-600' : 'text-amber-600'}>{label}{score}</span>
+        } },
       { key: 'enrollmentStatus', header: t('enrollment.label'), width: '15%', skeleton: 'pill',
         render: (r) => <StatusBadge type="enrollment" status={r.enrollmentStatus} /> },
       { key: 'progress', header: t('enrollment.progress'), width: '11%', align: 'right', skeleton: 'text',

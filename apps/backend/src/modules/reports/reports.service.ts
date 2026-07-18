@@ -101,7 +101,59 @@ type EnrollmentRaw = {
   course: { id: string; titleEn: string; titleTh: string | null }
 }
 
-function toRow(e: EnrollmentRaw, locale: Locale): ComplianceRow {
+// best attempt ต่อ (userId, quizId) — semantics เดียวกับ getUserReport ด้านล่าง: "ผ่าน" = มี attempt
+// ไหนก็ได้ที่ passed=true, correctCount/totalQuestions มาจาก attempt คะแนนสูงสุด
+type AttemptStat = {
+  passed: boolean
+  bestScore: number
+  correctCount: number | null
+  totalQuestions: number | null
+}
+
+type QuizLookup = {
+  quizIdByCourseId: Map<string, string>
+  attemptStatByKey: Map<string, AttemptStat> // key = `${userId}:${quizId}`
+}
+
+async function buildQuizLookup(prisma: PrismaClient, rows: EnrollmentRaw[]): Promise<QuizLookup> {
+  const courseIds = [...new Set(rows.map((r) => r.course.id))]
+  const userIds = [...new Set(rows.map((r) => r.user.id))]
+
+  const quizzes = courseIds.length > 0
+    ? await prisma.quiz.findMany({
+        where: { courseId: { in: courseIds }, deletedAt: null },
+        select: { id: true, courseId: true },
+      })
+    : []
+  const quizIdByCourseId = new Map(quizzes.map((q) => [q.courseId, q.id]))
+  const quizIds = quizzes.map((q) => q.id)
+
+  const attempts = quizIds.length > 0 && userIds.length > 0
+    ? await prisma.quizAttempt.findMany({
+        where: { quizId: { in: quizIds }, userId: { in: userIds } },
+        select: { quizId: true, userId: true, score: true, passed: true, correctCount: true, totalQuestions: true },
+      })
+    : []
+
+  const attemptStatByKey = new Map<string, AttemptStat>()
+  for (const a of attempts) {
+    const key = `${a.userId}:${a.quizId}`
+    const cur = attemptStatByKey.get(key)
+    const isNewBest = !cur || a.score > cur.bestScore || (a.score === cur.bestScore && cur.correctCount == null && a.correctCount != null)
+    attemptStatByKey.set(key, {
+      passed: (cur?.passed ?? false) || a.passed,
+      bestScore: Math.max(cur?.bestScore ?? 0, a.score),
+      correctCount: isNewBest ? a.correctCount : (cur?.correctCount ?? null),
+      totalQuestions: isNewBest ? a.totalQuestions : (cur?.totalQuestions ?? null),
+    })
+  }
+
+  return { quizIdByCourseId, attemptStatByKey }
+}
+
+function toRow(e: EnrollmentRaw, locale: Locale, quizLookup: QuizLookup): ComplianceRow {
+  const quizId = quizLookup.quizIdByCourseId.get(e.course.id)
+  const attemptStat = quizId ? quizLookup.attemptStatByKey.get(`${e.user.id}:${quizId}`) : undefined
   return {
     enrollmentId: e.id,
     userId: e.user.id,
@@ -112,6 +164,9 @@ function toRow(e: EnrollmentRaw, locale: Locale): ComplianceRow {
     progress: e.progress,
     isMandatory: e.isMandatory,
     completedAt: e.completedAt?.toISOString() ?? null,
+    quizPassed: quizId != null ? (attemptStat?.passed ?? false) : null,
+    quizCorrectCount: quizId != null ? (attemptStat?.correctCount ?? null) : null,
+    quizTotalQuestions: quizId != null ? (attemptStat?.totalQuestions ?? null) : null,
   }
 }
 
@@ -166,8 +221,10 @@ export async function getComplianceList(
     ...(ip != null && { ip }),
   })
 
+  const quizLookup = await buildQuizLookup(prisma, rows as EnrollmentRaw[])
+
   return {
-    data: rows.map((r) => toRow(r as EnrollmentRaw, locale)),
+    data: rows.map((r) => toRow(r as EnrollmentRaw, locale, quizLookup)),
     total,
     page,
     limit,
@@ -205,7 +262,9 @@ export async function getComplianceCsv(
     ...(ip != null && { ip }),
   })
 
-  return buildCsv(rows.map((r) => toRow(r as EnrollmentRaw, locale)))
+  const quizLookup = await buildQuizLookup(prisma, rows as EnrollmentRaw[])
+
+  return buildCsv(rows.map((r) => toRow(r as EnrollmentRaw, locale, quizLookup)))
 }
 
 // ─── CSV builder ──────────────────────────────────────────────────────────────
@@ -221,6 +280,14 @@ function escapeCsv(value: string | null | undefined): string {
   return str
 }
 
+function formatQuizCsv(r: ComplianceRow): string {
+  if (r.quizPassed == null) return 'No quiz'
+  const score = r.quizCorrectCount != null && r.quizTotalQuestions != null
+    ? ` (${r.quizCorrectCount}/${r.quizTotalQuestions})`
+    : ''
+  return (r.quizPassed ? 'Passed' : 'Not passed') + score
+}
+
 function buildCsv(rows: ComplianceRow[]): string {
   const header = [
     'Name',
@@ -228,6 +295,7 @@ function buildCsv(rows: ComplianceRow[]): string {
     'Enrollment Status',
     'Progress (%)',
     'Mandatory',
+    'Quiz',
   ].join(',')
 
   const lines = rows.map((r) =>
@@ -237,6 +305,7 @@ function buildCsv(rows: ComplianceRow[]): string {
       escapeCsv(r.enrollmentStatus),
       escapeCsv(String(r.progress)),
       escapeCsv(r.isMandatory ? 'Yes' : 'No'),
+      escapeCsv(formatQuizCsv(r)),
     ].join(','),
   )
 
