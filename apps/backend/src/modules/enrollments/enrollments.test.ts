@@ -595,7 +595,7 @@ describe('Enrollments module', () => {
       return res.json<{ id: string }>().id
     }
 
-    /** เปิด material ผ่าน endpoint จริง แล้ว backdate openedAt ใน DB เพื่อผ่านเกณฑ์เวลาขั้นต่ำ (LINK/PDF gate) โดยไม่ต้องรอจริง */
+    /** เปิด material ผ่าน endpoint จริง แล้วเซ็ต activeSeconds ตรงใน DB เพื่อผ่านเกณฑ์เวลาขั้นต่ำ (LINK/PDF gate) โดยไม่ต้องรอจริง */
     async function openAndPassTimeGate(enrollmentId: string, materialId: string, userCookies: string) {
       await app.inject({
         method: 'POST',
@@ -604,7 +604,7 @@ describe('Enrollments module', () => {
       })
       await prisma.materialProgress.updateMany({
         where: { enrollmentId, materialId },
-        data: { openedAt: new Date(Date.now() - 301_000) },
+        data: { activeSeconds: 301 },
       })
     }
 
@@ -616,7 +616,7 @@ describe('Enrollments module', () => {
       })
     }
 
-    it('mark material complete → progress updated', async () => {
+    it('mark material complete → progress updated (quiz นับเป็น 1 item ร่วมด้วย — 2C-6)', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
@@ -633,11 +633,12 @@ describe('Enrollments module', () => {
       expect(res.statusCode).toBe(200)
 
       const body = res.json<EnrollmentResponse>()
-      expect(body.progress).toBe(100)
+      // 1 material (เสร็จ) + 1 quiz (ยังไม่สอบ) → 1/2 = 50% ไม่ใช่ 100% (2C-6: quiz นับรวมในตัวหาร)
+      expect(body.progress).toBe(50)
       expect(body.completedMaterials).toContain(matId)
     })
 
-    it('all materials done, quiz not yet passed → progress 100% but stays IN_PROGRESS (2A: every published course has a quiz gate)', async () => {
+    it('all materials done, quiz not yet passed → progress ไม่ถึง 100% (2C-6: quiz นับเป็น item ในตัวหาร ไม่ใช่แค่ gate สถานะ)', async () => {
       const { cookies: adminCookies } = await setupAdmin()
       const { cookies: userCookies } = await setupUser()
       const courseId = await createPublishedCourse(adminCookies)
@@ -653,8 +654,9 @@ describe('Enrollments module', () => {
       })
       expect(res.statusCode).toBe(200)
       const body = res.json<EnrollmentResponse>()
-      expect(body.progress).toBe(100)
-      expect(body.status).not.toBe('COMPLETED') // quiz (added by createPublishedCourse) not yet passed
+      // material เสร็จหมดแล้ว (1/1) แต่ quiz (added by createPublishedCourse) ยังไม่สอบผ่าน → 1/2 = 50%
+      expect(body.progress).toBe(50)
+      expect(body.status).not.toBe('COMPLETED')
     })
 
     it('deleted material excluded from total → progress can still reach 100%', async () => {
@@ -693,8 +695,8 @@ describe('Enrollments module', () => {
         headers: { cookie: userCookies },
       })
       expect(res2.statusCode).toBe(200)
-      // mat2 ถูกลบ → total = 1, completed = 1 → progress = 100
-      expect(res2.json<EnrollmentResponse>().progress).toBe(100)
+      // mat2 ถูกลบ → material total = 1, completed = 1; รวม quiz อีก 1 item (ยังไม่สอบ) → total = 2, completed = 1 → 50%
+      expect(res2.json<EnrollmentResponse>().progress).toBe(50)
       // quiz (added by createPublishedCourse) not yet passed → not COMPLETED yet
       expect(res2.json<EnrollmentResponse>().status).not.toBe('COMPLETED')
     })
@@ -1032,8 +1034,11 @@ describe('Enrollments module', () => {
       })
       expect(tooSoon.statusCode).toBe(400)
 
-      // backdate ให้ผ่าน 300 วิ — ต้องผ่านได้ทั้งที่ watchedPercent ยังเป็น 0
-      await backdateOpenedAt(enrolled.id, matId, 301)
+      // เซ็ต activeSeconds ให้ผ่าน 300 วิ — ต้องผ่านได้ทั้งที่ watchedPercent ยังเป็น 0
+      await prisma.materialProgress.updateMany({
+        where: { enrollmentId: enrolled.id, materialId: matId },
+        data: { activeSeconds: 301 },
+      })
       const afterWait = await app.inject({
         method: 'POST',
         url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
@@ -1165,7 +1170,7 @@ describe('Enrollments module', () => {
         headers: { cookie: userCookies },
       })
       expect(res.statusCode).toBe(200)
-      expect(res.json()).toEqual({ materialId: matId, openedAt: null, watchedPercent: 0, embedFailed: false })
+      expect(res.json()).toEqual({ materialId: matId, openedAt: null, watchedPercent: 0, embedFailed: false, activeSeconds: 0 })
     })
 
     it('GET progress: หลัง open + progress → hydrate ค่าล่าสุด', async () => {
@@ -1198,6 +1203,129 @@ describe('Enrollments module', () => {
       const body = res.json<{ materialId: string; openedAt: string | null; watchedPercent: number }>()
       expect(body.watchedPercent).toBe(42)
       expect(body.openedAt).not.toBeNull()
+    })
+
+    // ─── POST /enrollments/:id/materials/:materialId/heartbeat (active-time gate) ──
+
+    describe('POST /enrollments/:id/materials/:materialId/heartbeat', () => {
+      it('สะสม activeSeconds จากหลาย heartbeat และผ่านเกณฑ์เมื่อครบ MIN_READ_SECONDS', async () => {
+        const { cookies: adminCookies } = await setupAdmin()
+        const { cookies: userCookies } = await setupUser()
+        const courseId = await createPublishedCourse(adminCookies)
+        const matId = await addLinkMaterial(adminCookies, courseId)
+        const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
+
+        await app.inject({
+          method: 'POST',
+          url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+          headers: { cookie: userCookies },
+        })
+
+        const hb1 = await app.inject({
+          method: 'POST',
+          url: `/enrollments/${enrolled.id}/materials/${matId}/heartbeat`,
+          headers: { cookie: userCookies },
+          payload: { deltaSeconds: 5 },
+        })
+        expect(hb1.statusCode).toBe(200)
+        expect(hb1.json<{ activeSeconds: number }>().activeSeconds).toBe(5)
+
+        // ยังไม่ครบ 300 วิ — mark complete ต้องยัง 400
+        const tooSoon = await app.inject({
+          method: 'POST',
+          url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+          headers: { cookie: userCookies },
+        })
+        expect(tooSoon.statusCode).toBe(400)
+
+        // deltaSeconds ต่อ heartbeat ถูกจำกัดที่ HEARTBEAT_MAX_DELTA_SECONDS — ส่งหลายครั้งแทนก้อนใหญ่ก้อนเดียว
+        let lastActiveSeconds = 0
+        for (let i = 0; i < 30; i++) {
+          const hb = await app.inject({
+            method: 'POST',
+            url: `/enrollments/${enrolled.id}/materials/${matId}/heartbeat`,
+            headers: { cookie: userCookies },
+            payload: { deltaSeconds: 10 },
+          })
+          lastActiveSeconds = hb.json<{ activeSeconds: number }>().activeSeconds
+        }
+        expect(lastActiveSeconds).toBe(300)
+
+        const nowOk = await app.inject({
+          method: 'POST',
+          url: `/enrollments/${enrolled.id}/complete-material/${matId}`,
+          headers: { cookie: userCookies },
+        })
+        expect(nowOk.statusCode).toBe(200)
+      })
+
+      it('heartbeat ก่อนเปิด material → 400 (ต้อง /open มาก่อนเสมอ)', async () => {
+        const { cookies: adminCookies } = await setupAdmin()
+        const { cookies: userCookies } = await setupUser()
+        const courseId = await createPublishedCourse(adminCookies)
+        const matId = await addLinkMaterial(adminCookies, courseId)
+        const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
+
+        const res = await app.inject({
+          method: 'POST',
+          url: `/enrollments/${enrolled.id}/materials/${matId}/heartbeat`,
+          headers: { cookie: userCookies },
+          payload: { deltaSeconds: 5 },
+        })
+        expect(res.statusCode).toBe(400)
+      })
+
+      it('deltaSeconds เกินเพดาน HEARTBEAT_MAX_DELTA_SECONDS → 400 (กัน client ยิงค่าปลอมโตๆ)', async () => {
+        const { cookies: adminCookies } = await setupAdmin()
+        const { cookies: userCookies } = await setupUser()
+        const courseId = await createPublishedCourse(adminCookies)
+        const matId = await addLinkMaterial(adminCookies, courseId)
+        const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
+
+        await app.inject({
+          method: 'POST',
+          url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+          headers: { cookie: userCookies },
+        })
+
+        const res = await app.inject({
+          method: 'POST',
+          url: `/enrollments/${enrolled.id}/materials/${matId}/heartbeat`,
+          headers: { cookie: userCookies },
+          payload: { deltaSeconds: 9999 },
+        })
+        expect(res.statusCode).toBe(400)
+      })
+
+      it('activeSeconds ไม่เกิน MIN_READ_SECONDS แม้ heartbeat สะสมเกิน (เพดานกันเผื่อ)', async () => {
+        const { cookies: adminCookies } = await setupAdmin()
+        const { cookies: userCookies } = await setupUser()
+        const courseId = await createPublishedCourse(adminCookies)
+        const matId = await addLinkMaterial(adminCookies, courseId)
+        const enrolled = (await assign(userCookies, courseId)).json<EnrollmentResponse>()
+
+        await app.inject({
+          method: 'POST',
+          url: `/enrollments/${enrolled.id}/materials/${matId}/open`,
+          headers: { cookie: userCookies },
+        })
+
+        for (let i = 0; i < 40; i++) {
+          await app.inject({
+            method: 'POST',
+            url: `/enrollments/${enrolled.id}/materials/${matId}/heartbeat`,
+            headers: { cookie: userCookies },
+            payload: { deltaSeconds: 10 },
+          })
+        }
+
+        const res = await app.inject({
+          method: 'GET',
+          url: `/enrollments/${enrolled.id}/materials/${matId}/progress`,
+          headers: { cookie: userCookies },
+        })
+        expect(res.json<{ activeSeconds: number }>().activeSeconds).toBe(300)
+      })
     })
   })
 

@@ -862,27 +862,93 @@ describe('Quizzes module', () => {
       expect(updated?.status).not.toBe('COMPLETED')
     })
 
-    it('passed but progress < 100 → enrollment stays not COMPLETED', async () => {
+  })
+
+  // ── Materials gate (2C-6: ต้องเรียน material ครบก่อนถึงจะเข้าทำ quiz ได้) ─────
+
+  describe('Materials gate', () => {
+    async function addLinkMaterial(adminCookies: string, courseId: string): Promise<string> {
+      const res = await app.inject({
+        method: 'POST',
+        url: `/courses/${courseId}/materials/link`,
+        headers: { cookie: adminCookies },
+        payload: { type: 'LINK', titleEn: 'Reference doc', url: 'https://example.com/doc' },
+      })
+      return res.json<{ id: string }>().id
+    }
+
+    /** เปิด material ผ่าน endpoint จริง แล้วเซ็ต activeSeconds ตรงใน DB ให้ผ่าน time-gate โดยไม่ต้องรอจริง แล้ว mark complete */
+    async function completeMaterial(userCookies: string, enrollmentId: string, materialId: string) {
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrollmentId}/materials/${materialId}/open`,
+        headers: { cookie: userCookies },
+      })
+      await prisma.materialProgress.updateMany({
+        where: { enrollmentId, materialId },
+        data: { activeSeconds: 301 },
+      })
+      await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrollmentId}/complete-material/${materialId}`,
+        headers: { cookie: userCookies },
+      })
+    }
+
+    it('material ยังไม่เสร็จ → GET quiz และ POST submit ถูกบล็อค 400', async () => {
       const admin = await setup('ADMIN')
       const user = await setup('USER')
       const course = await createCourse(admin.cookies)
+      await addLinkMaterial(admin.cookies, course.id)
+      const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
+        await createQuizWithQuestions(admin.cookies, course.id, { passRequiredCount: 1 })
+      await enroll(user.cookies, course.id)
+
+      const takeRes = await app.inject({
+        method: 'GET',
+        url: `/courses/${course.id}/quiz/take`,
+        headers: { cookie: user.cookies },
+      })
+      expect(takeRes.statusCode).toBe(400)
+
+      const submitRes = await submitQuiz(user.cookies, course.id, {
+        [q1Id]: q1CorrectOptionId,
+        [q2Id]: q2WrongOptionId,
+      })
+      expect(submitRes.statusCode).toBe(400)
+    })
+
+    it('material เสร็จครบแล้ว → เข้าทำ quiz ได้ปกติ และ progress รวม quiz item', async () => {
+      const admin = await setup('ADMIN')
+      const user = await setup('USER')
+      const course = await createCourse(admin.cookies)
+      const matId = await addLinkMaterial(admin.cookies, course.id)
       const { q1Id, q1CorrectOptionId, q2Id, q2WrongOptionId } =
         await createQuizWithQuestions(admin.cookies, course.id, { passRequiredCount: 1 })
       const enrollment = await enroll(user.cookies, course.id)
 
-      // progress stays at default 0
-      const res = await submitQuiz(user.cookies, course.id, {
+      await completeMaterial(user.cookies, enrollment.id, matId)
+
+      const takeRes = await app.inject({
+        method: 'GET',
+        url: `/courses/${course.id}/quiz/take`,
+        headers: { cookie: user.cookies },
+      })
+      expect(takeRes.statusCode).toBe(200)
+
+      const submitRes = await submitQuiz(user.cookies, course.id, {
         [q1Id]: q1CorrectOptionId,
         [q2Id]: q2WrongOptionId,
       })
-      expect(res.statusCode).toBe(201)
-      expect(res.json().passed).toBe(true) // correctCount=1 >= passRequiredCount=1
+      expect(submitRes.statusCode).toBe(201)
+      expect(submitRes.json().passed).toBe(true) // correctCount=1 >= passRequiredCount=1
 
       const updated = await prisma.enrollment.findUnique({
         where: { id: enrollment.id },
-        select: { status: true },
+        select: { status: true, progress: true },
       })
-      expect(updated?.status).not.toBe('COMPLETED') // progress 0 < 100
+      expect(updated?.progress).toBe(100) // material (1/1) + quiz ผ่าน (1/1) → 2/2 = 100%
+      expect(updated?.status).toBe('COMPLETED')
     })
   })
 

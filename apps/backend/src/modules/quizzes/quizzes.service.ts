@@ -14,7 +14,7 @@ import type {
 import { logAudit } from '../../lib/audit.js'
 import { notFound, badRequest, forbidden } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
-import { checkCanComplete } from '../enrollments/enrollments.service.js'
+import { checkCanComplete, recalculateProgress, areAllMaterialsCompleted } from '../enrollments/enrollments.service.js'
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
@@ -577,9 +577,17 @@ export async function getQuizForUser(
   // enrollment gate → 403 (ไม่ใช่ 404 — IDOR กัน enumeration quiz ไม่ใช่ประเด็นหลัก)
   const enrollment = await prisma.enrollment.findFirst({
     where: { userId, courseId, deletedAt: null },
-    select: { id: true },
+    select: { id: true, completedMaterials: true },
   })
   if (!enrollment) throw forbidden(t('error.enrollment.notEnrolled', undefined, locale))
+
+  // 2C-6: ต้องเรียน material ให้ครบก่อนถึงจะเข้าทำ quiz ได้ — กันกระโดดข้ามไปสอบเลยโดยไม่ผ่านเนื้อหา
+  const materialsDone = await areAllMaterialsCompleted(
+    prisma,
+    courseId,
+    (enrollment.completedMaterials as string[]) ?? [],
+  )
+  if (!materialsDone) throw badRequest(t('error.quiz.materialsNotComplete', undefined, locale))
 
   // layer 1: Prisma select ไม่ดึง isCorrect จาก DB
   const quiz = await prisma.quiz.findFirst({
@@ -603,9 +611,18 @@ export async function submitQuiz(
   // 1. enrollment gate → 403
   const enrollment = await prisma.enrollment.findFirst({
     where: { userId, courseId, deletedAt: null },
-    select: { id: true, progress: true, status: true },
+    select: { id: true, progress: true, status: true, completedMaterials: true },
   })
   if (!enrollment) throw forbidden(t('error.enrollment.notEnrolled', undefined, locale))
+
+  // 1b. 2C-6: ต้องเรียน material ให้ครบก่อนถึงจะส่งคำตอบ quiz ได้ — server-side gate ซ้ำ (ไม่พึ่ง frontend
+  // ซ่อนปุ่มอย่างเดียว) กันข้าม gate ผ่าน request ตรง
+  const materialsDone = await areAllMaterialsCompleted(
+    prisma,
+    courseId,
+    (enrollment.completedMaterials as string[]) ?? [],
+  )
+  if (!materialsDone) throw badRequest(t('error.quiz.materialsNotComplete', undefined, locale))
 
   // 2. ดึง quiz + quiz.passRequiredCount (จำนวนข้อที่ต้องตอบถูก — แทน passScore% เดิม)
   const quizWithCourse = await prisma.quiz.findFirst({
@@ -693,9 +710,25 @@ export async function submitQuiz(
     ...(ip != null && { ip }),
   })
 
-  // 8. ถ้า status ยังไม่ COMPLETED → เช็คเงื่อนไขรวม (progress 100% + quiz passed + survey ตอบแล้วถ้ามี)
+  // 8. quiz นับเป็น 1 item ใน progress % (ดู recalculateProgress) — recalc ใหม่ทุกครั้งที่สอบ เพราะ
+  // "ผ่าน" อาจเพิ่งเกิดจาก attempt นี้เอง (progress เดิมที่ enrollment ถืออยู่อาจยังไม่รวม quiz item นี้)
+  let currentProgress = enrollment.progress
   if (enrollment.status !== 'COMPLETED') {
-    const canComplete = await checkCanComplete(prisma, courseId, userId, enrollment.progress)
+    const { progress: recalculated } = await recalculateProgress(
+      prisma,
+      courseId,
+      userId,
+      (enrollment.completedMaterials as string[]) ?? [],
+    )
+    if (recalculated !== enrollment.progress) {
+      await prisma.enrollment.update({ where: { id: enrollment.id }, data: { progress: recalculated } })
+    }
+    currentProgress = recalculated
+  }
+
+  // 9. ถ้า status ยังไม่ COMPLETED → เช็คเงื่อนไขรวม (progress 100% + quiz passed + survey ตอบแล้วถ้ามี)
+  if (enrollment.status !== 'COMPLETED') {
+    const canComplete = await checkCanComplete(prisma, courseId, userId, currentProgress)
     if (canComplete) {
       await prisma.enrollment.update({
         where: { id: enrollment.id },

@@ -11,6 +11,7 @@ import {
   openMaterial,
   updateMaterialProgress,
   markEmbedFailed,
+  sendMaterialHeartbeat,
 } from '../../api/materials.js'
 import { ApiError } from '../../lib/api.js'
 import { useToast } from '../../hooks/useToast.js'
@@ -84,6 +85,14 @@ export function VideoMaterialCard({
     },
   })
 
+  const heartbeatMutation = useMutation({
+    mutationFn: (deltaSeconds: number) => sendMaterialHeartbeat(enrollmentId, material.id, deltaSeconds),
+    onSuccess: (updated) => {
+      qc.setQueryData(queryKey, updated)
+    },
+    // เงียบ — heartbeat ที่พลาดบางครั้ง (network) ไม่ควร toast รบกวน จะลองใหม่ใน tick ถัดไปเอง
+  })
+
   // เปิดครั้งแรกที่ progress query โหลดเสร็จ (ต้องรู้ enrollmentId/materialId ownership ผ่านก่อน) — idempotent ฝั่ง server
   useEffect(() => {
     if (progress != null && !openedRef.current) {
@@ -114,7 +123,16 @@ export function VideoMaterialCard({
   }, [embedFailedMutation])
 
   const embedFailed = embedFailedLocal || (progress?.embedFailed ?? false)
-  const { ready: timeGateReady } = useTimeGate(progress?.openedAt ?? null, MIN_READ_SECONDS)
+  const handleHeartbeat = useCallback(
+    (deltaSeconds: number) => heartbeatMutation.mutate(deltaSeconds),
+    [heartbeatMutation],
+  )
+  const { ready: timeGateReady } = useTimeGate({
+    opened: embedFailed && progress?.openedAt != null,
+    activeSeconds: progress?.activeSeconds ?? 0,
+    minSeconds: MIN_READ_SECONDS,
+    onHeartbeat: handleHeartbeat,
+  })
 
   // ชื่อ material รู้จาก props ทันที (sync) แสดงได้เลย — เฉพาะปุ่ม action กับพื้นที่วิดีโอเท่านั้นที่รอ progress query (async)
   // aspect-video จองพื้นที่เท่า iframe จริงเป๊ะ กัน layout shift ตอน YouTube โหลดเสร็จ

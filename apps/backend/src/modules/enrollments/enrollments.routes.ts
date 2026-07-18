@@ -8,6 +8,7 @@ import {
   completeMaterialParamsSchema,
   materialProgressInputSchema,
   materialProgressResponseSchema,
+  materialHeartbeatInputSchema,
 } from './enrollments.schema.js'
 import {
   selfEnroll,
@@ -21,6 +22,7 @@ import {
   updateMaterialProgress,
   getMaterialProgress,
   markEmbedFailed,
+  recordMaterialHeartbeat,
 } from './enrollments.service.js'
 import { t, resolveLocale } from '../../lib/i18n.js'
 
@@ -136,6 +138,30 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       req.params.id,
       req.params.materialId,
       req.user.id,
+      locale,
+    )
+    return reply.send(progress)
+  })
+
+  // POST /enrollments/:id/materials/:materialId/heartbeat — USER (own only)
+  // Tier 2: client ยิงทุก ~HEARTBEAT_INTERVAL_SECONDS วิ ระหว่างอยู่หน้า material + tab visible เท่านั้น
+  // (ดู useTimeGate ฝั่ง frontend) — สะสม activeSeconds ใช้แทน wall-clock diff จาก openedAt เดิม
+  server.post('/:id/materials/:materialId/heartbeat', {
+    preHandler: [app.verifyJwt],
+    config: { rateLimit: { max: 30, timeWindow: '1 minute' } },
+    schema: {
+      params: completeMaterialParamsSchema,
+      body: materialHeartbeatInputSchema,
+      response: { 200: materialProgressResponseSchema },
+    },
+  }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
+    const progress = await recordMaterialHeartbeat(
+      app.prisma,
+      req.params.id,
+      req.params.materialId,
+      req.user.id,
+      req.body.deltaSeconds,
       locale,
     )
     return reply.send(progress)

@@ -309,6 +309,9 @@ model MaterialProgress {
   watchedPercent Int       @default(0) // 0-100, เก็บค่าสูงสุดที่เคยดูถึง กันไถ progress ถอยหลัง
   durationSeconds Int? // ความยาววิดีโอ (client รายงานมา, lock ค่าแรกที่ได้รับ) ใช้คำนวณ time-ceiling กัน watchedPercent ปลอม
   embedFailed    Boolean   @default(false) // YouTube iframe โหลดไม่สำเร็จ (network/CSP/timeout) — fallback เป็น time-gate แบบ LINK แทน percent-gate
+  // เวลาที่อยู่หน้าจริงสะสม (วินาที) — เพิ่มขึ้นทีละ heartbeat จาก client (นับเฉพาะตอน mount + tab visible)
+  // ใช้แทน wall-clock diff จาก openedAt สำหรับ time-gate — ออกจากหน้าแล้วเวลาต้องหยุดนับ ไม่ใช่นับต่อ
+  activeSeconds  Int       @default(0)
   lastProgressAt DateTime?
   createdAt      DateTime  @default(now())
 

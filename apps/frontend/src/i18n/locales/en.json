@@ -265,6 +265,7 @@
     "completed": "Completed",
     "quizSection": "Assessment",
     "noQuiz": "No assessment for this course",
+    "quizNeedsMaterials": "Complete all materials to unlock the assessment",
     "attemptsUsed": "{{used}} of {{max}} attempts used",
     "noAttemptsLeft": "You have used all {{max}} attempt(s) — no attempts remaining",
     "unlimitedAttempts": "Unlimited attempts",

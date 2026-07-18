@@ -56,6 +56,7 @@
   "error.enrollment.alreadyCompleted": "หลักสูตรนี้เรียนจบแล้ว",
 
   "error.quiz.notFound": "ไม่พบแบบทดสอบสำหรับหลักสูตรนี้",
+  "error.quiz.materialsNotComplete": "กรุณาเรียนเนื้อหาให้ครบทุกส่วนก่อนทำแบบทดสอบ",
   "error.quiz.alreadyExists": "หลักสูตรนี้มีแบบทดสอบอยู่แล้ว",
   "error.quiz.maxAttemptsReached": "ทำแบบทดสอบครบจำนวนครั้งสูงสุด ({{count}} ครั้ง) แล้ว",
   "error.quiz.attemptsNotFound": "ไม่พบประวัติการทำแบบทดสอบ",

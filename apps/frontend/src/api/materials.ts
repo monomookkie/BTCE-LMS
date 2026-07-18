@@ -6,6 +6,7 @@ export interface MaterialProgress {
   openedAt: string | null
   watchedPercent: number
   embedFailed: boolean
+  activeSeconds: number
 }
 
 export function listMaterials(courseId: string): Promise<MaterialPublicResponse[]> {
@@ -51,6 +52,19 @@ export function markEmbedFailed(
   return apiFetch<MaterialProgress>(
     `/enrollments/${enrollmentId}/materials/${materialId}/embed-failed`,
     { method: 'POST' },
+  )
+}
+
+// Tier 2 heartbeat: ยิงทุก ~HEARTBEAT_INTERVAL_SECONDS วิ ระหว่างอยู่หน้า material + tab visible เท่านั้น
+// (ดู useTimeGate) — สะสม activeSeconds ฝั่ง server แทนการนับ wall-clock จาก openedAt
+export function sendMaterialHeartbeat(
+  enrollmentId: string,
+  materialId: string,
+  deltaSeconds: number,
+): Promise<MaterialProgress> {
+  return apiFetch<MaterialProgress>(
+    `/enrollments/${enrollmentId}/materials/${materialId}/heartbeat`,
+    { method: 'POST', json: { deltaSeconds } },
   )
 }
 

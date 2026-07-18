@@ -522,11 +522,15 @@ export default function CourseDetailPage() {
   )
 
   const quizNotFound = quizErr && quizError instanceof ApiError && quizError.status === 404
+  // 2C-6: backend บล็อก GET/POST quiz ด้วย 400 ถ้า material ยังไม่ครบ (areAllMaterialsCompleted)
+  const quizBlockedByMaterials = quizErr && quizError instanceof ApiError && quizError.status === 400
   const surveyNotFound = surveyErr && surveyError instanceof ApiError && surveyError.status === 404
 
+  // material ครบหรือยัง — คำนวณจาก materials list จริง ไม่ใช้ enrollment.progress===100 (2C-6: progress
+  // นับรวม quiz item ด้วยแล้ว จะไม่ถึง 100% จนกว่า quiz จะผ่านด้วย ถึงจะ materials ครบแล้วก็ตาม)
+  const materialsComplete = materials != null && materials.every((m) => completedSet.has(m.id))
   // survey ปลดล็อกเมื่อ material ครบ + quiz ผ่านแล้ว (ตรงกับ backend checkCanComplete)
   // quizPassed = จริงเมื่อ course ไม่มี quiz เลย หรือมี attempt ที่ passed แล้ว
-  const materialsComplete = enrollment?.progress === 100
   const quizPassed = quizNotFound || attempts.some(a => a.passed)
   const surveyPrereqsLoading = matLoad || attemptsLoad || (quiz == null && !quizErr)
 
@@ -729,6 +733,8 @@ export default function CourseDetailPage() {
         >
           {quizNotFound ? (
             <p className="py-6 text-center text-sm text-slate-400">{t('courseDetail.noQuiz')}</p>
+          ) : quizBlockedByMaterials ? (
+            <p className="py-6 text-center text-sm text-slate-400">{t('courseDetail.quizNeedsMaterials')}</p>
           ) : quiz == null && !quizErr ? (
             <QuizSectionSkeleton />
           ) : quiz != null ? (

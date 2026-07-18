@@ -16,6 +16,9 @@ import { notFound, badRequest, forbidden } from '../../lib/errors.js'
 import { t, localizeField, type Locale } from '../../lib/i18n.js'
 import type { EnrollmentListQuery, MaterialProgressResponse } from './enrollments.schema.js'
 
+// เพดานกันเผื่อ — activeSeconds ไม่จำเป็นต้องสะสมเกินเกณฑ์ที่ใช้ตรวจสอบ (MIN_READ_SECONDS)
+const ACTIVE_SECONDS_CAP = MIN_READ_SECONDS
+
 const ENROLLMENT_SELECT = {
   id: true,
   userId: true,
@@ -63,10 +66,32 @@ function toEnrollmentResponse(e: EnrollmentRecord, locale: Locale = 'en'): Enrol
   }
 }
 
-// คำนวณ progress % และ filter completedMaterials ที่ชี้ไป material ที่ลบแล้วออก
-async function recalculateProgress(
+// เช็คว่า material ทั้งหมดของ course (ที่ยังไม่ถูกลบ) เรียนจบครบหรือยัง — ใช้ gate การเข้าทำ quiz
+// (2C-6: quiz เป็น item สุดท้าย ต้องเรียน material ให้ครบก่อน ไม่ใช่กระโดดไปสอบได้เลย)
+// course ที่ไม่มี material เลย (total=0) ถือว่าผ่าน gate นี้เสมอ (ไม่มีอะไรให้เรียนก่อน)
+export async function areAllMaterialsCompleted(
   prisma: PrismaClient,
   courseId: string,
+  rawCompleted: string[],
+): Promise<boolean> {
+  const activeMaterials = await prisma.material.findMany({
+    where: { courseId, deletedAt: null },
+    select: { id: true },
+  })
+  if (activeMaterials.length === 0) return true
+
+  const completedSet = new Set(rawCompleted)
+  return activeMaterials.every((m) => completedSet.has(m.id))
+}
+
+// คำนวณ progress % และ filter completedMaterials ที่ชี้ไป material ที่ลบแล้วออก
+// quiz (ถ้า course มี) นับเป็น 1 item ในตัวหารร่วมกับ material ทั้งหมด — "ผ่าน" ก็ต่อเมื่อมี
+// QuizAttempt.passed=true อย่างน้อย 1 ครั้งเท่านั้น ถึงจะนับเป็น item ที่เสร็จ ไม่งั้น progress จะขึ้น
+// 100% ทั้งที่ยังไม่สอบผ่าน (survey ไม่นับรวมตรงนี้ — เป็นเงื่อนไขแยกสำหรับ COMPLETED เท่านั้น ดู checkCanComplete)
+export async function recalculateProgress(
+  prisma: PrismaClient,
+  courseId: string,
+  userId: string,
   rawCompleted: string[],
 ): Promise<{ progress: number; completedMaterials: string[]; isComplete: boolean }> {
   const activeMaterials = await prisma.material.findMany({
@@ -78,9 +103,18 @@ async function recalculateProgress(
   // กรองเฉพาะ materialId ที่ยังไม่ถูกลบ และ deduplicate
   const validCompleted = [...new Set(rawCompleted)].filter((id) => activeIds.has(id))
 
-  const total = activeIds.size
-  const progress = total === 0 ? 0 : Math.round((validCompleted.length / total) * 100)
-  const isComplete = total > 0 && validCompleted.length >= total
+  const quiz = await prisma.quiz.findFirst({
+    where: { courseId, deletedAt: null },
+    select: { id: true },
+  })
+  const quizPassed = quiz != null
+    ? (await prisma.quizAttempt.findFirst({ where: { quizId: quiz.id, userId, passed: true }, select: { id: true } })) != null
+    : false
+
+  const total = activeIds.size + (quiz != null ? 1 : 0)
+  const completedCount = validCompleted.length + (quiz != null && quizPassed ? 1 : 0)
+  const progress = total === 0 ? 0 : Math.round((completedCount / total) * 100)
+  const isComplete = total > 0 && completedCount >= total
 
   return { progress, completedMaterials: validCompleted, isComplete }
 }
@@ -142,12 +176,14 @@ function toMaterialProgressResponse(p: {
   openedAt: Date | null
   watchedPercent: number
   embedFailed: boolean
+  activeSeconds: number
 }): MaterialProgressResponse {
   return {
     materialId: p.materialId,
     openedAt: p.openedAt?.toISOString() ?? null,
     watchedPercent: p.watchedPercent,
     embedFailed: p.embedFailed,
+    activeSeconds: p.activeSeconds,
   }
 }
 
@@ -177,9 +213,10 @@ async function loadOwnedEnrollmentAndMaterial(
 }
 
 // เกณฑ์เวลาขั้นต่ำ (LINK/PDF/IMAGE/DOC — และ VIDEO ที่ embed ล้มเหลว, ดู checkViewGate)
-function checkMinReadTime(openedAt: Date, locale: Locale): void {
-  const elapsedSeconds = (Date.now() - openedAt.getTime()) / 1000
-  if (elapsedSeconds < MIN_READ_SECONDS) {
+// ใช้ activeSeconds (สะสมจาก heartbeat ตอนอยู่หน้าจริง) แทน wall-clock diff จาก openedAt เดิม —
+// ออกจากหน้าแล้วเวลาต้องหยุดนับ ไม่ใช่นับต่อไปเรื่อยๆ ตามเวลาจริง
+function checkMinReadTime(activeSeconds: number, locale: Locale): void {
+  if (activeSeconds < MIN_READ_SECONDS) {
     throw badRequest(t('error.material.watchTimeInsufficient', undefined, locale))
   }
 }
@@ -204,7 +241,7 @@ async function checkViewGate(
     // หมายเหตุ: embedFailed เป็นค่าที่ client รายงานเอง — ผู้ใช้ที่ตั้งใจโกงสามารถอ้างเท็จเพื่อลดเกณฑ์
     // จาก "ต้องดูถึง 90%" เหลือแค่ "รอ 300 วิ" ยอมรับ trade-off นี้เพราะดีกว่าปิดกั้นคนที่ network บล็อกจริง
     if (progress.embedFailed) {
-      checkMinReadTime(progress.openedAt, locale)
+      checkMinReadTime(progress.activeSeconds, locale)
       return
     }
     if (progress.watchedPercent < MIN_WATCHED_PERCENT) {
@@ -213,7 +250,7 @@ async function checkViewGate(
     return
   }
 
-  checkMinReadTime(progress.openedAt, locale)
+  checkMinReadTime(progress.activeSeconds, locale)
 }
 
 // upsert ที่ทนต่อ race: สอง endpoint (open, embed-failed) อาจยิงพร้อมกันตอน material ยังไม่มี
@@ -280,7 +317,37 @@ export async function getMaterialProgress(
 
   return progress != null
     ? toMaterialProgressResponse(progress)
-    : { materialId, openedAt: null, watchedPercent: 0, embedFailed: false }
+    : { materialId, openedAt: null, watchedPercent: 0, embedFailed: false, activeSeconds: 0 }
+}
+
+// Tier 2 heartbeat: client ยิงทุก ~HEARTBEAT_INTERVAL_SECONDS วิระหว่างอยู่หน้า material + tab visible
+// (ดู useTimeGate ฝั่ง frontend) — เพิ่ม activeSeconds สะสม ใช้แทน wall-clock diff จาก openedAt เดิม
+// ออกจากหน้า/สลับแท็บแล้วเวลาต้องหยุดนับ ไม่ใช่นับต่อไปเรื่อยๆ ตามเวลาจริง
+export async function recordMaterialHeartbeat(
+  prisma: PrismaClient,
+  enrollmentId: string,
+  materialId: string,
+  userId: string,
+  deltaSeconds: number,
+  locale: Locale = 'en',
+): Promise<MaterialProgressResponse> {
+  await loadOwnedEnrollmentAndMaterial(prisma, enrollmentId, materialId, userId, locale)
+
+  const existing = await prisma.materialProgress.findUnique({
+    where: { enrollmentId_materialId: { enrollmentId, materialId } },
+  })
+  // ต้อง /open มาก่อนเสมอ — heartbeat ที่มาก่อน openedAt ถือว่าผิดปกติ (client ควรเรียก /open ก่อนเริ่มนับ)
+  if (!existing || existing.openedAt == null) {
+    throw badRequest(t('error.material.notYetViewed', undefined, locale))
+  }
+
+  const nextActiveSeconds = Math.min(ACTIVE_SECONDS_CAP, existing.activeSeconds + deltaSeconds)
+  const progress = await prisma.materialProgress.update({
+    where: { id: existing.id },
+    data: { activeSeconds: nextActiveSeconds },
+  })
+
+  return toMaterialProgressResponse(progress)
 }
 
 // Client รายงานว่า YouTube embed โหลดไม่สำเร็จ — ให้ checkViewGate fallback เป็น time-gate แบบ LINK
@@ -584,6 +651,7 @@ export async function markMaterialComplete(
   const { progress, completedMaterials, isComplete } = await recalculateProgress(
     prisma,
     enrollment.courseId,
+    userId,
     newCompleted,
   )
 

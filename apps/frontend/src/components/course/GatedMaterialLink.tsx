@@ -5,7 +5,7 @@ import { CheckCircle2, Circle, ExternalLink, FileText, Image, Play } from 'lucid
 import type { MaterialPublicResponse, MaterialType } from '@btec-lms/shared'
 import { MIN_READ_SECONDS } from '@btec-lms/shared'
 import { Button } from '../ui/Button.js'
-import { getMaterialProgress, openMaterial, markEmbedFailed } from '../../api/materials.js'
+import { getMaterialProgress, openMaterial, markEmbedFailed, sendMaterialHeartbeat } from '../../api/materials.js'
 import { ApiError } from '../../lib/api.js'
 import { useToast } from '../../hooks/useToast.js'
 import { useTimeGate } from '../../hooks/useTimeGate.js'
@@ -89,10 +89,27 @@ export function GatedMaterialLink({
     }
   }, [isVideoFallback, embedFailedMutation, openMutation])
 
-  const { ready, remainingSeconds } = useTimeGate(progress?.openedAt ?? null, MIN_READ_SECONDS)
+  const heartbeatMutation = useMutation({
+    mutationFn: (deltaSeconds: number) => sendMaterialHeartbeat(enrollmentId, material.id, deltaSeconds),
+    onSuccess: (updated) => {
+      qc.setQueryData(queryKey, updated)
+    },
+    // เงียบ — heartbeat ที่พลาดบางครั้ง (network) ไม่ควร toast รบกวน จะลองใหม่ใน tick ถัดไปเอง
+  })
+
+  const opened = progress?.openedAt != null
+  const handleHeartbeat = useCallback(
+    (deltaSeconds: number) => heartbeatMutation.mutate(deltaSeconds),
+    [heartbeatMutation],
+  )
+  const { ready, remainingSeconds } = useTimeGate({
+    opened,
+    activeSeconds: progress?.activeSeconds ?? 0,
+    minSeconds: MIN_READ_SECONDS,
+    onHeartbeat: handleHeartbeat,
+  })
 
   const href = material.signedUrl ?? material.url ?? null
-  const opened = progress?.openedAt != null
   const canComplete = opened && ready
 
   return (

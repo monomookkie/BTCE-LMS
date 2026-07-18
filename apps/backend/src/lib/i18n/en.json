@@ -56,6 +56,7 @@
   "error.enrollment.alreadyCompleted": "This course has already been completed",
 
   "error.quiz.notFound": "Quiz not found for this course",
+  "error.quiz.materialsNotComplete": "Complete all course materials before taking the quiz",
   "error.quiz.alreadyExists": "This course already has a quiz",
   "error.quiz.maxAttemptsReached": "Maximum attempts ({{count}}) reached for this quiz",
   "error.quiz.attemptsNotFound": "Attempts not found",
