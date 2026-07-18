@@ -419,6 +419,8 @@
     "quizNotPassed": "Not passed",
     "quizNoQuiz": "No quiz",
     "quizBestScore": "Best score",
+    "grantAttempt": "Grant extra attempt",
+    "grantAttemptSuccess": "Extra quiz attempt granted",
     "completedAtColumn": "Completed",
     "dueAtColumn": "Due"
   },

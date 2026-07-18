@@ -27,6 +27,7 @@ const ENROLLMENT_SELECT = {
   progress: true,
   completedMaterials: true,
   isMandatory: true,
+  bonusQuizAttempts: true,
   assignedAt: true,
   dueAt: true,
   completedAt: true,
@@ -42,6 +43,7 @@ type EnrollmentRecord = {
   progress: number
   completedMaterials: unknown
   isMandatory: boolean
+  bonusQuizAttempts: number
   assignedAt: Date
   dueAt: Date | null
   completedAt: Date | null
@@ -59,6 +61,7 @@ function toEnrollmentResponse(e: EnrollmentRecord, locale: Locale = 'en'): Enrol
     progress: e.progress,
     completedMaterials: (e.completedMaterials as string[]) ?? [],
     isMandatory: e.isMandatory,
+    bonusQuizAttempts: e.bonusQuizAttempts,
     assignedAt: e.assignedAt.toISOString(),
     dueAt: e.dueAt?.toISOString() ?? null,
     completedAt: e.completedAt?.toISOString() ?? null,
@@ -516,6 +519,36 @@ export async function setEnrollmentDueDate(
     targetType: 'Enrollment',
     targetId: id,
     metadata: { dueAt: input.dueAt },
+    ...(ip != null && { ip }),
+  })
+
+  return toEnrollmentResponse(enrollment, locale)
+}
+
+// ADMIN ให้สิทธิ์สอบ quiz เพิ่ม 1 ครั้งเป็นกรณีพิเศษ (เช่น สอบไม่ผ่านครบ maxAttempts แต่อยากให้โอกาสอีก)
+// บวกเพิ่มเฉพาะ enrollment นี้เท่านั้น ไม่กระทบ quiz.maxAttempts ที่ใช้ร่วมกับ user คนอื่น
+export async function grantQuizAttempt(
+  prisma: PrismaClient,
+  id: string,
+  actorId: string,
+  locale: Locale = 'en',
+  ip?: string,
+): Promise<EnrollmentResponse> {
+  const existing = await prisma.enrollment.findFirst({ where: { id, deletedAt: null } })
+  if (!existing) throw notFound(t('error.enrollment.notFound', undefined, locale))
+
+  const enrollment = await prisma.enrollment.update({
+    where: { id },
+    data: { bonusQuizAttempts: { increment: 1 } },
+    select: ENROLLMENT_SELECT,
+  })
+
+  await logAudit(prisma, {
+    actorId,
+    action: 'ENROLLMENT_GRANT_QUIZ_ATTEMPT',
+    targetType: 'Enrollment',
+    targetId: id,
+    metadata: { bonusQuizAttempts: enrollment.bonusQuizAttempts },
     ...(ip != null && { ip }),
   })
 

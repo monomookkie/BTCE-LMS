@@ -62,10 +62,13 @@ interface QuizRunnerProps {
   courseId: string
   quiz: QuizForUserResponse
   attemptsUsed: number
+  // maxAttempts ที่แท้จริงของ enrollment นี้ = quiz.maxAttempts + enrollment.bonusQuizAttempts (ถ้า admin
+  // ให้สิทธิ์สอบเพิ่มเป็นกรณีพิเศษ) — ไม่ใช่ quiz.maxAttempts ตรงๆ เพราะจะไม่รวม bonus
+  maxAttempts: number | null
   passRequiredCount: number
 }
 
-function QuizRunner({ courseId, quiz, attemptsUsed, passRequiredCount }: QuizRunnerProps) {
+function QuizRunner({ courseId, quiz, attemptsUsed, maxAttempts, passRequiredCount }: QuizRunnerProps) {
   const { t, i18n } = useTranslation()
   const qc = useQueryClient()
   const toast = useToast()
@@ -74,7 +77,7 @@ function QuizRunner({ courseId, quiz, attemptsUsed, passRequiredCount }: QuizRun
   const [answers, setAnswers] = useState<Record<string, string>>({})
   const [lastAttempt, setLastAttempt] = useState<QuizAttemptResponse | null>(null)
 
-  const canAttempt = quiz.maxAttempts === null || attemptsUsed < quiz.maxAttempts
+  const canAttempt = maxAttempts === null || attemptsUsed < maxAttempts
   const allAnswered = quiz.questions.length > 0 && quiz.questions.every(q => answers[q.id] != null)
 
   const submitMutation = useMutation({
@@ -97,7 +100,7 @@ function QuizRunner({ courseId, quiz, attemptsUsed, passRequiredCount }: QuizRun
   if (!canAttempt) {
     return (
       <div className="rounded-lg bg-amber-50 border border-amber-200 p-4 text-sm text-amber-700">
-        {t('courseDetail.noAttemptsLeft', { max: quiz.maxAttempts })}
+        {t('courseDetail.noAttemptsLeft', { max: maxAttempts })}
       </div>
     )
   }
@@ -167,7 +170,7 @@ function QuizRunner({ courseId, quiz, attemptsUsed, passRequiredCount }: QuizRun
 
   // ── submitted ──
   if (state === 'submitted' && lastAttempt != null) {
-    const canRetake = quiz.maxAttempts === null || attemptsUsed < quiz.maxAttempts
+    const canRetake = maxAttempts === null || attemptsUsed < maxAttempts
 
     return (
       <div className="space-y-5">
@@ -532,6 +535,8 @@ export default function CourseDetailPage() {
   // survey ปลดล็อกเมื่อ material ครบ + quiz ผ่านแล้ว (ตรงกับ backend checkCanComplete)
   // quizPassed = จริงเมื่อ course ไม่มี quiz เลย หรือมี attempt ที่ passed แล้ว
   const quizPassed = quizNotFound || attempts.some(a => a.passed)
+  // maxAttempts ที่แท้จริง = quiz.maxAttempts + enrollment.bonusQuizAttempts (admin อาจให้สิทธิ์สอบเพิ่มเป็นกรณีพิเศษ)
+  const effectiveMaxAttempts = quiz?.maxAttempts == null ? null : quiz.maxAttempts + (enrollment?.bonusQuizAttempts ?? 0)
   const surveyPrereqsLoading = matLoad || attemptsLoad || (quiz == null && !quizErr)
 
   // ── Loading / error states ───────────────────────────────────────────────
@@ -743,8 +748,8 @@ export default function CourseDetailPage() {
               <div className="flex flex-wrap items-center gap-3">
                 <h3 className="text-sm font-semibold text-slate-700">{quiz.title}</h3>
                 <span className="text-xs text-slate-400">
-                  {quiz.maxAttempts != null
-                    ? t('courseDetail.attemptsUsed', { used: attempts.length, max: quiz.maxAttempts })
+                  {effectiveMaxAttempts != null
+                    ? t('courseDetail.attemptsUsed', { used: attempts.length, max: effectiveMaxAttempts })
                     : t('courseDetail.unlimitedAttempts')
                   }
                 </span>
@@ -777,6 +782,7 @@ export default function CourseDetailPage() {
                   courseId={id}
                   quiz={quiz}
                   attemptsUsed={attempts.length}
+                  maxAttempts={effectiveMaxAttempts}
                   passRequiredCount={quiz.passRequiredCount}
                 />
               </div>

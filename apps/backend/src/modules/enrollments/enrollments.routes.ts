@@ -13,6 +13,7 @@ import {
 import {
   selfEnroll,
   setEnrollmentDueDate,
+  grantQuizAttempt,
   listEnrollments,
   listMyEnrollments,
   getEnrollment,
@@ -249,6 +250,20 @@ const enrollmentsRoutes: FastifyPluginAsync = async (app) => {
       locale,
       req.ip,
     )
+    return reply.send(enrollment)
+  })
+
+  // POST /enrollments/:id/grant-quiz-attempt — ADMIN ให้สิทธิ์สอบ quiz เพิ่ม 1 ครั้งเป็นกรณีพิเศษ
+  // (เช่น สอบไม่ผ่านครบ maxAttempts แต่อยากให้โอกาสอีก) — บวกเพิ่มเฉพาะ enrollment นี้ ไม่กระทบ user คนอื่น
+  server.post('/:id/grant-quiz-attempt', {
+    preHandler: [app.requireRole(['ADMIN'])],
+    schema: {
+      params: enrollmentParamsSchema,
+      response: { 200: enrollmentResponseSchema },
+    },
+  }, async (req, reply) => {
+    const locale = await resolveLocale(req, app.prisma)
+    const enrollment = await grantQuizAttempt(app.prisma, req.params.id, req.user.id, locale, req.ip)
     return reply.send(enrollment)
   })
 

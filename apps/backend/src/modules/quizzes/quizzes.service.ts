@@ -611,7 +611,7 @@ export async function submitQuiz(
   // 1. enrollment gate → 403
   const enrollment = await prisma.enrollment.findFirst({
     where: { userId, courseId, deletedAt: null },
-    select: { id: true, progress: true, status: true, completedMaterials: true },
+    select: { id: true, progress: true, status: true, completedMaterials: true, bonusQuizAttempts: true },
   })
   if (!enrollment) throw forbidden(t('error.enrollment.notEnrolled', undefined, locale))
 
@@ -642,13 +642,14 @@ export async function submitQuiz(
   })
   if (!quizWithCourse) throw notFound(t('error.quiz.notFound', undefined, locale))
 
-  // 3. maxAttempts check — นับก่อนสอบ
+  // 3. maxAttempts check — นับก่อนสอบ (+ bonusQuizAttempts ที่ ADMIN ให้เพิ่มเป็นกรณีพิเศษเฉพาะ enrollment นี้)
   if (quizWithCourse.maxAttempts != null) {
+    const effectiveMaxAttempts = quizWithCourse.maxAttempts + enrollment.bonusQuizAttempts
     const attemptCount = await prisma.quizAttempt.count({
       where: { quizId: quizWithCourse.id, userId },
     })
-    if (attemptCount >= quizWithCourse.maxAttempts) {
-      throw badRequest(t('error.quiz.maxAttemptsReached', { count: quizWithCourse.maxAttempts }, locale))
+    if (attemptCount >= effectiveMaxAttempts) {
+      throw badRequest(t('error.quiz.maxAttemptsReached', { count: effectiveMaxAttempts }, locale))
     }
   }
 

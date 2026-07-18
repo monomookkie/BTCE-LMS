@@ -804,6 +804,65 @@ describe('Quizzes module', () => {
       expect(r2.statusCode).toBe(400)
       expect(r2.json().message).toContain('Maximum attempts')
     })
+
+    it('ADMIN grants an extra attempt → blocked user can submit again (bonus scoped to that enrollment only)', async () => {
+      const admin = await setup('ADMIN')
+      const user = await setup('USER')
+      const otherUser = await setup('USER')
+      const course = await createCourse(admin.cookies)
+      const { q1Id, q1WrongOptionId, q2Id, q2WrongOptionId } =
+        await createQuizWithQuestions(admin.cookies, course.id, { maxAttempts: 1 })
+      const enrollment = await enroll(user.cookies, course.id)
+      await enroll(otherUser.cookies, course.id)
+
+      const payload = { [q1Id]: q1WrongOptionId, [q2Id]: q2WrongOptionId }
+      await submitQuiz(user.cookies, course.id, payload)
+
+      const blocked = await submitQuiz(user.cookies, course.id, payload)
+      expect(blocked.statusCode).toBe(400)
+
+      const grantRes = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrollment.id}/grant-quiz-attempt`,
+        headers: { cookie: admin.cookies },
+      })
+      expect(grantRes.statusCode).toBe(200)
+      expect(grantRes.json<{ bonusQuizAttempts: number }>().bonusQuizAttempts).toBe(1)
+
+      const allowedNow = await submitQuiz(user.cookies, course.id, payload)
+      expect(allowedNow.statusCode).toBe(201)
+
+      // maxAttempts ของ quiz เอง / user คนอื่นไม่ได้รับผลกระทบ — bonus ผูกกับ enrollment นี้เท่านั้น
+      const otherBlocked = await submitQuiz(otherUser.cookies, course.id, payload)
+      expect(otherBlocked.statusCode).toBe(201)
+      const otherBlockedAgain = await submitQuiz(otherUser.cookies, course.id, payload)
+      expect(otherBlockedAgain.statusCode).toBe(400)
+    })
+
+    it('USER cannot grant own extra attempt → 403', async () => {
+      const admin = await setup('ADMIN')
+      const user = await setup('USER')
+      const course = await createCourse(admin.cookies)
+      await createQuizWithQuestions(admin.cookies, course.id, { maxAttempts: 1 })
+      const enrollment = await enroll(user.cookies, course.id)
+
+      const res = await app.inject({
+        method: 'POST',
+        url: `/enrollments/${enrollment.id}/grant-quiz-attempt`,
+        headers: { cookie: user.cookies },
+      })
+      expect(res.statusCode).toBe(403)
+    })
+
+    it('grant on non-existent/soft-deleted enrollment → 404', async () => {
+      const admin = await setup('ADMIN')
+      const res = await app.inject({
+        method: 'POST',
+        url: '/enrollments/cknonexistentcuid00000000000/grant-quiz-attempt',
+        headers: { cookie: admin.cookies },
+      })
+      expect(res.statusCode).toBe(404)
+    })
   })
 
   // ── COMPLETED after quiz ──────────────────────────────────────────────────

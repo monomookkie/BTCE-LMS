@@ -25,3 +25,10 @@ export async function courseHasActiveEnrollment(courseId: string): Promise<boole
   const res = await apiFetch<EnrollmentsPage>(`/enrollments?courseId=${courseId}&limit=1`)
   return res.total > 0
 }
+
+// ADMIN: ให้สิทธิ์สอบ quiz เพิ่ม 1 ครั้งเป็นกรณีพิเศษ — บวกเพิ่มเฉพาะ enrollment นี้ ไม่กระทบ user คนอื่น
+export function grantQuizAttempt(enrollmentId: string): Promise<EnrollmentResponse> {
+  return apiFetch<EnrollmentResponse>(`/enrollments/${enrollmentId}/grant-quiz-attempt`, {
+    method: 'POST',
+  })
+}

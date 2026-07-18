@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useQuery, useMutation } from '@tanstack/react-query'
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { useTranslation } from 'react-i18next'
 import { Users, BookOpen, Upload, CheckCircle2, Percent } from 'lucide-react'
 import type { ComplianceRow, CourseCommentRow, UserReportRow, CoursePassedUserRow } from '@btec-lms/shared'
@@ -15,6 +15,7 @@ import {
 } from '../../api/reports.js'
 import { listAdminCourses } from '../../api/admin-courses.js'
 import { listAdminUsers } from '../../api/admin-users.js'
+import { grantQuizAttempt } from '../../api/enrollments.js'
 import { useToast } from '../../hooks/useToast.js'
 import { ApiError } from '../../lib/api.js'
 import { Button } from '../../components/ui/Button.js'
@@ -250,6 +251,8 @@ function ByCourseTab() {
 
 function ByUserTab() {
   const { t } = useTranslation()
+  const toast = useToast()
+  const qc = useQueryClient()
   const [userId, setUserId] = useState('')
 
   const { data: users } = useQuery({
@@ -264,14 +267,24 @@ function ByUserTab() {
     enabled: userId !== '',
   })
 
+  // ให้สิทธิ์สอบ quiz เพิ่ม 1 ครั้งเป็นกรณีพิเศษ — ปิดปุ่มระหว่างรอผล (mutation.variables ตรงกับแถวไหน) กันกดซ้ำ
+  const grantAttemptMutation = useMutation({
+    mutationFn: (enrollmentId: string) => grantQuizAttempt(enrollmentId),
+    onSuccess: () => {
+      toast.success(t('reports.grantAttemptSuccess'))
+      void qc.invalidateQueries({ queryKey: ['reports', 'by-user', userId] })
+    },
+    onError: (err) => toast.error(err instanceof ApiError ? err.message : t('common.error')),
+  })
+
   const rowColumns = useMemo<Column<UserReportRow>[]>(
     () => [
-      { key: 'courseTitle', header: t('course.label'), width: '30%', skeleton: 'text' },
-      { key: 'status', header: t('enrollment.label'), width: '14%', skeleton: 'pill',
+      { key: 'courseTitle', header: t('course.label'), width: '24%', skeleton: 'text' },
+      { key: 'status', header: t('enrollment.label'), width: '12%', skeleton: 'pill',
         render: (r) => <StatusBadge type="enrollment" status={r.status} /> },
-      { key: 'progress', header: t('enrollment.progress'), width: '10%', align: 'right', skeleton: 'text',
+      { key: 'progress', header: t('enrollment.progress'), width: '9%', align: 'right', skeleton: 'text',
         render: (r) => `${r.progress}%` },
-      { key: 'quiz', header: t('reports.quizColumn'), width: '18%', skeleton: 'text',
+      { key: 'quiz', header: t('reports.quizColumn'), width: '16%', skeleton: 'text',
         render: (r) => {
           if (r.quizPassed == null) return <span className="text-slate-400">{t('reports.quizNoQuiz')}</span>
           const label = r.quizPassed ? t('reports.quizPassed') : t('reports.quizNotPassed')
@@ -280,10 +293,26 @@ function ByUserTab() {
             : ''
           return <span className={r.quizPassed ? 'text-emerald-600' : 'text-amber-600'}>{label}{score}</span>
         } },
-      { key: 'completedAt', header: t('reports.completedAtColumn'), width: '28%', skeleton: 'text',
+      { key: 'action', header: '', width: '15%', skeleton: 'text',
+        render: (r) => {
+          if (r.quizPassed !== false) return null
+          const isPending = grantAttemptMutation.isPending && grantAttemptMutation.variables === r.enrollmentId
+          return (
+            <Button
+              size="sm"
+              variant="outline"
+              isLoading={isPending}
+              disabled={grantAttemptMutation.isPending}
+              onClick={() => grantAttemptMutation.mutate(r.enrollmentId)}
+            >
+              {t('reports.grantAttempt')}
+            </Button>
+          )
+        } },
+      { key: 'completedAt', header: t('reports.completedAtColumn'), width: '24%', skeleton: 'text',
         render: (r) => r.completedAt ? new Date(r.completedAt).toLocaleDateString() : '—' },
     ],
-    [t],
+    [t, grantAttemptMutation],
   )
 
   return (

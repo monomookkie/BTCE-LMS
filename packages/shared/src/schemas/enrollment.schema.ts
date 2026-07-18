@@ -13,6 +13,8 @@ export const enrollmentResponseSchema = z.object({
   // 2C-3: snapshot จาก course.accessType ตอน enroll — POSITION_BASED=true, PUBLIC=false
   // (ไม่เปลี่ยนย้อนหลังตาม accessType-lock ของ course — ดู 2C-2)
   isMandatory: z.boolean(),
+  // จำนวนครั้งสอบ quiz พิเศษที่ ADMIN ให้เพิ่ม — บวกเพิ่มจาก quiz.maxAttempts เฉพาะ enrollment นี้
+  bonusQuizAttempts: z.number().int().min(0),
   assignedAt: z.string().datetime(),
   dueAt: z.string().datetime().nullable(),
   completedAt: z.string().datetime().nullable(),

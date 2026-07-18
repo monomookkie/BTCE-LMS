@@ -282,6 +282,9 @@ model Enrollment {
   progress           Int          @default(0) // 0-100
   completedMaterials Json         @default("[]") // string[] ของ materialId
   isMandatory        Boolean      @default(false) // 2C-3: snapshot จาก course.accessType ตอน enroll — POSITION_BASED=true, PUBLIC=false
+  // จำนวนครั้งที่ ADMIN ให้สิทธิ์สอบ quiz เพิ่มเป็นกรณีพิเศษ (เช่น สอบไม่ผ่านครบ maxAttempts แต่อยากให้
+  // โอกาสอีก) — บวกเพิ่มจาก quiz.maxAttempts เฉพาะ enrollment นี้ ไม่กระทบ user คนอื่น ไม่มี UI ให้ user แก้เอง
+  bonusQuizAttempts  Int          @default(0)
   assignedAt         DateTime     @default(now())
   dueAt              DateTime?
   completedAt        DateTime?

@@ -419,6 +419,8 @@
     "quizNotPassed": "ยังไม่ผ่าน",
     "quizNoQuiz": "ไม่มีข้อสอบ",
     "quizBestScore": "คะแนนสูงสุด",
+    "grantAttempt": "ให้สิทธิ์สอบเพิ่ม",
+    "grantAttemptSuccess": "ให้สิทธิ์สอบ quiz เพิ่มแล้ว",
     "completedAtColumn": "วันที่จบ",
     "dueAtColumn": "กำหนดจบ"
   },
